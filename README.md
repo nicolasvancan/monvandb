@@ -14,3 +14,4 @@ This is just a prove of concept project, that aims to clarify and dismistify som
 - Have also a command line interface If I have the will to do it
 
 All of this is going to be implemented in Golang. This choice was made because I wanted to develop my skills in this particular language. In spite of that, the architecture of software would remain the same in case someone would like to change the project to another language.
+
