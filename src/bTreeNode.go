@@ -11,17 +11,19 @@ import (
    - | type| 2B - A Node can be two diferent types: Node or Leaf
    - | nItems | 2B - Number of items, either  that the node holds
    - | freeBytes | 2B - Number of free bytes in the node
+   - | pParent | 8B - Pointer to parent node
    --------- Case Node -----------
    - | pNChildKey | n * 8B - Each Node has one unique key
    - | pNChild | n * 8B
    --------- Case Leaf -----------
    - | hasSeq  | 2B - If it has a sequence to complete the row case data exceeds max page value
    - | vSeq | 8B - Pointer to the sequence of the value in case it exceeds the maximum number of bytes (Todo)
+   ////////////////////// N *
    - | kLen | 2B - Len in bytes of the index
    - | ValLen | 8B - idx Values Len (Total size in bytes of a database structure to be saved)
 
    - | key | n * B - Indexes one after other
- n*
+
    - | Val | n * B - Values concatenated
 */
 
@@ -33,32 +35,42 @@ const (
 )
 
 const (
-	NODE_TYPE_LEN          = 2
-	NODE_N_ITENS_LEN       = 2
-	NODE_FREE_BYTES_LEN    = 2
-	NODE_P_KEY_LEN         = 8
-	NODE_P_CHILD_ADD_LEN   = 8
-	NODE_P_KEY_ADDRESS_LEN = NODE_P_KEY_LEN + NODE_P_CHILD_ADD_LEN
-	NODE_START_OFFSET      = 0
-	NODE_N_ITENS_OFFSET    = NODE_START_OFFSET + NODE_TYPE_LEN
-	NODE_FREE_BYTES_OFFSET = NODE_N_ITENS_OFFSET + NODE_N_ITENS_LEN
-	NODE_P_KEY_ADDR_OFFSET = NODE_FREE_BYTES_OFFSET + NODE_FREE_BYTES_LEN
+	NODE_TYPE_LEN           = 2
+	NODE_N_ITENS_LEN        = 2
+	NODE_FREE_BYTES_LEN     = 2
+	NODE_PARENT_ADDR        = 8
+	NODE_P_KEY_LEN          = 8
+	NODE_P_CHILD_ADD_LEN    = 8
+	NODE_P_KEY_ADDRESS_LEN  = NODE_P_KEY_LEN + NODE_P_CHILD_ADD_LEN
+	NODE_START_OFFSET       = 0
+	NODE_N_ITENS_OFFSET     = NODE_START_OFFSET + NODE_TYPE_LEN
+	NODE_FREE_BYTES_OFFSET  = NODE_N_ITENS_OFFSET + NODE_N_ITENS_LEN
+	NODE_PARENT_ADDR_OFFSET = NODE_FREE_BYTES_OFFSET + NODE_FREE_BYTES_LEN
+	NODE_P_KEY_ADDR_OFFSET  = NODE_PARENT_ADDR_OFFSET + NODE_PARENT_ADDR
 )
 
 const (
-	LEAF_HAS_SEQ_LEN    = 2
-	LEAF_HAS_SEQ_OFFSET = NODE_FREE_BYTES_OFFSET + NODE_FREE_BYTES_LEN
-	LEAF_SEQ_P_LEN      = 8
-	LEAF_SEQ_P_OFFSET   = LEAF_HAS_SEQ_OFFSET + LEAF_HAS_SEQ_LEN
-	LEAF_KEY_LEN_LEN    = 2
-	LEAF_KEY_LEN_OFFSET = LEAF_SEQ_P_OFFSET + LEAF_SEQ_P_LEN
-	LEAF_VAL_LEN_LEN    = 8
-	LEAF_VAL_LEN_OFFSET = LEAF_KEY_LEN_OFFSET + LEAF_KEY_LEN_LEN
+	LEAF_HAS_SEQ_LEN      = 2
+	LEAF_HAS_SEQ_OFFSET   = NODE_PARENT_ADDR_OFFSET + NODE_PARENT_ADDR
+	LEAF_SEQ_P_LEN        = 8
+	LEAF_SEQ_P_OFFSET     = LEAF_HAS_SEQ_OFFSET + LEAF_HAS_SEQ_LEN
+	LEAF_KEY_LEN_LEN      = 2
+	LEAF_KEY_LEN_OFFSET   = LEAF_SEQ_P_OFFSET + LEAF_SEQ_P_LEN
+	LEAF_VAL_LEN_LEN      = 8
+	LEAF_VAL_LEN_OFFSET   = LEAF_KEY_LEN_OFFSET + LEAF_KEY_LEN_LEN
+	LEAF_VAL_START_OFFSET = LEAF_VAL_LEN_OFFSET + LEAF_VAL_LEN_LEN
 )
 
 type NodeKeyAddr struct {
 	key  uint64
 	addr uint64
+}
+
+type LeafKeyValue struct {
+	keyLength   uint16
+	valueLength uint64
+	key         uint64
+	value       []byte
 }
 
 /* Base Node */
@@ -69,9 +81,9 @@ type TreeNode struct {
 
 func NewNodeNode() *TreeNode {
 	nodeNode := &TreeNode{data: make([]byte, PAGE_SIZE)}
-	nodeNode.SetType(TREE_NODE)
+	setType(nodeNode, TREE_NODE)
 	setNItens(nodeNode, 0)
-	setFreeBytes(nodeNode, PAGE_SIZE-NODE_FREE_BYTES_LEN-NODE_TYPE_LEN-NODE_N_ITENS_LEN)
+	setFreeBytes(nodeNode, PAGE_SIZE-NODE_FREE_BYTES_LEN-NODE_TYPE_LEN-NODE_N_ITENS_LEN-NODE_PARENT_ADDR)
 	return nodeNode
 }
 
@@ -79,12 +91,20 @@ func (n *TreeNode) GetType() uint16 {
 	return uint16(binary.LittleEndian.Uint16(n.data[NODE_START_OFFSET : NODE_START_OFFSET+NODE_TYPE_LEN]))
 }
 
-func (n *TreeNode) SetType(nType uint16) {
+func setType(n *TreeNode, nType uint16) {
 	binary.LittleEndian.PutUint16(n.data[NODE_START_OFFSET:NODE_START_OFFSET+NODE_TYPE_LEN], nType)
 }
 
 func (n *TreeNode) GetNItens() uint16 {
 	return binary.LittleEndian.Uint16(n.data[NODE_N_ITENS_OFFSET : NODE_N_ITENS_OFFSET+NODE_N_ITENS_LEN])
+}
+
+func (n *TreeNode) GetParentAddr() uint64 {
+	return binary.LittleEndian.Uint64(n.data[NODE_PARENT_ADDR_OFFSET : NODE_PARENT_ADDR_OFFSET+NODE_PARENT_ADDR])
+}
+
+func setParentAddr(n *TreeNode, addr uint64) {
+	binary.LittleEndian.PutUint64(n.data[NODE_PARENT_ADDR_OFFSET:NODE_PARENT_ADDR_OFFSET+NODE_PARENT_ADDR], addr)
 }
 
 func setNItens(n *TreeNode, num uint16) {
@@ -107,7 +127,7 @@ func (n *TreeNode) ShouldSplitNode(newBytesNum uint32) bool {
 	return false
 }
 
-func (n *TreeNode) isValidNodeStructure(idx uint16) (bool, string) {
+func isValidNodeStructure(n *TreeNode, idx uint16) (bool, string) {
 	if n.GetType() != TREE_NODE {
 		return false, "Is not Node Node"
 	}
@@ -125,7 +145,7 @@ func (n *TreeNode) isValidNodeStructure(idx uint16) (bool, string) {
 
 func setIdxPointer(n *TreeNode, idx uint16, keyAddr NodeKeyAddr) error {
 	// This function can set whichever memory within the range of keys and addresses
-	if flag, txt := n.isValidNodeStructure(idx); !flag {
+	if flag, txt := isValidNodeStructure(n, idx); !flag {
 		return errors.New(txt)
 	}
 
@@ -140,9 +160,9 @@ func setIdxPointer(n *TreeNode, idx uint16, keyAddr NodeKeyAddr) error {
 	return nil
 }
 
-func getIdxPointer(n *TreeNode, idx uint16) (*NodeKeyAddr, error) {
+func GetIdxPointer(n *TreeNode, idx uint16) (*NodeKeyAddr, error) {
 	// Verify if it can be updated
-	if flag, txt := n.isValidNodeStructure(idx); !flag {
+	if flag, txt := isValidNodeStructure(n, idx); !flag {
 		return nil, errors.New(txt)
 	}
 
@@ -169,15 +189,15 @@ func getIdxPointer(n *TreeNode, idx uint16) (*NodeKeyAddr, error) {
 }
 
 func copyPKeyAddress(n *TreeNode, from uint16, to uint16) error {
-	if flag, txt := n.isValidNodeStructure(from); !flag {
+	if flag, txt := isValidNodeStructure(n, from); !flag {
 		return errors.New(txt)
 	}
 
-	if flag, txt := n.isValidNodeStructure(to); !flag {
+	if flag, txt := isValidNodeStructure(n, to); !flag {
 		return errors.New(txt)
 	}
 
-	copy, err := getIdxPointer(n, from)
+	copy, err := GetIdxPointer(n, from)
 
 	if err != nil {
 		return err
@@ -202,7 +222,7 @@ func (n *TreeNode) InsertNodeNewChild(key uint64, address uint64) error {
 	posToInsert := 0
 	if nItens > 0 {
 		for i := 0; i < int(nItens); i++ {
-			item, _ := getIdxPointer(n, uint16(i))
+			item, _ := GetIdxPointer(n, uint16(i))
 			if item.key < key {
 				posToInsert = i + 1
 			} else {
@@ -239,7 +259,7 @@ func (n *TreeNode) RemoveNodeChild(key uint64) error {
 	keyIdx := -1
 	//TODO: This is still slow, must implement something better
 	for i := 0; i < int(nItens); i++ {
-		tmp, _ := getIdxPointer(n, uint16(i))
+		tmp, _ := GetIdxPointer(n, uint16(i))
 		if tmp.key == key {
 			keyIdx = i
 		}
@@ -264,40 +284,28 @@ func (n *TreeNode) RemoveNodeChild(key uint64) error {
 	return nil
 }
 
-func (n *TreeNode) GetNodeFirstKey() (uint64, error) {
-	var fKey uint64
+func (n *TreeNode) GetNodeNChildren(idx uint16) (*NodeKeyAddr, error) {
 
 	if n.GetNItens() == 0 {
-		return 0, errors.New("No key")
+		return nil, errors.New("No key")
 	}
 
-	tmp, _ := getIdxPointer(n, 0)
-	fKey = tmp.key
-	return fKey, nil
-}
-
-func (n *TreeNode) GetNodeLastKey() (uint64, error) {
-	var lKey uint64
-
-	if n.GetNItens() == 0 {
-		return 0, errors.New("No key")
-	}
-
-	tmp, _ := getIdxPointer(n, n.GetNItens()-1)
-	lKey = tmp.key
-	return lKey, nil
+	tmp, _ := GetIdxPointer(n, idx)
+	return tmp, nil
 }
 
 /* Leaf Node functions */
 func NewNodeLeaf() *TreeNode {
 	nodeLeaf := &TreeNode{data: make([]byte, PAGE_SIZE)}
-	nodeLeaf.SetType(TREE_LEAF)
+	setType(nodeLeaf, TREE_LEAF)
+	setLeafHasSeq(nodeLeaf, 0)
+	setLeafSeqPointer(nodeLeaf, 0)
 	setNItens(nodeLeaf, 0)
 	setFreeBytes(nodeLeaf,
 		PAGE_SIZE-NODE_FREE_BYTES_LEN-
 			NODE_TYPE_LEN-NODE_N_ITENS_LEN-
-			LEAF_HAS_SEQ_LEN-LEAF_KEY_LEN_LEN-
-			LEAF_SEQ_P_LEN-LEAF_VAL_LEN_LEN)
+			NODE_PARENT_ADDR-LEAF_HAS_SEQ_LEN-
+			LEAF_SEQ_P_LEN)
 
 	return nodeLeaf
 }
@@ -306,11 +314,11 @@ func setLeafHasSeq(n *TreeNode, hasSeq uint16) {
 	binary.LittleEndian.PutUint16(n.data[LEAF_HAS_SEQ_OFFSET:LEAF_HAS_SEQ_OFFSET+LEAF_HAS_SEQ_LEN], hasSeq)
 }
 
-func getLeafHasSeq(n *TreeNode) uint16 {
+func (n *TreeNode) GetLeafHasSeq() uint16 {
 	return binary.LittleEndian.Uint16(n.data[LEAF_HAS_SEQ_OFFSET : LEAF_HAS_SEQ_OFFSET+LEAF_HAS_SEQ_LEN])
 }
 
-func (n *TreeNode) SetLeafSeqPointer(p uint64) {
+func setLeafSeqPointer(n *TreeNode, p uint64) {
 	binary.LittleEndian.PutUint64(n.data[LEAF_SEQ_P_OFFSET:LEAF_SEQ_P_OFFSET+LEAF_SEQ_P_LEN], p)
 }
 
@@ -318,20 +326,145 @@ func (n *TreeNode) GetLeafSeqPointer() uint64 {
 	return binary.LittleEndian.Uint64(n.data[LEAF_SEQ_P_OFFSET : LEAF_SEQ_P_OFFSET+LEAF_SEQ_P_LEN])
 }
 
-func (n *TreeNode) SetLeafKeyLen(p uint64) {
-	binary.LittleEndian.PutUint64(n.data[LEAF_KEY_LEN_OFFSET:LEAF_KEY_LEN_OFFSET+LEAF_KEY_LEN_LEN], p)
+func (n *TreeNode) SetLeafKeyLen(p uint64, offset uint16) {
+	var start = LEAF_KEY_LEN_OFFSET + offset
+	var end = LEAF_KEY_LEN_OFFSET + LEAF_KEY_LEN_LEN + offset
+	binary.LittleEndian.PutUint64(n.data[start:end], p)
 }
 
-func (n *TreeNode) GetLeafKeyLen() uint16 {
-	return binary.LittleEndian.Uint16(n.data[LEAF_KEY_LEN_OFFSET : LEAF_KEY_LEN_OFFSET+LEAF_KEY_LEN_LEN])
+func getLeafKeyLen(n *TreeNode, offset uint16) uint16 {
+	var start = LEAF_KEY_LEN_OFFSET + offset
+	var end = LEAF_KEY_LEN_OFFSET + LEAF_KEY_LEN_LEN + offset
+	return binary.LittleEndian.Uint16(n.data[start:end])
 }
 
-func (n *TreeNode) SetLeafValueLen(p uint64) {
-	binary.LittleEndian.PutUint64(n.data[LEAF_VAL_LEN_OFFSET:LEAF_VAL_LEN_OFFSET+LEAF_VAL_LEN_LEN], p)
+func (n *TreeNode) SetLeafValueLen(p uint64, offset uint16) {
+	var start = LEAF_VAL_LEN_OFFSET + offset
+	var end = LEAF_VAL_LEN_OFFSET + LEAF_VAL_LEN_LEN + offset
+	binary.LittleEndian.PutUint64(n.data[start:end], p)
 }
 
-func (n *TreeNode) GetLeafValueLen() uint64 {
-	return binary.LittleEndian.Uint64(n.data[LEAF_VAL_LEN_OFFSET : LEAF_VAL_LEN_OFFSET+LEAF_VAL_LEN_LEN])
+func getLeafValueLen(n *TreeNode, offset uint16) uint64 {
+	var start = LEAF_VAL_LEN_OFFSET + offset
+	var end = LEAF_VAL_LEN_OFFSET + LEAF_VAL_LEN_LEN + offset
+	return binary.LittleEndian.Uint64(n.data[start:end])
 }
 
+func (n *TreeNode) GetLeafNValueIdx(idx uint16) (LeafKeyValue, error) {
+	var value []byte
+	// Number of itens stored in the leaf
+	nItens := n.GetNItens()
+	if nItens == 0 {
+		return LeafKeyValue{}, errors.New("No data found")
+	}
 
+	offset := 0
+
+	for i := 0; i < int(nItens); i++ {
+		keyLen := getLeafKeyLen(n, uint16(offset))
+		valLen := getLeafValueLen(n, uint16(offset))
+		valStart := LEAF_VAL_START_OFFSET + uint64(offset)
+		key := binary.LittleEndian.Uint64(n.data[valStart : valStart+uint64(keyLen)])
+		value = n.data[valStart+uint64(keyLen) : valStart+uint64(keyLen)+valLen]
+		offset += int(valLen) + 18
+		if i == int(idx) {
+			return LeafKeyValue{
+				keyLength:   keyLen,
+				valueLength: valLen,
+				key:         key,
+				value:       value,
+			}, nil
+		}
+	}
+
+	return LeafKeyValue{}, nil
+}
+
+func (n *TreeNode) PutLeafNValue(key uint64, value []byte) error {
+	freeBytes := getFreeBytes(n)
+
+	if int(freeBytes) < len(value) {
+		return errors.New(("Not enough space left"))
+	}
+	// All inserts must be sorted from smaller to greater
+	// Check for every item contained in bytes and compare
+	nItems := n.GetNItens()
+	offset := 0
+	for i := 0; i < int(nItems); i++ {
+		// Find offset
+		valLen := getLeafValueLen(n, uint16(offset))
+		offset += int(valLen) + 18
+	}
+
+	baseStart := LEAF_KEY_LEN_OFFSET + offset
+	// Set key len 8B
+	binary.LittleEndian.PutUint16(n.data[baseStart:baseStart+2], 8)
+	// Set value len
+	binary.LittleEndian.PutUint64(n.data[baseStart+2:baseStart+2+8], uint64(len(value)))
+	// Set key
+	binary.LittleEndian.PutUint64(n.data[baseStart+10:baseStart+18], key)
+	// Set value
+	copy(n.data[baseStart+18:baseStart+18+int(len(value))], value)
+	setFreeBytes(n, freeBytes-uint16(18+int(len(value))))
+	setNItens(n, nItems+1)
+	return nil
+}
+
+func getSplitParameters(n *TreeNode, times int) (int, int) {
+	nItems := n.GetNItens()
+
+	var quantityPerTime int
+	var lastAdditional = 0
+	if times >= int(nItems) {
+		quantityPerTime = 1
+	} else {
+		quantityPerTime = int(nItems) / times
+		if nItems%uint16(times) != 0 {
+			lastAdditional = int(nItems) - (times * quantityPerTime)
+		}
+	}
+
+	return quantityPerTime, lastAdditional
+}
+
+func (n *TreeNode) SplitLeaf(times int) []TreeNode {
+
+	quantityPerTime, lastAdditional := getSplitParameters(n, times)
+	r := make([]TreeNode, times)
+
+	for i := 0; i < times; i++ {
+		yLimit := quantityPerTime
+		r[i] = *NewNodeLeaf()
+		setParentAddr(&r[i], n.GetParentAddr())
+		if i < times-1 {
+			yLimit = quantityPerTime + lastAdditional
+		}
+		for y := 0; y < yLimit; y++ {
+			tmp, _ := n.GetLeafNValueIdx(uint16((i * quantityPerTime) + y))
+			r[i].PutLeafNValue(tmp.key, tmp.value)
+		}
+	}
+
+	return r
+}
+
+func (n *TreeNode) SplitNode(times int) []TreeNode {
+
+	quantityPerTime, lastAdditional := getSplitParameters(n, times)
+	r := make([]TreeNode, times)
+
+	for i := 0; i < times; i++ {
+		yLimit := quantityPerTime
+		r[i] = *NewNodeNode()
+		setParentAddr(&r[i], n.GetParentAddr())
+		if i < times-1 {
+			yLimit = quantityPerTime + lastAdditional
+		}
+		for y := 0; y < yLimit; y++ {
+			tmp, _ := GetIdxPointer(n, uint16((i*quantityPerTime)+y))
+			r[i].InsertNodeNewChild(tmp.key, tmp.addr)
+		}
+	}
+
+	return r
+}
