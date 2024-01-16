@@ -11,24 +11,26 @@ import (
 /*
    B-Tree Node structure Fixed Z Size in bytes - for instance 4096 one page
 
-   - | type| 2B - A Node can be two diferent types: Node or Leaf
+   - | type| 2B - A Node can be two diferent types: "Node" or "Leaf"
    - | nItems | 2B - Number of items, either  that the node holds
    - | freeBytes | 2B - Number of free bytes in the node
    - | pParent | 8B - Pointer to parent node
    - | offset | 2B - Position of the first freeByte (Used for adding and replacing items)
    --------- Case Node -----------
-   - | pNChildKey | n * 8B - Each Node has one unique key
-   - | pNChild | n * 8B
+    \
+   	     - | keyLen | 2B - Length of the key for cases where key is not an integer
+   n*	 - | pNChildKey | n * 8B - Each Node has one unique key
+   	     - | pNChild | n * 8B
+    /
    --------- Case Leaf -----------
    - | hasSeq  | 2B - If it has a sequence to complete the row case data exceeds max page value
    - | vSeq | 8B - Pointer to the sequence of the value in case it exceeds the maximum number of bytes (Todo)
-   ////////////////////// N *
-   - | kLen | 2B - Len in bytes of the index
-   - | ValLen | 8B - idx Values Len (Total size in bytes of a database structure to be saved)
-
-   - | key | n * B - Indexes one after other
-
-   - | Val | n * B - Values concatenated
+    \
+         - | kLen | 2B - Len in bytes of the index
+         - | ValLen | 8B - idx Values Len (Total size in bytes of a database structure to be saved)
+    n*   - | key | n * B - Indexes one after other
+         - | Val | n * B - Values concatenated
+    /
 */
 
 /* TreeNode implementation */
@@ -64,6 +66,7 @@ const (
 	NODE_P_KEY_ADDR_OFFSET  = NODE_OFFSET_OFFSET + NODE_OFFSET_LEN
 )
 
+/* Leaft offsets */
 const (
 	LEAF_HAS_SEQ_OFFSET   = NODE_OFFSET_OFFSET + NODE_OFFSET_LEN
 	LEAF_SEQ_P_OFFSET     = LEAF_HAS_SEQ_OFFSET + LEAF_HAS_SEQ_LEN
@@ -72,6 +75,7 @@ const (
 	LEAF_VAL_START_OFFSET = LEAF_SEQ_P_OFFSET + LEAF_SEQ_P_LEN
 )
 
+/* Basic types declaration */
 type NodeKeyAddr struct {
 	keyLen uint16
 	key    []byte
@@ -90,6 +94,14 @@ type TreeNode struct {
 	// This holds bytes to be dumped to the disk
 	data []byte
 }
+
+func LoadTreeNode(data []byte) *TreeNode {
+	treeNode := &TreeNode{data: data}
+
+	return treeNode
+}
+
+/* Basic Getters and Setters for header */
 
 func (n *TreeNode) GetType() uint16 {
 	return uint16(binary.LittleEndian.Uint16(n.data[NODE_TYPE_OFFSET : NODE_TYPE_OFFSET+NODE_TYPE_LEN]))
@@ -131,32 +143,13 @@ func setFreeBytes(n *TreeNode, num uint16) {
 	binary.LittleEndian.PutUint16(n.data[NODE_FREE_BYTES_OFFSET:NODE_FREE_BYTES_OFFSET+NODE_FREE_BYTES_LEN], num)
 }
 
-func (n *TreeNode) ShouldSplitNode(newBytesNum uint32) bool {
-	if newBytesNum > uint32(getFreeBytes(n)) {
-		return true
-	}
-
-	return false
-}
-
-func isValidNodeStructure(n *TreeNode, idx uint16) (bool, string) {
-	if n.GetType() != TREE_NODE {
-		return false, "Is not Node Node"
-	}
-
-	if idx < 0 {
-		return false, "Index doesn't exist"
-	}
-
-	if NODE_N_ITENS_OFFSET+(NODE_P_KEY_ADDRESS_LEN*idx) >= PAGE_SIZE {
-		return false, "Overflow Index"
-	}
-
-	return true, ""
-}
-
+/*
+Creates a new and Empty NodeNode structure
+*/
 func NewNodeNode() *TreeNode {
+	// Create a pointer to a new Node Structure
 	nodeNode := &TreeNode{data: make([]byte, PAGE_SIZE)}
+	// Set headers
 	setType(nodeNode, TREE_NODE)
 	setNItens(nodeNode, 0)
 	setNodeOffset(nodeNode, 16)
@@ -164,6 +157,16 @@ func NewNodeNode() *TreeNode {
 	return nodeNode
 }
 
+func (n *TreeNode) ResetNode() {
+	setType(n, TREE_NODE)
+	setNItens(n, 0)
+	setNodeOffset(n, 16)
+	setFreeBytes(n, PAGE_SIZE-NODE_FREE_BYTES_LEN-NODE_TYPE_LEN-NODE_N_ITENS_LEN-NODE_PARENT_ADDR-NODE_OFFSET_LEN)
+}
+
+/*
+Get all NodeKeyAddresses from a Node Node
+*/
 func getAllNodeKeyAddr(n *TreeNode) []NodeKeyAddr {
 	// Get number of items
 	nItens := n.GetNItens()
@@ -227,6 +230,35 @@ func (n *TreeNode) PutNodeNewChild(key []byte, addr uint64) error {
 	return nil
 }
 
+func (n *TreeNode) DeleteNodeChildrenByAddress(addr uint64) {
+	allNodeKeyAddr := getAllNodeKeyAddr(n)
+	fmt.Printf("DEBUG::DeleteNodeChildrenByAddress > AllNodeKeyAddr len = %d\n", len(allNodeKeyAddr))
+	// Reset Node
+	n.ResetNode()
+	fmt.Println("DEBUG::DeleteNodeChildrenByAddress > Reset Node")
+	// Sort Array
+	sortNodeChildren(allNodeKeyAddr)
+	for i := 0; i < len(allNodeKeyAddr); i++ {
+		if allNodeKeyAddr[i].addr != addr {
+			fmt.Println("DELETE::Inserting new one")
+			n.PutNodeNewChild(allNodeKeyAddr[i].key, allNodeKeyAddr[i].addr)
+		}
+	}
+}
+
+func (n *TreeNode) DeleteNodeChildrenByKey(key []byte) {
+	allNodeKeyAddr := getAllNodeKeyAddr(n)
+	// Reset Node
+	n.ResetNode()
+	// Sort Array
+	sortNodeChildren(allNodeKeyAddr)
+	for i := 0; i < len(allNodeKeyAddr); i++ {
+		if bytes.Compare(allNodeKeyAddr[i].key, key) != 0 {
+			n.PutNodeNewChild(allNodeKeyAddr[i].key, allNodeKeyAddr[i].addr)
+		}
+	}
+}
+
 func sortNodeChildren(c []NodeKeyAddr) {
 	sort.Slice(c, func(i, j int) bool {
 		return bytes.Compare(c[i].key, c[j].key) <= 0
@@ -246,16 +278,42 @@ func (n *TreeNode) GetNodeChildByIndex(idx int) *NodeKeyAddr {
 	return &unsortedChildren[idx]
 }
 
+func (n *TreeNode) GetNodeChildByPage(page uint64) *NodeKeyAddr {
+	var r *NodeKeyAddr = nil
+	unsortedChildren := getAllNodeKeyAddr(n)
+	for j := 0; j < len(unsortedChildren); j++ {
+		if unsortedChildren[j].addr == page {
+			r = &unsortedChildren[j]
+			break
+		}
+	}
+
+	return r
+}
+
 func (n *TreeNode) GetNodeChildByKey(key []byte) *NodeKeyAddr {
 	var r *NodeKeyAddr = nil
 	unsortedChildren := getAllNodeKeyAddr(n)
 	for j := 0; j < len(unsortedChildren); j++ {
 		if bytes.Compare(unsortedChildren[j].key, key) == 0 {
 			r = &unsortedChildren[j]
+			break
 		}
 	}
 
 	return r
+}
+
+/*Calculate whether or not should split Node*/
+func ShouldSplitNode(node TreeNode, keyLen int, valueLen int) bool {
+	freeBytes := getFreeBytes(&node)
+
+	totalNewBytes := keyLen + valueLen
+	if node.GetType() == TREE_NODE {
+		totalNewBytes = keyLen
+	}
+
+	return int(freeBytes)+totalNewBytes+10 > PAGE_SIZE
 }
 
 /* Leaf Node functions */
@@ -320,12 +378,10 @@ func (n *TreeNode) PutLeafNewKeyValue(key []byte, value []byte) error {
 	if int(getFreeBytes(n))-(aditionalLength) < 0 {
 		return errors.New("Exceeds total bytes")
 	}
-	fmt.Println("Startgin")
 	keyLen := uint16(len(key))
 	valLen := uint64(len(value))
 	// takes offset
 	offset := getNodeOffset(n)
-	fmt.Printf("Offset = %d\n", offset)
 	/*
 		2B - Len of key
 		8B - Len of value
@@ -403,44 +459,74 @@ func getSplitParameters(n *TreeNode, times int) (int, int) {
 	return quantityPerTime, lastAdditional
 }
 
-func (n *TreeNode) SplitLeaf(times int) []TreeNode {
+func (n *TreeNode) SplitLeaf(key []byte, value []byte) []TreeNode {
+	/* Some comments here. When a Leaf is split, we must ensure that it is saved with the right
+	   members in each leaf. Since we don't sort in the insertion, we must check between two leaves
+	   where our new value will be inserted. The left leaf will return filled with all possible data
+	   trying to use the most of it space, whereas the second one, will have just the remaining data
+	*/
 
-	quantityPerTime, lastAdditional := getSplitParameters(n, times)
-	r := make([]TreeNode, times)
-	allLeafKeyValues := getAllLeafKeyValues(n)
-	for i := 0; i < times; i++ {
-		yLimit := quantityPerTime
-		r[i] = *NewNodeLeaf()
-		setParentAddr(&r[i], n.GetParentAddr())
-		if i < times-1 {
-			yLimit = quantityPerTime + lastAdditional
+	// Get all leaf members
+	allLeafMembers := getAllLeafKeyValues(n)
+	// Append new member
+	allLeafMembers = append(
+		allLeafMembers,
+		LeafKeyValue{
+			key:         key,
+			keyLength:   uint16(len(key)),
+			value:       value,
+			valueLength: uint64(len(value)),
+		},
+	)
+	// Sort them
+	sortLeafKeyValues(allLeafMembers)
+	// create two new Leaves
+	newLeaves := []TreeNode{*NewNodeLeaf(), *NewNodeLeaf()}
+	fmt.Printf("DEBUG > Free bytes from first %d\n", getFreeBytes(n))
+	fmt.Printf("DEBUG > Tamanho novo %d \n", len(allLeafMembers))
+	// For every member of leaf, including new one we insert until it reaches the possible max
+	activeLeaf := 0
+	for i := 0; i < len(allLeafMembers); i++ {
+		freeBytes := getFreeBytes(&newLeaves[activeLeaf])
+
+		member := allLeafMembers[i]
+		if 10+member.keyLength+uint16(member.valueLength) > freeBytes {
+			activeLeaf = 1
 		}
-		for y := 0; y < yLimit; y++ {
-			tmp := allLeafKeyValues[uint16((i*quantityPerTime)+y)]
-			r[i].PutLeafNewKeyValue(tmp.key, tmp.value)
-		}
+		newLeaves[activeLeaf].PutLeafNewKeyValue(member.key, member.value)
 	}
 
-	return r
+	return newLeaves
 }
 
-func (n *TreeNode) SplitNode(times int) []TreeNode {
+func (n *TreeNode) SplitNode(key []byte, addr uint64) []TreeNode {
+	// Get all leaf members
+	allNodeMembers := getAllNodeKeyAddr(n)
+	allNodeMembers = append(
+		allNodeMembers,
+		NodeKeyAddr{
+			keyLen: uint16(len(key)),
+			key:    key,
+			addr:   addr,
+		},
+	)
 
-	quantityPerTime, lastAdditional := getSplitParameters(n, times)
-	r := make([]TreeNode, times)
-	allNodeChildren := getAllNodeKeyAddr(n)
-	for i := 0; i < times; i++ {
-		yLimit := quantityPerTime
-		r[i] = *NewNodeNode()
-		setParentAddr(&r[i], n.GetParentAddr())
-		if i < times-1 {
-			yLimit = quantityPerTime + lastAdditional
+	// Sort them
+	sortNodeChildren(allNodeMembers)
+
+	// create two new Leaves
+	newNodes := []TreeNode{*NewNodeNode(), *NewNodeNode()}
+
+	// For every member of leaf, including new one we insert until it reaches the possible max
+	activeNode := 0
+	for i := 0; i < len(allNodeMembers); i++ {
+		freeBytes := getFreeBytes(&newNodes[activeNode])
+		member := allNodeMembers[i]
+		if 10+member.keyLen > freeBytes {
+			activeNode = 1
 		}
-		for y := 0; y < yLimit; y++ {
-			tmp := allNodeChildren[(i*quantityPerTime)+y]
-			r[i].PutNodeNewChild(tmp.key, tmp.addr)
-		}
+		newNodes[activeNode].PutNodeNewChild(key, addr)
 	}
 
-	return r
+	return newNodes
 }
