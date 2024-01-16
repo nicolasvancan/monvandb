@@ -1,4 +1,4 @@
-package main
+package btree
 
 import (
 	"bytes"
@@ -82,11 +82,45 @@ type NodeKeyAddr struct {
 	addr   uint64
 }
 
+// For testing
+func (nk *NodeKeyAddr) GetKeyLen() uint16 {
+	return nk.keyLen
+}
+
+// For testing
+func (nk *NodeKeyAddr) GetKey() []byte {
+	return nk.key
+}
+
+// For testing
+func (nk *NodeKeyAddr) GetAddr() uint64 {
+	return nk.addr
+}
+
 type LeafKeyValue struct {
 	keyLength   uint16
 	valueLength uint64
 	key         []byte
 	value       []byte
+}
+
+// For testing
+func (nk *LeafKeyValue) GetKeyLen() uint16 {
+	return nk.keyLength
+}
+
+// For testing
+func (nk *LeafKeyValue) GetKey() []byte {
+	return nk.key
+}
+
+// For testing
+func (nk *LeafKeyValue) GetValue() []byte {
+	return nk.value
+}
+
+func (nk *LeafKeyValue) GetValueLen() uint64 {
+	return nk.valueLength
 }
 
 /* Base Node */
@@ -102,6 +136,10 @@ func LoadTreeNode(data []byte) *TreeNode {
 }
 
 /* Basic Getters and Setters for header */
+
+func (n *TreeNode) GetBytes() []byte {
+	return n.data
+}
 
 func (n *TreeNode) GetType() uint16 {
 	return uint16(binary.LittleEndian.Uint16(n.data[NODE_TYPE_OFFSET : NODE_TYPE_OFFSET+NODE_TYPE_LEN]))
@@ -135,7 +173,7 @@ func setNItens(n *TreeNode, num uint16) {
 	binary.LittleEndian.PutUint16(n.data[NODE_N_ITENS_OFFSET:NODE_N_ITENS_OFFSET+NODE_N_ITENS_LEN], num)
 }
 
-func getFreeBytes(n *TreeNode) uint16 {
+func GetFreeBytes(n *TreeNode) uint16 {
 	return binary.LittleEndian.Uint16(n.data[NODE_FREE_BYTES_OFFSET : NODE_FREE_BYTES_OFFSET+NODE_FREE_BYTES_LEN])
 }
 
@@ -195,7 +233,7 @@ func (n *TreeNode) PutNodeNewChild(key []byte, addr uint64) error {
 
 	// Verify whether it will exceed total bytes
 	aditionalLength := len(key) + 2 + 8
-	if int(getFreeBytes(n))-(aditionalLength) < 0 {
+	if int(GetFreeBytes(n))-(aditionalLength) < 0 {
 		return errors.New("Exceeds total bytes")
 	}
 	keyLen := uint16(len(key))
@@ -223,7 +261,7 @@ func (n *TreeNode) PutNodeNewChild(key []byte, addr uint64) error {
 	// Set new offset
 	setNodeOffset(n, offset+2+keyLen+8)
 	// Set new Free Bytes
-	setFreeBytes(n, getFreeBytes(n)-(2+8+keyLen))
+	setFreeBytes(n, GetFreeBytes(n)-(2+8+keyLen))
 	// Set NItems
 	setNItens(n, n.GetNItens()+1)
 
@@ -306,7 +344,7 @@ func (n *TreeNode) GetNodeChildByKey(key []byte) *NodeKeyAddr {
 
 /*Calculate whether or not should split Node*/
 func ShouldSplitNode(node TreeNode, keyLen int, valueLen int) bool {
-	freeBytes := getFreeBytes(&node)
+	freeBytes := GetFreeBytes(&node)
 
 	totalNewBytes := keyLen + valueLen
 	if node.GetType() == TREE_NODE {
@@ -375,7 +413,7 @@ func (n *TreeNode) PutLeafNewKeyValue(key []byte, value []byte) error {
 
 	aditionalLength := len(key) + 2 + 8 + len(value)
 
-	if int(getFreeBytes(n))-(aditionalLength) < 0 {
+	if int(GetFreeBytes(n))-(aditionalLength) < 0 {
 		return errors.New("Exceeds total bytes")
 	}
 	keyLen := uint16(len(key))
@@ -406,7 +444,7 @@ func (n *TreeNode) PutLeafNewKeyValue(key []byte, value []byte) error {
 	// Set new offset
 	setNodeOffset(n, offset+10+keyLen+uint16(valLen))
 	// Set new Free Bytes
-	setFreeBytes(n, getFreeBytes(n)-(10+keyLen+uint16(valLen)))
+	setFreeBytes(n, GetFreeBytes(n)-(10+keyLen+uint16(valLen)))
 	// Set NItems
 	setNItens(n, n.GetNItens()+1)
 
@@ -482,12 +520,12 @@ func (n *TreeNode) SplitLeaf(key []byte, value []byte) []TreeNode {
 	sortLeafKeyValues(allLeafMembers)
 	// create two new Leaves
 	newLeaves := []TreeNode{*NewNodeLeaf(), *NewNodeLeaf()}
-	fmt.Printf("DEBUG > Free bytes from first %d\n", getFreeBytes(n))
+	fmt.Printf("DEBUG > Free bytes from first %d\n", GetFreeBytes(n))
 	fmt.Printf("DEBUG > Tamanho novo %d \n", len(allLeafMembers))
 	// For every member of leaf, including new one we insert until it reaches the possible max
 	activeLeaf := 0
 	for i := 0; i < len(allLeafMembers); i++ {
-		freeBytes := getFreeBytes(&newLeaves[activeLeaf])
+		freeBytes := GetFreeBytes(&newLeaves[activeLeaf])
 
 		member := allLeafMembers[i]
 		if 10+member.keyLength+uint16(member.valueLength) > freeBytes {
@@ -520,7 +558,7 @@ func (n *TreeNode) SplitNode(key []byte, addr uint64) []TreeNode {
 	// For every member of leaf, including new one we insert until it reaches the possible max
 	activeNode := 0
 	for i := 0; i < len(allNodeMembers); i++ {
-		freeBytes := getFreeBytes(&newNodes[activeNode])
+		freeBytes := GetFreeBytes(&newNodes[activeNode])
 		member := allNodeMembers[i]
 		if 10+member.keyLen > freeBytes {
 			activeNode = 1

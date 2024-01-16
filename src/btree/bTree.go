@@ -1,4 +1,4 @@
-package main
+package btree
 
 import (
 	"bytes"
@@ -385,7 +385,7 @@ func BTreeInsert(bTree *BTree, key []byte, value []byte) {
 	// Get node from page
 	node := bTree.Get(root)
 	fmt.Printf("DEBUG::BTreeInsert > N Itens %d\n", node.GetNItens())
-	fmt.Printf("Free::BTreeInsert Bytes %d\n", getFreeBytes(&node))
+	fmt.Printf("Free::BTreeInsert Bytes %d\n", GetFreeBytes(&node))
 	// Find leaf to insert value
 	leafToInsert, history := findLeafToInsert(bTree, node, key, root, make([]TreeNodePage, 0))
 	// Verify whether leaf must be splited
@@ -394,7 +394,7 @@ func BTreeInsert(bTree *BTree, key []byte, value []byte) {
 
 /* Verify whether leaf should be splited*/
 func mustSplitNode(bTree *BTree, node TreeNode, keyLen int, valueLen int) bool {
-	freeBytes := getFreeBytes(&node)
+	freeBytes := GetFreeBytes(&node)
 	totalNewBytes := keyLen + valueLen
 	if node.GetType() == TREE_NODE {
 		totalNewBytes = keyLen
