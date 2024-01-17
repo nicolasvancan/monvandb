@@ -563,7 +563,7 @@ func (n *TreeNode) SplitNode(key []byte, addr uint64) []TreeNode {
 		if 10+member.keyLen > freeBytes {
 			activeNode = 1
 		}
-		newNodes[activeNode].PutNodeNewChild(key, addr)
+		newNodes[activeNode].PutNodeNewChild(member.key, member.addr)
 	}
 
 	return newNodes
