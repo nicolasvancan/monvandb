@@ -107,20 +107,20 @@ func (b *BTree) GetRoot() uint64 {
 Implementation of function to lookup key in internal Node, returning page number
 */
 func lookupKey(node TreeNode, key []byte) int {
-	// Declare found variable initiated with nil (Case we don't find any)
+	// Declare found variable initiated with -1 (Case we don't find any)
 	var found int = -1
 	var allNodeKeyAddr []NodeKeyAddr = nil
 	var allLeafKeyValues []LeafKeyValue = nil
-
+	nItens := node.GetNItens()
 	// Just in case it is a Internal Node
 	if node.GetType() == TREE_NODE {
 		allNodeKeyAddr = ([]NodeKeyAddr)(getAllNodeKeyAddr(&node))
 		// Iterate over all items to find a corresponding key
-		for i := 0; i < int(node.GetNItens()); i++ {
+		fmt.Println("DEBUG::lookupKey > Tree Node Lookup")
 
+		for i := int(nItens) - 1; i >= 0; i-- {
 			if bytes.Compare(allNodeKeyAddr[i].key, key) <= 0 {
 				found = i
-			} else {
 				break
 			}
 		}
@@ -128,16 +128,15 @@ func lookupKey(node TreeNode, key []byte) int {
 	} else {
 		allLeafKeyValues = ([]LeafKeyValue)(getAllLeafKeyValues(&node))
 		// Iterate over all items to find a corresponding key
-		for i := 0; i < int(node.GetNItens()); i++ {
+		for i := int(nItens) - 1; i >= 0; i-- {
 
 			if bytes.Compare(allLeafKeyValues[i].key, key) <= 0 {
 				found = i
-			} else {
 				break
 			}
 		}
 	}
-
+	fmt.Printf("DEBUG::lookupKey > Found %d\n", found)
 	return found
 }
 
@@ -147,6 +146,7 @@ This function works recursiverly and returns exactly what Node the data must be 
 func findLeafToInsert(bTree *BTree, node TreeNode, key []byte, page uint64, history []TreeNodePage) (TreeNodePage, []TreeNodePage) {
 	// Means it has reached some leaf
 	if node.GetType() == TREE_NODE {
+		fmt.Printf("DEBUG::findLeafToInsert > Incomming Key %s\n", key)
 		// Tries to find Leaf through Internal Node
 		if idx := lookupKey(node, key); idx > -1 {
 			// Get keyAddress from it
@@ -180,6 +180,7 @@ func insertAndSplitIfNeeded(bTree *BTree, tPage TreeNodePage, history []TreeNode
 
 	} else {
 		fmt.Println("DEBUG::insertAndSplitIfNeeded > Didn't need to split leaf")
+		fmt.Printf("DEBUG::insertAndSplitIfNeeded > The type of node is %d\n", tPage.node.GetType())
 		tPage.node.PutLeafNewKeyValue(key, value)
 		bTree.Set(tPage.node, tPage.page)
 	}
@@ -384,8 +385,11 @@ func BTreeInsert(bTree *BTree, key []byte, value []byte) {
 	// Look for where to store this key value
 	// Get node from page
 	node := bTree.Get(root)
-	fmt.Printf("DEBUG::BTreeInsert > N Itens %d\n", node.GetNItens())
-	fmt.Printf("Free::BTreeInsert Bytes %d\n", GetFreeBytes(&node))
+	fmt.Println("")
+	fmt.Println("")
+	fmt.Printf("DEBUG::BTreeInsert::ROOT > N Itens %d and page %d\n", node.GetNItens(), root)
+	fmt.Printf("Free::BTreeInsert::ROOT Bytes %d\n", GetFreeBytes(&node))
+	fmt.Printf("Free::BTreeInsert::ROOT Type %d\n", node.GetType())
 	// Find leaf to insert value
 	leafToInsert, history := findLeafToInsert(bTree, node, key, root, make([]TreeNodePage, 0))
 	// Verify whether leaf must be splited
