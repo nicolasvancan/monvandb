@@ -165,17 +165,88 @@ func findLeafToInsert(bTree *BTree, node TreeNode, key []byte, page uint64, hist
 	return TreeNodePage{node: node, page: page}, history
 }
 
+func shiftValuesBetweenLeaves(bTree *BTree, tPage TreeNodePage, history []TreeNodePage, key []byte, value []byte) {
+	parentAddr := tPage.node.GetParentAddr()
+	// check if parent is not zero, indicating that there is a node above it
+	if parentAddr == 0 {
+		splitBackyardsRecursively(
+			bTree,
+			tPage,
+			history,
+			key,
+			value,
+		)
+		return
+	}
+	// If it came to here, at least a leaf must be split
+	splittedLeaf := tPage.node.SplitLeaf(key, value)
+
+	setParentAddr(&splittedLeaf[0], parentAddr)
+	// Get first key from splittedLeaf
+	firstKey := splittedLeaf[0].GetLeafKeyValueByIndex(0)
+	// Parent node
+	parentNode := history[len(history)-1]
+	// Delete it by address
+	parentNode.node.DeleteNodeChildrenByAddress(tPage.page)
+	// Insert again the new address with new key
+	parentNode.node.PutNodeNewChild(firstKey.key, tPage.page)
+	// We don't update it yet, we check for the right part of the split
+	rightLeaf := splittedLeaf[1]
+	// We can update the value already in page using left side splitted leaf and parent
+	bTree.Set(splittedLeaf[0], tPage.page)
+	bTree.Set(parentNode.node, parentNode.page)
+	// For every new value we check if it is possible to insert into the next one
+	keyValues := getAllLeafKeyValues(&rightLeaf)
+
+	parentKeyAddr := getAllNodeKeyAddr(&parentNode.node)
+	for i := 0; i < len(keyValues); i++ {
+		currentLeafKeyAddr := parentKeyAddr[i]
+		if currentLeafKeyAddr.addr != tPage.page {
+			currentKeyValues := keyValues[i]
+			// If it is not the same page that we are already reffering
+			leaf := bTree.Get(currentLeafKeyAddr.addr)
+			// Verify if the can insert into it
+			if mustSplitNode(bTree, leaf, int(currentKeyValues.keyLength), int(currentKeyValues.valueLength)) {
+				// Check if it's the last possible leaf
+				if i == len(keyValues)-1 {
+					// Split and rearange backyards
+					splitBackyardsRecursively(
+						bTree,
+						TreeNodePage{
+							node: leaf,
+							page: currentLeafKeyAddr.addr},
+						history,
+						currentKeyValues.key,
+						currentKeyValues.value,
+					)
+					continue
+				}
+				// Else we can call again this function recursivelly
+				shiftValuesBetweenLeaves(bTree, TreeNodePage{
+					node: leaf,
+					page: currentLeafKeyAddr.addr},
+					history, currentKeyValues.key,
+					currentKeyValues.value)
+			}
+		}
+	}
+
+}
+
 func insertAndSplitIfNeeded(bTree *BTree, tPage TreeNodePage, history []TreeNodePage, key []byte, value []byte) {
 	keyLen := len(key)
 	valueLen := len(value)
 	if mustSplitNode(bTree, tPage.node, keyLen, valueLen) {
-		if (keyLen + valueLen + 10) > PAGE_SIZE-26 {
+		if (keyLen + valueLen + 10) > PAGE_SIZE-26 { // 26 is header size for leaf
 			// Special case
 			fmt.Println("DEBUG::insertAndSplitIfNeeded > Special case where there must be a linked list to suport one unique item")
 		} else {
 			// Generic case
 			fmt.Println("DEBUG::insertAndSplitIfNeeded > Generic insertion")
-			splitBackyardsRecursively(bTree, tPage, history, key, value)
+			// Shift values if there's more leaves available at same node
+			shiftValuesBetweenLeaves(bTree, tPage, history, key, value)
+			// Split values
+			//splitBackyardsRecursively(bTree, tPage, history, key, value)
 		}
 
 	} else {
@@ -215,8 +286,8 @@ func insertNodesRecursivelly(
 	}
 	// verify whether or not the node must be splitted
 	if mustSplitNode(bTree, nodeToInsert.node, totalKeyLen, 8) {
-		// We verify for both keys if the node must be splitted, if yes
-		// we split it for the first page
+		// We verify if value can be shifted to another existing leaf or we really need to create another
+		// Leaf
 
 		splitedNode := nodeToInsert.node.SplitNode(newPageOne.node.GetLeafKeyValueByIndex(0).key, newPageOne.page)
 		ourInsertion := 1
@@ -332,11 +403,11 @@ func splitBackyardsRecursively(
 		return
 	}
 
-	// Every time a node splits, two new nodes emerge. The key point is that we must replace
-	// nodes page from previous page. For instance, we have a node at page 1 following by a node at page 2.
-	// For some reason, the node 2 must be split into 2 new nodes, at page 10 and 11. Knowing that, we ensure that basically
-	// the page 2 now has turned into two pages 10 and 11, therefore, the page two, that is placed within the values from
-	// node in page one must also be replaced, because we don't use the page two anymore. So, the page one would
+	/* Every time a node splits, two new nodes emerge. The key point is that we must replace
+	nodes page from previous page. For instance, we have a node at page 1 following by a node at page 2.
+	For some reason, the node 2 must be split into 2 new nodes, at page 10 and 11. Knowing that, we ensure that basically
+	the page 2 now has turned into two pages 10 and 11, therefore, the page two, that is placed within the values from
+	node in page one must also be replaced, because we don't use the page two anymore. So, the page one would */
 
 	// Create both new leaves
 	newLeavesPages := make([]TreeNodePage, len(splittedLeaf))
@@ -348,7 +419,6 @@ func splitBackyardsRecursively(
 			page: bTree.New(splittedLeaf[i]),
 		}
 	}
-	fmt.Println("DEBUG::newLeavesPages > After leaves creation")
 
 	// Insert into node recursivelly
 	insertNodesRecursivelly(bTree, tPage, newLeavesPages, history)
