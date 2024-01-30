@@ -85,6 +85,7 @@ func LoadBTreeFromPath(t *testing.T, filepath string) *bTree.BTree {
 	// Assign callback functions
 	tmpBTree.Get = getPage
 	tmpBTree.New = newPage
+	tmpBTree.Set = setPage
 	tmpBTree.SetHeader = setHeader
 	tmpBTree.Del = delPage
 
