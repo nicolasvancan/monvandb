@@ -91,3 +91,72 @@ func LoadBTreeFromPath(t *testing.T, filepath string) *bTree.BTree {
 
 	return tmpBTree
 }
+
+func CreateFakeDbPagesForMapping(t *testing.T, tree *bTree.BTree) *bTree.BTree {
+
+	/*
+						(1 9)
+						/   \
+				 (1 3 5)     (7 8 9)
+				 / / /         \ \ \
+		(1 2) (3 4) (5 6)     (7)(8)(9)
+	*/
+	// Create First page
+	firstPage := bTree.NewNodeNode()
+
+	// Create first page with following pages
+	firstPage.PutNodeNewChild([]byte("1"), 2)
+	firstPage.PutNodeNewChild([]byte("9"), 3)
+
+	// Create first page
+	tree.New(*firstPage)
+	tree.SetRoot(1)
+	tree.SetHeader(*tree)
+	// Create second node
+	secondNode := bTree.NewNodeNode()
+	secondNode.PutNodeNewChild([]byte("1"), 4)
+	secondNode.PutNodeNewChild([]byte("3"), 5)
+	secondNode.PutNodeNewChild([]byte("5"), 6)
+
+	thirdNode := bTree.NewNodeNode()
+	thirdNode.PutNodeNewChild([]byte("7"), 7)
+	thirdNode.PutNodeNewChild([]byte("8"), 8)
+	thirdNode.PutNodeNewChild([]byte("9"), 9)
+
+	tree.New(*secondNode) // 2
+	tree.New(*thirdNode)  // 3
+
+	// Create leaves
+	firstLeaf := bTree.NewNodeLeaf()
+	firstLeaf.PutLeafNewKeyValue([]byte("1"), []byte("teste"))
+	firstLeaf.PutLeafNewKeyValue([]byte("2"), []byte("teste"))
+
+	// Create leaves
+	secondLeaf := bTree.NewNodeLeaf()
+	secondLeaf.PutLeafNewKeyValue([]byte("3"), []byte("teste"))
+	secondLeaf.PutLeafNewKeyValue([]byte("4"), []byte("teste"))
+
+	// Create leaves
+	thirdLeaf := bTree.NewNodeLeaf()
+	thirdLeaf.PutLeafNewKeyValue([]byte("5"), []byte("teste"))
+	thirdLeaf.PutLeafNewKeyValue([]byte("6"), []byte("teste"))
+
+	// Create leaves
+	fourthLeaf := bTree.NewNodeLeaf()
+	fourthLeaf.PutLeafNewKeyValue([]byte("7"), []byte("teste"))
+
+	fithLeaf := bTree.NewNodeLeaf()
+	fithLeaf.PutLeafNewKeyValue([]byte("8"), []byte("teste"))
+
+	sixthLeaf := bTree.NewNodeLeaf()
+	sixthLeaf.PutLeafNewKeyValue([]byte("9"), []byte("teste"))
+
+	tree.New(*firstLeaf)  // 4
+	tree.New(*secondLeaf) // 5
+	tree.New(*thirdLeaf)  // 6
+	tree.New(*fourthLeaf) // 7
+	tree.New(*fithLeaf)   // 8
+	tree.New(*sixthLeaf)  // 9
+
+	return tree
+}

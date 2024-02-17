@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"strconv"
 	"testing"
@@ -18,6 +19,15 @@ func fillUpLeafUntilItSplits(btree *bTree.BTree) {
 	// Fill up leaf until it splits
 	for i := 0; i < 282; i++ {
 		bTree.BTreeInsert(btree, []byte(strconv.Itoa(i)), []byte(string("teste_"+strconv.Itoa(i))))
+	}
+}
+
+func fillUpLeafWithNumericValuesUntilItSplits(btree *bTree.BTree) {
+	for i := 1; i <= 10000; i++ {
+		// I'm going to use little endian 32 bits so 4 bytes
+		integerBytes := make([]byte, 4)
+		binary.BigEndian.PutUint32(integerBytes, uint32(i))
+		bTree.BTreeInsert(btree, integerBytes, []byte(string("teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_"+strconv.Itoa(i))))
 	}
 }
 
@@ -116,4 +126,44 @@ func TestInsertMultipleLines(t *testing.T) {
 		t.Errorf("File size should be 20480, received %d\n", fs.Size())
 	}
 
+	// Test for getting all data added data
+	for i := 0; i < 282; i++ {
+		keyValue := bTree.BTreeGetOne(tree, []byte(strconv.Itoa(i)))
+
+		if keyValue == nil {
+			t.Errorf("Should have found the key %s\n", keyValue.Key)
+		}
+	}
+}
+
+func TestInsertMultipleLinesForLargeInt(t *testing.T) {
+	// We insert multiple lines until it splits into two different leaves
+	t.Log("Starting Test simple bTree Insertion")
+	dbFilePath := setupTests(t)
+	// Load bTree
+	t.Log("Loading bTree to be used")
+	tree := helper.LoadBTreeFromPath(t, dbFilePath)
+	// Fillup with sequencial bytes
+	fillUpLeafWithNumericValuesUntilItSplits(tree)
+}
+
+func TestFileMapping(t *testing.T) {
+	t.Log("Creating basic database to test mapping")
+	dbFilePath := setupTests(t)
+	// Load bTree
+	t.Log("Loading bTree to be used")
+	tree := helper.LoadBTreeFromPath(t, dbFilePath)
+	tree = helper.CreateFakeDbPagesForMapping(t, tree)
+
+	mapped := bTree.MapAllLeavesToArray(tree)
+	for i := 0; i < len(mapped); i++ {
+
+		if i+4 != int(mapped[i].TreeNode) {
+			t.Errorf("Mapped leaves equal %d Should be %d\n", mapped[i].TreeNode, i+4)
+		}
+
+		if len(mapped[i].History) != 2 {
+			t.Errorf("History should have length of 2 found %d\n", len(mapped[i].History))
+		}
+	}
 }

@@ -250,3 +250,31 @@ func TestNodeSplit(t *testing.T) {
 }
 
 // The leaf insertion will be skiped, because the implementation is exactly the same as for node
+func TestNodeDeletionByAddress(t *testing.T) {
+	// Create Node
+	node := bTree.NewNodeNode()
+	// Put values
+	node.PutNodeNewChild([]byte("0"), 4)
+	node.PutNodeNewChild([]byte("1"), 6)
+	//Delete Value
+	node.DeleteNodeChildrenByAddress(4)
+	// Get values to evaluate
+	nItens := node.GetNItens()
+
+	if nItens > 1 {
+		t.Logf("Should be one item")
+	}
+
+	firstItem := node.GetNodeChildByIndex(0)
+
+	if firstItem.GetAddr() != 6 {
+		t.Logf("Should be 6")
+	}
+
+	node.DeleteNodeChildrenByAddress(6)
+	nItens = node.GetNItens()
+
+	if nItens > 0 {
+		t.Logf("Should be 0")
+	}
+}

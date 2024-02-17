@@ -226,6 +226,8 @@ func getAllNodeKeyAddr(n *TreeNode) []NodeKeyAddr {
 		}
 		lastStart += 2 + int(kLen) + 8
 	}
+
+	sortNodeChildren(r)
 	return r
 }
 
@@ -270,15 +272,12 @@ func (n *TreeNode) PutNodeNewChild(key []byte, addr uint64) error {
 
 func (n *TreeNode) DeleteNodeChildrenByAddress(addr uint64) {
 	allNodeKeyAddr := getAllNodeKeyAddr(n)
-	fmt.Printf("DEBUG::DeleteNodeChildrenByAddress > AllNodeKeyAddr len = %d\n", len(allNodeKeyAddr))
 	// Reset Node
 	n.ResetNode()
-	fmt.Println("DEBUG::DeleteNodeChildrenByAddress > Reset Node")
 	// Sort Array
 	sortNodeChildren(allNodeKeyAddr)
 	for i := 0; i < len(allNodeKeyAddr); i++ {
 		if allNodeKeyAddr[i].addr != addr {
-			fmt.Println("DELETE::Inserting new one")
 			n.PutNodeNewChild(allNodeKeyAddr[i].key, allNodeKeyAddr[i].addr)
 		}
 	}
@@ -310,18 +309,16 @@ func (n *TreeNode) GetNodeChildByIndex(idx int) *NodeKeyAddr {
 		return nil
 	}
 
-	unsortedChildren := getAllNodeKeyAddr(n)
-	// Sort children
-	sortNodeChildren(unsortedChildren)
-	return &unsortedChildren[idx]
+	sortedChildren := getAllNodeKeyAddr(n)
+	return &sortedChildren[idx]
 }
 
 func (n *TreeNode) GetNodeChildByPage(page uint64) *NodeKeyAddr {
 	var r *NodeKeyAddr = nil
-	unsortedChildren := getAllNodeKeyAddr(n)
-	for j := 0; j < len(unsortedChildren); j++ {
-		if unsortedChildren[j].addr == page {
-			r = &unsortedChildren[j]
+	sortedChildren := getAllNodeKeyAddr(n)
+	for j := 0; j < len(sortedChildren); j++ {
+		if sortedChildren[j].addr == page {
+			r = &sortedChildren[j]
 			break
 		}
 	}
@@ -331,10 +328,10 @@ func (n *TreeNode) GetNodeChildByPage(page uint64) *NodeKeyAddr {
 
 func (n *TreeNode) GetNodeChildByKey(key []byte) *NodeKeyAddr {
 	var r *NodeKeyAddr = nil
-	unsortedChildren := getAllNodeKeyAddr(n)
-	for j := 0; j < len(unsortedChildren); j++ {
-		if bytes.Compare(unsortedChildren[j].key, key) == 0 {
-			r = &unsortedChildren[j]
+	sortedChildren := getAllNodeKeyAddr(n)
+	for j := 0; j < len(sortedChildren); j++ {
+		if bytes.Compare(sortedChildren[j].key, key) == 0 {
+			r = &sortedChildren[j]
 			break
 		}
 	}
@@ -406,11 +403,11 @@ func getAllLeafKeyValues(n *TreeNode) []LeafKeyValue {
 		baseOffset += (int(kLen)) + int(vLen) + 2 + 8
 	}
 
+	sortLeafKeyValues(r)
 	return r
 }
 
 func (n *TreeNode) PutLeafNewKeyValue(key []byte, value []byte) error {
-
 	aditionalLength := len(key) + 2 + 8 + len(value)
 
 	if int(GetFreeBytes(n))-(aditionalLength) < 0 {
@@ -503,7 +500,7 @@ func (n *TreeNode) SplitLeaf(key []byte, value []byte) []TreeNode {
 	   where our new value will be inserted. The left leaf will return filled with all possible data
 	   trying to use the most of it space, whereas the second one, will have just the remaining data
 	*/
-
+	fmt.Printf("DEBUG::SplitLeaf key = %s, value %s\n", key, value)
 	// Get all leaf members
 	allLeafMembers := getAllLeafKeyValues(n)
 	// Append new member
@@ -520,11 +517,11 @@ func (n *TreeNode) SplitLeaf(key []byte, value []byte) []TreeNode {
 	sortLeafKeyValues(allLeafMembers)
 	// create two new Leaves
 	newLeaves := []TreeNode{*NewNodeLeaf(), *NewNodeLeaf()}
-	fmt.Printf("DEBUG > Free bytes from first %d\n", GetFreeBytes(n))
-	fmt.Printf("DEBUG > Tamanho novo %d \n", len(allLeafMembers))
 	// For every member of leaf, including new one we insert until it reaches the possible max
 	activeLeaf := 0
 	for i := 0; i < len(allLeafMembers); i++ {
+
+		fmt.Printf("SPLIT_LEAF:: key of leaf %s\n", (allLeafMembers[i].GetKey()))
 		freeBytes := GetFreeBytes(&newLeaves[activeLeaf])
 
 		member := allLeafMembers[i]
