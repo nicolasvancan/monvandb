@@ -31,6 +31,13 @@ import (
     n*   - | key | n * B - Indexes one after other
          - | Val | n * B - Values concatenated
     /
+
+   -------- Case Leaf Sequence ---------
+   - | type | 2B
+   - | hasSeq | 2B
+   - | vSeq | 8B
+   - | nBytes | 2B
+   - | bytes | Rest
 */
 
 /* TreeNode implementation */
@@ -42,18 +49,20 @@ const (
 
 /* Lens */
 const (
-	NODE_TYPE_LEN          = 2
-	NODE_OFFSET_LEN        = 2
-	NODE_N_ITENS_LEN       = 2
-	NODE_FREE_BYTES_LEN    = 2
-	NODE_PARENT_ADDR       = 8
-	NODE_P_KEY_LEN         = 8
-	NODE_P_CHILD_ADD_LEN   = 8
-	NODE_P_KEY_ADDRESS_LEN = NODE_P_KEY_LEN + NODE_P_CHILD_ADD_LEN
-	LEAF_HAS_SEQ_LEN       = 2
-	LEAF_SEQ_P_LEN         = 8
-	LEAF_KEY_LEN_LEN       = 2
-	LEAF_VAL_LEN_LEN       = 8
+	NODE_TYPE_LEN            = 2
+	NODE_OFFSET_LEN          = 2
+	NODE_N_ITENS_LEN         = 2
+	NODE_FREE_BYTES_LEN      = 2
+	NODE_PARENT_ADDR         = 8
+	NODE_P_KEY_LEN           = 8
+	NODE_P_CHILD_ADD_LEN     = 8
+	NODE_P_KEY_ADDRESS_LEN   = NODE_P_KEY_LEN + NODE_P_CHILD_ADD_LEN
+	LEAF_HAS_SEQ_LEN         = 2
+	LEAF_SEQ_P_LEN           = 8
+	LEAF_KEY_LEN_LEN         = 2
+	LEAF_VAL_LEN_LEN         = 8
+	LEAF_SEQ_N_BYTES         = 2
+	LEAF_SEQ_FREE_BYTES_SIZE = PAGE_SIZE - LEAF_SEQ_BYTES_OFFSET
 )
 
 /* Offsets Header */
@@ -73,6 +82,14 @@ const (
 	LEAF_KEY_LEN_OFFSET   = LEAF_SEQ_P_OFFSET + LEAF_SEQ_P_LEN
 	LEAF_VAL_LEN_OFFSET   = LEAF_KEY_LEN_OFFSET + LEAF_KEY_LEN_LEN
 	LEAF_VAL_START_OFFSET = LEAF_SEQ_P_OFFSET + LEAF_SEQ_P_LEN
+)
+
+/*  */
+const (
+	LEAF_SEQ_HAS_SEQ_OFFSET = NODE_TYPE_OFFSET + NODE_TYPE_LEN
+	LEAF_SEQ_SEQ_OFFSET     = LEAF_SEQ_HAS_SEQ_OFFSET + LEAF_HAS_SEQ_LEN
+	LEAF_SEQ_N_BYTES_OFFSET = LEAF_SEQ_SEQ_OFFSET + LEAF_SEQ_P_LEN
+	LEAF_SEQ_BYTES_OFFSET   = LEAF_SEQ_N_BYTES_OFFSET + LEAF_SEQ_N_BYTES
 )
 
 /* Basic types declaration */
@@ -368,20 +385,87 @@ func NewNodeLeaf() *TreeNode {
 	return nodeLeaf
 }
 
+func NewNodeLeafSequence() *TreeNode {
+	nodeLeafSequence := &TreeNode{data: make([]byte, PAGE_SIZE)}
+	setType(nodeLeafSequence, TREE_LEAF_SEQUENCE)
+	setLeafHasSeq(nodeLeafSequence, 0)
+	setLeafSeqPointer(nodeLeafSequence, 0)
+
+	return nodeLeafSequence
+}
+
+func (n *TreeNode) setLeafSequenceNumberBytes(numberBytes uint16) {
+	if n.GetType() == TREE_LEAF_SEQUENCE {
+		fmt.Println("Setting Leaf Sequence Number Bytes")
+		binary.LittleEndian.PutUint16(n.data[LEAF_SEQ_N_BYTES_OFFSET:LEAF_SEQ_N_BYTES_OFFSET+LEAF_SEQ_N_BYTES], numberBytes)
+		fmt.Println("Setting Leaf Sequence Number Bytes finalized")
+	}
+}
+
+func (n *TreeNode) getLeafSequenceNumberBytes() uint16 {
+	if n.GetType() == TREE_LEAF_SEQUENCE {
+		return binary.LittleEndian.Uint16(n.data[LEAF_SEQ_N_BYTES_OFFSET : LEAF_SEQ_N_BYTES_OFFSET+LEAF_SEQ_N_BYTES])
+	}
+
+	return 0
+}
+
+func (n *TreeNode) SetLeafSequenceBytes(value []byte) error {
+	if n.GetType() == TREE_LEAF_SEQUENCE {
+		valueLen := len(value)
+		remainingBytesSpace := PAGE_SIZE - LEAF_SEQ_BYTES_OFFSET
+
+		if valueLen > remainingBytesSpace {
+			return errors.New("Exceeded max size of bytes for the leaf sequence page")
+		}
+
+		n.setLeafSequenceNumberBytes(uint16(valueLen))
+		copy(n.data[LEAF_SEQ_BYTES_OFFSET:LEAF_SEQ_BYTES_OFFSET+valueLen], value)
+	}
+
+	return nil
+}
+
+func (n *TreeNode) GetLeafSequenceBytes() []byte {
+	if n.GetType() == TREE_LEAF_SEQUENCE {
+		return n.data[LEAF_SEQ_BYTES_OFFSET : LEAF_SEQ_BYTES_OFFSET+n.getLeafSequenceNumberBytes()]
+	}
+
+	return nil
+}
+
 func setLeafHasSeq(n *TreeNode, hasSeq uint16) {
-	binary.LittleEndian.PutUint16(n.data[LEAF_HAS_SEQ_OFFSET:LEAF_HAS_SEQ_OFFSET+LEAF_HAS_SEQ_LEN], hasSeq)
+	if n.GetType() != TREE_LEAF_SEQUENCE {
+		binary.LittleEndian.PutUint16(n.data[LEAF_HAS_SEQ_OFFSET:LEAF_HAS_SEQ_OFFSET+LEAF_HAS_SEQ_LEN], hasSeq)
+		return
+	}
+
+	binary.LittleEndian.PutUint16(n.data[LEAF_SEQ_HAS_SEQ_OFFSET:LEAF_SEQ_HAS_SEQ_OFFSET+LEAF_HAS_SEQ_LEN], hasSeq)
 }
 
 func (n *TreeNode) GetLeafHasSeq() uint16 {
-	return binary.LittleEndian.Uint16(n.data[LEAF_HAS_SEQ_OFFSET : LEAF_HAS_SEQ_OFFSET+LEAF_HAS_SEQ_LEN])
+	if n.GetType() != TREE_LEAF_SEQUENCE {
+		return binary.LittleEndian.Uint16(n.data[LEAF_HAS_SEQ_OFFSET : LEAF_HAS_SEQ_OFFSET+LEAF_HAS_SEQ_LEN])
+	}
+
+	return binary.LittleEndian.Uint16(n.data[LEAF_SEQ_HAS_SEQ_OFFSET : LEAF_SEQ_HAS_SEQ_OFFSET+LEAF_HAS_SEQ_LEN])
 }
 
 func setLeafSeqPointer(n *TreeNode, p uint64) {
-	binary.LittleEndian.PutUint64(n.data[LEAF_SEQ_P_OFFSET:LEAF_SEQ_P_OFFSET+LEAF_SEQ_P_LEN], p)
+	if n.GetType() != TREE_LEAF_SEQUENCE {
+		binary.LittleEndian.PutUint64(n.data[LEAF_SEQ_P_OFFSET:LEAF_SEQ_P_OFFSET+LEAF_SEQ_P_LEN], p)
+	}
+
+	binary.LittleEndian.PutUint64(n.data[LEAF_SEQ_SEQ_OFFSET:LEAF_SEQ_SEQ_OFFSET+LEAF_SEQ_P_LEN], p)
+
 }
 
 func (n *TreeNode) GetLeafSeqPointer() uint64 {
-	return binary.LittleEndian.Uint64(n.data[LEAF_SEQ_P_OFFSET : LEAF_SEQ_P_OFFSET+LEAF_SEQ_P_LEN])
+	if n.GetType() != TREE_LEAF_SEQUENCE {
+		return binary.LittleEndian.Uint64(n.data[LEAF_SEQ_P_OFFSET : LEAF_SEQ_P_OFFSET+LEAF_SEQ_P_LEN])
+	}
+
+	return binary.LittleEndian.Uint64(n.data[LEAF_SEQ_SEQ_OFFSET : LEAF_SEQ_SEQ_OFFSET+LEAF_SEQ_P_LEN])
 }
 
 func getAllLeafKeyValues(n *TreeNode) []LeafKeyValue {
@@ -500,6 +584,16 @@ func (n *TreeNode) SplitLeaf(key []byte, value []byte) []TreeNode {
 	   where our new value will be inserted. The left leaf will return filled with all possible data
 	   trying to use the most of it space, whereas the second one, will have just the remaining data
 	*/
+	// Case Leaf to be splited has sequence
+	if n.GetLeafHasSeq() == 1 {
+		r := make([]TreeNode, 2)
+		r[0] = *n
+		newLeaf := NewNodeLeaf()
+		newLeaf.PutLeafNewKeyValue(key, value)
+		r[1] = *newLeaf
+		return r
+	}
+
 	fmt.Printf("DEBUG::SplitLeaf key = %s, value %s\n", key, value)
 	// Get all leaf members
 	allLeafMembers := getAllLeafKeyValues(n)
@@ -564,4 +658,58 @@ func (n *TreeNode) SplitNode(key []byte, addr uint64) []TreeNode {
 	}
 
 	return newNodes
+}
+
+/*
+function: CreateLeafWithSequence
+
+Whenever there is a leaf which values overflow max page size, or max bytes available in a page
+we must use more than one page to save a single register. The first returned TreeNode sinalizes
+that the leaf has the rest of bytes saved in other(s) TreeNode.
+
+Returns the base TreeNode for The proper leaf and an array of the bytes sequence, resulting into a linked list
+*/
+
+func CreateLeafWithSequence(key []byte, value []byte) (*TreeNode, []TreeNode) {
+	newLeaf := NewNodeLeaf()
+
+	// Total bytes
+	valueLen := len(value)
+	/*
+		Since it will have only one item, containing one key and a value partitioned in various sequences,
+		we calculate the total free bytes that are going to be used for the value length in the first leaf.
+		For that, we take
+		PAGE_SIZE - normally 4096
+		VALUES_OFFSET - 26
+		Resulting in 4070 free bytes for key and value. Since the key is given and we have 2 fixed length fields
+		LEAF_KEY_LEN and LEAF_VAL_LEN, we can measure the remaining bytes that will be filled with a part of values bytes
+	*/
+	valueBytesForFirstLeaf := PAGE_SIZE - LEAF_VAL_START_OFFSET - LEAF_KEY_LEN_LEN - len(key) - LEAF_VAL_LEN_LEN
+	numberOfLeaves := (valueLen - valueBytesForFirstLeaf) / LEAF_SEQ_FREE_BYTES_SIZE
+	fmt.Printf("Len for value first leaf %d\n", valueBytesForFirstLeaf)
+	if (valueLen-valueBytesForFirstLeaf)%LEAF_SEQ_FREE_BYTES_SIZE != 0 {
+		numberOfLeaves += 1
+	}
+
+	newLeaf.PutLeafNewKeyValue(key, value[:valueBytesForFirstLeaf])
+	setLeafHasSeq(newLeaf, 1)
+
+	sequences := make([]TreeNode, numberOfLeaves)
+
+	// For every leaf sequence
+	for i := 0; i < numberOfLeaves; i++ {
+		var tmpValue []byte = nil
+		if i < numberOfLeaves-1 {
+			fmt.Printf("Inserting leaf = %d\n", i)
+			tmpValue = value[valueBytesForFirstLeaf+i*LEAF_SEQ_FREE_BYTES_SIZE : valueBytesForFirstLeaf+(i+1)*LEAF_SEQ_FREE_BYTES_SIZE]
+		} else {
+			fmt.Printf("Inserting last leaf = %d\n", i)
+			tmpValue = value[valueBytesForFirstLeaf+i*LEAF_SEQ_FREE_BYTES_SIZE:]
+		}
+		sequences[i] = *NewNodeLeafSequence()
+		fmt.Printf("Inserting bytes len = %d\n", len(tmpValue))
+		sequences[i].SetLeafSequenceBytes(tmpValue)
+	}
+
+	return newLeaf, sequences
 }

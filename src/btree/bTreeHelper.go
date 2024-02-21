@@ -30,6 +30,23 @@ func startsNewBTree(bTree *BTree, key []byte, value []byte) {
 	bTree.SetHeader(*bTree)
 }
 
+func createRootNodeAndInsertLeaves(bTree *BTree, treeLeaves []TreeNodePage) {
+	newRoot := NewNodeNode()
+	for i := 0; i < len(treeLeaves); i++ {
+		newRoot.PutNodeNewChild(treeLeaves[i].node.GetLeafKeyValueByIndex(0).GetKey(), treeLeaves[i].page)
+	}
+
+	setParentAddr(newRoot, 0) // Root
+	newRootAddr := bTree.New(*newRoot)
+	for i := 0; i < len(treeLeaves); i++ {
+		setParentAddr(&treeLeaves[i].node, newRootAddr)
+		bTree.Set(treeLeaves[i].node, treeLeaves[i].page)
+	}
+
+	bTree.SetRoot(newRootAddr)
+	bTree.SetHeader(*bTree)
+}
+
 /*
 function: findFirstLeaf
 
@@ -182,13 +199,64 @@ returning into on single byte array
 */
 func getAllBytesFromSequences(bTree *BTree, node TreeNode) []byte {
 	// Sequence infos
+	value := make([]byte, 0)
 	hasSeq := node.GetLeafHasSeq()
 	seqAddr := node.GetLeafSeqPointer()
 
-	sequence := bTree.Get(seqAddr)
-	fmt.Printf("hasSeq := %d and sequence\n", hasSeq, sequence)
-	// Still need to implement for this type of leaf
-	return nil
+	if node.GetType() == TREE_LEAF {
+		keyVal := node.GetLeafKeyValueByIndex(0)
+		value = append(value, keyVal.value...)
+	} else {
+		val := node.GetLeafSequenceBytes()
+		value = append(value, val...)
+	}
+
+	if hasSeq == 1 {
+		nextNode := bTree.Get(seqAddr)
+		value = append(value, getAllBytesFromSequences(bTree, nextNode)...)
+	}
+	return value
+}
+
+func insertOneLeafKeyAndReorderTree(bTree *BTree, tPage TreeNodePage, SeqPage TreeNodePage, history []TreeNodePage) {
+
+	if len(history) == 0 { // Case first node is a leaf node
+		createRootNodeAndInsertLeaves(bTree, []TreeNodePage{tPage, SeqPage})
+		return
+	}
+
+	parentNode := history[len(history)-1]
+	// Verify if must split node
+	keyLen := SeqPage.node.GetLeafKeyValueByIndex(0).GetKeyLen()
+	if mustSplitNode(bTree, parentNode.node, int(keyLen), 8) {
+
+	}
+
+}
+
+func createLeafAndSequencesForLargeBytes(bTree *BTree, key []byte, value []byte) *TreeNodePage {
+	// Create in memory all leaves and leaf to be returned
+	leaf, sequence := CreateLeafWithSequence(key, value)
+
+	tmpAddr := uint64(0)
+	for i := len(sequence) - 1; i >= 0; i-- {
+		setLeafHasSeq(&sequence[i], 0)
+		if i < len(sequence)-1 {
+			setLeafHasSeq(&sequence[i], 1)
+			setLeafSeqPointer(&sequence[i], tmpAddr)
+		}
+		// Create leaf effectivelly
+		tmpAddr = bTree.New(sequence[i])
+	}
+
+	setLeafHasSeq(leaf, 1)
+	setLeafSeqPointer(leaf, tmpAddr)
+
+	r := new(TreeNodePage)
+	r.node = *leaf
+	r.page = bTree.New(*leaf)
+
+	return r
 }
 
 /* Verify whether leaf should be splited*/

@@ -241,6 +241,8 @@ func insertAndReorderTree(bTree *BTree, tPage TreeNodePage, history []TreeNodePa
 		if (keyLen + valueLen + 10) > PAGE_SIZE-26 { // 26 is header size for leaf
 			// Special case
 			fmt.Println("DEBUG::insertAndReorderTree > Special case where there must be a linked list to suport one unique item")
+			//leaf := createLeafAndSequencesForLargeBytes(bTree, key, value)
+
 		} else {
 			// Verify whether the leaf if the last one by comparing he page number
 			lastLeaf, _ := findLastLeaf(bTree)
@@ -448,7 +450,7 @@ func splitBackyardsRecursively(
 	}
 
 	/* Every time a node splits, two new nodes emerge. The key point is that we must replace
-	nodes page from previous page. For instance, we have a node at page 1 following by a node at page 2.
+	nodes page from previous page. For instance, we have a node at page 1 followed by a node at page 2.
 	For some reason, the node 2 must be split into 2 new nodes, at page 10 and 11. Knowing that, we ensure that basically
 	the page 2 now has turned into two pages 10 and 11, therefore, the page two, that is placed within the values range from
 	node in page one must also be replaced, because we don't use the page two anymore. So, the top node would lose the reference
