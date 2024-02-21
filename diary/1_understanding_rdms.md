@@ -33,4 +33,5 @@ Adicionar cada teste feito, cada coisa descoberta e como resolvi cada um destes 
 
 day 1 - what I have learnt exploring mmap, files, using fixed length byte array for covering file pages, debate over structure, etc
 day 2 - How I've decided firstly to implement my interfaces and so on, how I tested dumping and retrieving data from file directly as BTree
+day 3 and 4 - Implementing basic structures for bTreeNodes and bTree and testing (Why I've decided to do so)
 
