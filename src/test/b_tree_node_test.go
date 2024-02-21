@@ -6,6 +6,7 @@ BTree node Test cases
 
 import (
 	"bytes"
+	"fmt"
 	"strconv"
 	"testing"
 
@@ -30,6 +31,16 @@ func fillUpNode(t string) *bTree.TreeNode {
 	}
 
 	return newNode
+}
+
+func createValueOf16kLen() []byte {
+	r := make([]byte, 0)
+
+	for i := 0; i < 16450; i++ {
+		r = append(r, byte(i%255))
+	}
+	fmt.Printf("Len of created value is %d\n", len(r))
+	return r
 }
 
 /*
@@ -277,4 +288,26 @@ func TestNodeDeletionByAddress(t *testing.T) {
 	if nItens > 0 {
 		t.Logf("Should be 0")
 	}
+}
+
+func TestCreateLeafSequence(t *testing.T) {
+	// Create leaf sequence
+	initialBytes := createValueOf16kLen()
+	leaf, sequences := bTree.CreateLeafWithSequence([]byte("10"), initialBytes)
+	keyVal := leaf.GetLeafKeyValueByIndex(0)
+
+	finalBytes := keyVal.GetValue()
+	for i := 0; i < len(sequences); i++ {
+		te := sequences[i].GetLeafSequenceBytes()
+		finalBytes = append(finalBytes, te...)
+	}
+
+	if bytes.Compare(finalBytes, initialBytes) != 0 {
+		t.Error("Bytes should be the same")
+	}
+
+	if len(finalBytes) != len(initialBytes) {
+		t.Error("Bytes len should be the same")
+	}
+
 }

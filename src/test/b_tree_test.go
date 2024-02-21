@@ -145,6 +145,16 @@ func TestInsertMultipleLinesForLargeInt(t *testing.T) {
 	tree := helper.LoadBTreeFromPath(t, dbFilePath)
 	// Fillup with sequencial bytes
 	fillUpLeafWithNumericValuesUntilItSplits(tree)
+
+	for i := 1; i <= 10000; i++ {
+		integerBytes := make([]byte, 4)
+		binary.BigEndian.PutUint32(integerBytes, uint32(i))
+		res := bTree.BTreeGetOne(tree, integerBytes)
+		if res == nil {
+			tmp := binary.BigEndian.Uint32(res.Key)
+			t.Errorf("Did not find a value for %d\n", tmp)
+		}
+	}
 }
 
 func TestFileMapping(t *testing.T) {
@@ -156,9 +166,10 @@ func TestFileMapping(t *testing.T) {
 	tree = helper.CreateFakeDbPagesForMapping(t, tree)
 
 	mapped := bTree.MapAllLeavesToArray(tree)
+	expectedPages := []uint64{4, 5, 6, 7, 8, 9}
 	for i := 0; i < len(mapped); i++ {
 
-		if i+4 != int(mapped[i].TreeNode) {
+		if expectedPages[i] != (mapped[i].TreeNode) {
 			t.Errorf("Mapped leaves equal %d Should be %d\n", mapped[i].TreeNode, i+4)
 		}
 
