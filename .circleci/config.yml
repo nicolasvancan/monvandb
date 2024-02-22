@@ -24,9 +24,11 @@ jobs:
             - /home/circleci/go/pkg/mod
       - run:
           name: Run tests
-          command: gotestsum --junitfile junit.xml
-      - store_test_results:
-          path: junit.xml
+          command: go test -timeout 30s -v ./... > coverage.txt
+      - store_artifacts:
+          path: coverage.txt
+          destination: coverage
+
   build-go-executables:
     # Build go executables and store them as artifacts
     docker:

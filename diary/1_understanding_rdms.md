@@ -1,12 +1,12 @@
 # First Step Understanding what is a rdms
 
-When I decided that I wanted to build my own database from scratch, a lot of doubts emerged, including this principal one: What is in fact a Database?
+When I decided that I wanted to build my own database from scratch, a lot of doubts emerged, including this basic one: What is in fact a Database?
 
-So I ran looking for projects, files, documents, that could describe how databases are normally built. Unfortunately, some of them are kind of a Black Box, and others open projects were to complex to have a basic understanding rapidly. Nontheless I could find some usefull articles and resumed ideas of what a database idea is and some start points for what I wanted to build.
+So I ran looking for projects, files, documents, that could describe how databases are normally built. Unfortunately, some of them are kind of a Black Box, and others open projects were to complex to have a basic understanding rapidly. Nontheless, I could find some usefull articles and resumed ideas of what a database idea is and some start points for what I wanted to build.
 
 I took a look into SQLite projects, which gave me a good idea about what is the purpous of a database and some overviews about architectural software implementations. For those who may be interested in reading it, the link to the documentations follows in [link](https://www.sqlite.org/docs.html). The source code of the project can be found [here](https://github.com/sqlite/sqlite/tree/master).
 
-Behind almost every single rdms database there is a efficient Data Structure, used to perform fast searches through indexed data. B-Tree and B+Tree are often used as databases those data structures. Clearly it's just a small part of a Big Project, but we must start small to get big. Indexes, tables, Views, Commands, Cache, and many other features will be further covered as soon I advance and create 
+Behind almost every single rdms database there is a efficient Data Structure, used to perform fast searches through indexed data. B-Tree and B+Tree are often used as databases those data structures. Clearly it's just a small part of a Big Project, but we must start small to get big. Indexes, tables, Views, Commands, Cache, and many other features will be further covered as soon as I advance and create basic features.
 
 In this first section I'm going to understand deeply how does a B-Tree work and how it is dumped, read, updated, to a database file using OS FileSystem. The main objective of the initials commits and the first generated tag is to undestand some main concepts of the B-Tree data structure, how to work with files containing that data, and build up the core methodes to work with this data.
 
