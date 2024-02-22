@@ -67,7 +67,7 @@ jobs:
 workflows:
   build-and-test:
     jobs:
-      - test-go:
+      - test-go
       - build-go-executables:
           filters:
             branches:
@@ -76,11 +76,11 @@ workflows:
                 - develop
           requires:
             - test-go
-     - deploy:
+      - deploy:
           filters:
             branches:
               only:
                 - master
                 - develop
-         requires:
+          requires:
            - build-go-executables
