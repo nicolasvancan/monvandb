@@ -33,7 +33,12 @@ func startsNewBTree(bTree *BTree, key []byte, value []byte) {
 func createRootNodeAndInsertLeaves(bTree *BTree, treeLeaves []TreeNodePage) {
 	newRoot := NewNodeNode()
 	for i := 0; i < len(treeLeaves); i++ {
-		newRoot.PutNodeNewChild(treeLeaves[i].node.GetLeafKeyValueByIndex(0).GetKey(), treeLeaves[i].page)
+		if treeLeaves[i].node.GetType() == TREE_LEAF {
+			newRoot.PutNodeNewChild(treeLeaves[i].node.GetLeafKeyValueByIndex(0).GetKey(), treeLeaves[i].page)
+		} else {
+			newRoot.PutNodeNewChild(treeLeaves[i].node.GetNodeChildByIndex(0).GetKey(), treeLeaves[i].page)
+		}
+
 	}
 
 	setParentAddr(newRoot, 0) // Root
@@ -218,7 +223,7 @@ func getAllBytesFromSequences(bTree *BTree, node TreeNode) []byte {
 	return value
 }
 
-func insertOneLeafKeyAndReorderTree(bTree *BTree, tPage TreeNodePage, SeqPage TreeNodePage, history []TreeNodePage) {
+func insertOneKeyLeafAndReorderTree(bTree *BTree, tPage TreeNodePage, SeqPage TreeNodePage, history []TreeNodePage) {
 
 	if len(history) == 0 { // Case first node is a leaf node
 		createRootNodeAndInsertLeaves(bTree, []TreeNodePage{tPage, SeqPage})
@@ -228,10 +233,47 @@ func insertOneLeafKeyAndReorderTree(bTree *BTree, tPage TreeNodePage, SeqPage Tr
 	parentNode := history[len(history)-1]
 	// Verify if must split node
 	keyLen := SeqPage.node.GetLeafKeyValueByIndex(0).GetKeyLen()
+	// If the parent key must be splitted we must create a new node and insert it into parent
 	if mustSplitNode(bTree, parentNode.node, int(keyLen), 8) {
-
+		splitParentNodeRecursivellyAndReorderTreeIfNeeded(bTree, SeqPage, history)
+		return
 	}
 
+	// Set parent addr
+	parentNode.node.PutNodeNewChild(SeqPage.node.GetLeafKeyValueByIndex(0).GetKey(), SeqPage.page)
+	// Set parent into bTree
+	bTree.Set(parentNode.node, parentNode.page)
+}
+
+func splitParentNodeRecursivellyAndReorderTreeIfNeeded(bTree *BTree, SeqPage TreeNodePage, history []TreeNodePage) {
+
+	var key []byte = nil
+
+	if SeqPage.node.GetType() == TREE_LEAF {
+		key = SeqPage.node.GetLeafKeyValueByIndex(0).GetKey()
+	} else {
+		key = SeqPage.node.GetNodeChildByIndex(0).GetKey()
+	}
+
+	parentNode := history[len(history)-1]
+	// If the parent key must be splitted we must create a new node and insert it into parent
+	splittedNode := parentNode.node.SplitNode(key, SeqPage.page)
+	newPage := bTree.New(splittedNode[1])
+	// Verify whether parent is root
+	if parentNode.page == bTree.GetRoot() {
+		createRootNodeAndInsertLeaves(bTree, []TreeNodePage{{node: splittedNode[0], page: parentNode.page}, {node: splittedNode[1], page: newPage}})
+		return
+	}
+
+	if len(history)-2 > 0 {
+		if mustSplitNode(bTree, history[len(history)-2].node, len(key), 8) {
+			splitParentNodeRecursivellyAndReorderTreeIfNeeded(bTree, TreeNodePage{node: splittedNode[0], page: parentNode.page}, history[:len(history)-1])
+			return
+		}
+	}
+
+	parentNode.node.PutNodeNewChild(key, SeqPage.page)
+	bTree.Set(parentNode.node, parentNode.page)
 }
 
 func createLeafAndSequencesForLargeBytes(bTree *BTree, key []byte, value []byte) *TreeNodePage {

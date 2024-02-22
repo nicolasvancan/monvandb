@@ -241,8 +241,8 @@ func insertAndReorderTree(bTree *BTree, tPage TreeNodePage, history []TreeNodePa
 		if (keyLen + valueLen + 10) > PAGE_SIZE-26 { // 26 is header size for leaf
 			// Special case
 			fmt.Println("DEBUG::insertAndReorderTree > Special case where there must be a linked list to suport one unique item")
-			//leaf := createLeafAndSequencesForLargeBytes(bTree, key, value)
-
+			leaf := createLeafAndSequencesForLargeBytes(bTree, key, value)
+			insertOneKeyLeafAndReorderTree(bTree, tPage, *leaf, history)
 		} else {
 			// Verify whether the leaf if the last one by comparing he page number
 			lastLeaf, _ := findLastLeaf(bTree)
