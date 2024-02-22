@@ -22,12 +22,21 @@ func fillUpLeafUntilItSplits(btree *bTree.BTree) {
 	}
 }
 
-func fillUpLeafWithNumericValuesUntilItSplits(btree *bTree.BTree) {
-	for i := 1; i <= 10000; i++ {
+func fillUpLeafWithNumericValuesUntilItSplits(btree *bTree.BTree, number int, offset int) {
+	for i := 1 + offset; i <= number+offset; i++ {
 		// I'm going to use little endian 32 bits so 4 bytes
 		integerBytes := make([]byte, 4)
 		binary.BigEndian.PutUint32(integerBytes, uint32(i))
 		bTree.BTreeInsert(btree, integerBytes, []byte(string("teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_"+strconv.Itoa(i))))
+	}
+}
+
+func fillUpLeavesWith16kvalues(btree *bTree.BTree, number int, offset int) {
+	for i := 1 + offset; i <= number+offset; i++ {
+		// I'm going to use little endian 32 bits so 4 bytes
+		integerBytes := make([]byte, 4)
+		binary.BigEndian.PutUint32(integerBytes, uint32(i))
+		bTree.BTreeInsert(btree, integerBytes, createValueOf16kLen())
 	}
 }
 
@@ -144,7 +153,7 @@ func TestInsertMultipleLinesForLargeInt(t *testing.T) {
 	t.Log("Loading bTree to be used")
 	tree := helper.LoadBTreeFromPath(t, dbFilePath)
 	// Fillup with sequencial bytes
-	fillUpLeafWithNumericValuesUntilItSplits(tree)
+	fillUpLeafWithNumericValuesUntilItSplits(tree, 10000, 0)
 
 	for i := 1; i <= 10000; i++ {
 		integerBytes := make([]byte, 4)
@@ -154,6 +163,45 @@ func TestInsertMultipleLinesForLargeInt(t *testing.T) {
 			tmp := binary.BigEndian.Uint32(res.Key)
 			t.Errorf("Did not find a value for %d\n", tmp)
 		}
+	}
+}
+
+func TestInsertMultipleLinesWithOneLeafSequence(t *testing.T) {
+	// We insert multiple lines until it splits into two different leaves
+	t.Log("Starting Test simple bTree Insertion")
+	dbFilePath := setupTests(t)
+	// Load bTree
+	t.Log("Loading bTree to be used")
+	tree := helper.LoadBTreeFromPath(t, dbFilePath)
+	// Fillup with sequencial bytes
+	fillUpLeafWithNumericValuesUntilItSplits(tree, 250, 0)
+	key := make([]byte, 4)
+	binary.BigEndian.PutUint32(key, uint32(251))
+	value := createValueOf16kLen()
+
+	bTree.BTreeInsert(tree, key, value)
+	res := bTree.BTreeGetOne(tree, key)
+	if res == nil {
+		t.Errorf("Did not find a value for %d\n", 4)
+	}
+}
+
+func TestInsertMultipleLinesWithMultipleOneLeafSequence(t *testing.T) {
+	// We insert multiple lines until it splits into two different leaves
+	t.Log("Starting Test simple bTree Insertion")
+	dbFilePath := setupTests(t)
+	// Load bTree
+	t.Log("Loading bTree to be used")
+	tree := helper.LoadBTreeFromPath(t, dbFilePath)
+	// Fillup with sequencial bytes
+	fillUpLeafWithNumericValuesUntilItSplits(tree, 250, 0)
+	key := make([]byte, 4)
+	binary.BigEndian.PutUint32(key, uint32(252))
+	fillUpLeavesWith16kvalues(tree, 200, 251)
+
+	res := bTree.BTreeGetOne(tree, key)
+	if res == nil {
+		t.Errorf("Did not find a value for %s\n", key)
 	}
 }
 
