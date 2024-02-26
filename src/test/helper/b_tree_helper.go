@@ -37,7 +37,9 @@ func getPage(page uint64) bTree.TreeNode {
 	if err != nil {
 		fmt.Println(err)
 	}
-	return *bTree.LoadTreeNode(data)
+	tmp := make([]byte, len(data))
+	copy(tmp, data)
+	return *bTree.LoadTreeNode(tmp)
 }
 
 func setPage(node bTree.TreeNode, page uint64) bool {

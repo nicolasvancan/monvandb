@@ -302,7 +302,7 @@ func TestCreateLeafSequence(t *testing.T) {
 		finalBytes = append(finalBytes, te...)
 	}
 
-	if bytes.Compare(finalBytes, initialBytes) != 0 {
+	if !bytes.Equal(finalBytes, initialBytes) {
 		t.Error("Bytes should be the same")
 	}
 
@@ -310,4 +310,24 @@ func TestCreateLeafSequence(t *testing.T) {
 		t.Error("Bytes len should be the same")
 	}
 
+}
+
+func TestLeafDeletionByKey(t *testing.T) {
+	// Create Node
+	node := fillUpNode("leaf")
+	firstItem := node.GetLeafKeyValueByIndex(0)
+	if !bytes.Equal(firstItem.GetKey(), []byte("0")) {
+		t.Logf("Should be 0")
+	}
+
+	//Delete Value
+	node.DeleteLeafKeyValueByKey([]byte("0"))
+	// Get values to evaluate
+
+	firstItem = node.GetLeafKeyValueByIndex(0)
+	if !bytes.Equal(firstItem.GetValue(), []byte("1teste")) {
+		t.Error("Should be 6")
+	}
+
+	node.DeleteLeafKeyValueByKey([]byte("1"))
 }
