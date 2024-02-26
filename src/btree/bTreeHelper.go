@@ -100,6 +100,10 @@ func findLeaf(bTree *BTree, node TreeNode, key []byte, page uint64, history []Tr
 	// Means it has reached some leaf
 	if node.GetType() == TREE_NODE {
 		// Tries to find Leaf through Internal Node
+		if node.GetNItens() == 0 {
+			return nil, nil
+		}
+
 		if idx := lookupKey(node, key); idx > -1 {
 			// Get keyAddress from it
 			nodeKeyAddr := node.GetNodeChildByIndex(idx)
@@ -301,7 +305,7 @@ func createLeafAndSequencesForLargeBytes(bTree *BTree, key []byte, value []byte)
 	return r
 }
 
-/* Verify whether leaf should be splited*/
+/* Verify whether leaf should be splitted*/
 func mustSplitNode(bTree *BTree, node TreeNode, keyLen int, valueLen int) bool {
 	freeBytes := GetFreeBytes(&node)
 	totalNewBytes := keyLen + valueLen
@@ -349,4 +353,59 @@ func lookupKey(node TreeNode, key []byte) int {
 		}
 	}
 	return found
+}
+
+func DeleteKeyValueInLeafAndUpdateNodesRecursivelly(bTree *BTree, key []byte, tPage TreeNodePage, history []TreeNodePage) {
+	tmp := tPage.node.GetLeafKeyValueByIndex(0).GetKey()
+	firstKeyBeforeDelete := make([]byte, len(tmp))
+	copy(firstKeyBeforeDelete, tmp)
+	tPage.node.DeleteLeafKeyValueByKey(key)
+	nItensAfterDeletion := tPage.node.GetNItens()
+	firstkeyAfterDeletion := make([]byte, 0)
+
+	if nItensAfterDeletion > uint16(0) {
+		firstkeyAfterDeletion = tPage.node.GetLeafKeyValueByIndex(0).GetKey()
+	}
+
+	hasFirstKeyChanged := !bytes.Equal(firstKeyBeforeDelete, firstkeyAfterDeletion)
+	fmt.Printf("First key before deletion %s\n", firstKeyBeforeDelete)
+	fmt.Printf("First key after deletion %s\n", firstkeyAfterDeletion)
+
+	tmpPage := tPage.page
+	bTree.Set(tPage.node, tPage.page)
+
+	// Single leaf deletion, no need to update parents
+	if !hasFirstKeyChanged && nItensAfterDeletion > 0 {
+		fmt.Println("Updated Leaf Only")
+		return
+	}
+
+	if tPage.page == bTree.GetRoot() {
+		fmt.Println("Root Page Update")
+		// If it is the root, we must update the root
+		if nItensAfterDeletion == 0 {
+			fmt.Println("Root Page Update with 0 itens")
+			bTree.SetRoot(0)
+			bTree.SetHeader(*bTree)
+		}
+		return
+	}
+
+	// If it is the first key, we must update all parents
+	fmt.Println("Updated Leaf and Parents")
+	for i := len(history) - 1; i >= 0; i-- {
+		node := history[i].node
+		page := history[i].page
+		// print first key addr for node
+		fmt.Println("Node Before Delete --------------------")
+		node.PrintNode()
+		node.DeleteNodeChildrenByKey(firstKeyBeforeDelete)
+		fmt.Println("Node After Delete --------------------")
+		if hasFirstKeyChanged && len(firstkeyAfterDeletion) > 0 {
+			node.PutNodeNewChild(firstkeyAfterDeletion, tmpPage)
+		}
+		node.PrintNode()
+		bTree.Set(node, page)
+		tmpPage = page
+	}
 }
