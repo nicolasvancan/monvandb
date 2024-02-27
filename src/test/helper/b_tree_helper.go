@@ -45,7 +45,7 @@ func getPage(page uint64) bTree.TreeNode {
 func setPage(node bTree.TreeNode, page uint64) bool {
 	_, err := Fp.WriteAt(node.GetBytes(), int64(page*bTree.PAGE_SIZE))
 	if err != nil {
-		fmt.Errorf("Error writing page %d\nError = %w\n", page, err)
+		fmt.Println(fmt.Errorf("could not write to page %d", page))
 		return false
 	}
 
@@ -58,7 +58,7 @@ func newPage(node bTree.TreeNode) uint64 {
 	fileInfo, err := Fp.Stat()
 
 	if err != nil {
-		fmt.Errorf("Could not write fileInfo %w\n", err)
+		panic(err)
 	}
 
 	// Without header

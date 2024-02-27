@@ -3,7 +3,6 @@ package btree
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 )
 
 const PAGE_SIZE = 4096
@@ -112,7 +111,6 @@ func shiftValuesBetweenLeaves(bTree *BTree, tPage TreeNodePage, history []TreeNo
 	parentAddr := tPage.node.GetParentAddr()
 	// check if parent is not zero, indicating that there is a node above it
 	if len(history) == 0 {
-		fmt.Println("DEBUG::Shifting key parentAddr = 0")
 		splitBackyardsRecursively(
 			bTree,
 			tPage,
@@ -163,7 +161,6 @@ func shiftValuesBetweenLeaves(bTree *BTree, tPage TreeNodePage, history []TreeNo
 
 		TODO: Explain better*/
 
-		fmt.Printf("DEBUG::Right leaf value = %s\n", keyValuesToBeReinserted[i].GetKey())
 		indexOfLeaf := 0
 
 		isLastIndex := false
@@ -171,13 +168,10 @@ func shiftValuesBetweenLeaves(bTree *BTree, tPage TreeNodePage, history []TreeNo
 			isLastIndex = true
 		}
 
-		fmt.Printf("DEBUG::Next leaf index = %d\n", indexOfLeaf)
 		// Get next leaf
 		nextLeafAddress := mappedLeaves[indexOfLeaf].TreeNode
 		nextLeaf := bTree.Get(nextLeafAddress)
-		fmt.Printf("DEBUG::Next leaf Addrress = %d\n", nextLeafAddress)
 		if !isLastIndex {
-			fmt.Println("DEBUG::Not last index")
 			// Call this function recursivelly for the next ordered leaf
 			shiftValuesBetweenLeaves(
 				bTree,
@@ -189,8 +183,7 @@ func shiftValuesBetweenLeaves(bTree *BTree, tPage TreeNodePage, history []TreeNo
 			continue
 		}
 		// If it's the last index call the other one
-		fmt.Println("DEBUG::LAST index")
-		if !mustSplitNode(bTree, nextLeaf, len(keyValuesToBeReinserted[i].GetKey()), len(keyValuesToBeReinserted[i].GetValue())) {
+		if !mustSplitNode(nextLeaf, len(keyValuesToBeReinserted[i].GetKey()), len(keyValuesToBeReinserted[i].GetValue())) {
 			// Get first key from next leaf
 			nextLeafFirstKey := nextLeaf.GetLeafKeyValueByIndex(0).GetKey()
 			nextLeaf.PutLeafNewKeyValue(keyValuesToBeReinserted[i].GetKey(), keyValuesToBeReinserted[i].GetValue())
@@ -237,10 +230,9 @@ func insertAndReorderTree(bTree *BTree, tPage TreeNodePage, history []TreeNodePa
 	valueLen := len(value)
 
 	// There is overflow in page, must split it or shfit values (when inserting unsorted data)
-	if mustSplitNode(bTree, tPage.node, keyLen, valueLen) {
+	if mustSplitNode(tPage.node, keyLen, valueLen) {
 		if (keyLen + valueLen + 10) > PAGE_SIZE-26 { // 26 is header size for leaf
 			// Special case
-			fmt.Println("DEBUG::insertAndReorderTree > Special case where there must be a linked list to suport one unique item")
 			leaf := createLeafAndSequencesForLargeBytes(bTree, key, value)
 			insertOneKeyLeafAndReorderTree(bTree, tPage, *leaf, history)
 		} else {
@@ -248,18 +240,15 @@ func insertAndReorderTree(bTree *BTree, tPage TreeNodePage, history []TreeNodePa
 			lastLeaf, _ := findLastLeaf(bTree)
 
 			if lastLeaf.page == tPage.page {
-				fmt.Println("DEBUG::insertAndReorderTree > LAST LEAF")
 				// Last leaf split's backyards Node Recursivelly
 				splitBackyardsRecursively(bTree, tPage, history, key, value)
 				return
 			}
-			fmt.Println("DEBUG::insertAndReorderTree > Shift Values")
 			shiftValuesBetweenLeaves(bTree, tPage, history, key, value)
 		}
 		return
 	}
 
-	fmt.Printf("DEBUG::Inserted at Leaf of page %d\n", tPage.page)
 	tPage.node.PutLeafNewKeyValue(key, value)
 	bTree.Set(tPage.node, tPage.page)
 }
@@ -273,61 +262,47 @@ func insertNodesRecursivelly(
 	// Get nodeToInsert, it will never happen when there is an empty history, so we can do it
 	nodeToInsert := history[len(history)-1]
 	for o := 0; o < len(history); o++ {
-		fmt.Printf("DEBUG::insertNodesRecursivelly::History Page %d index %d\n", history[o].page, o)
 	}
 	// New pages always come divided into 2 pieces
 	newPageOne := newPages[0]
 	newPageTwo := newPages[1]
 
 	var totalKeyLen int
-	fmt.Printf("DEBUG::insertNodesRecursivelly::Deleting Page %d reference from node\n", oldPage.page)
 	// Remove oldPage reference from node that will receive new pages
 	nodeToInsert.node.DeleteNodeChildrenByAddress(oldPage.page)
-	fmt.Printf("DEBUG::insertNodesRecursivelly::Deleted page %d\n", oldPage.page)
 
 	// Get total key length that will be added to nodeToInsert
 	if newPageOne.node.GetType() == TREE_LEAF {
-		fmt.Println("DEBUG::insertNodesRecursivelly::TREE_LEAF")
 		totalKeyLen = (len(newPageOne.node.GetLeafKeyValueByIndex(0).key) +
 			len(newPageTwo.node.GetLeafKeyValueByIndex(0).key) + 10) // Added 10 to fit two new records into mustSplitNode
 	} else {
-		fmt.Println("DEBUG::insertNodesRecursivelly::TREE_NODE")
 		totalKeyLen = (len(newPageOne.node.GetNodeChildByIndex(0).key) +
 			len(newPageTwo.node.GetNodeChildByIndex(0).key) + 10)
 	}
 
 	// verify whether or not the node must be splitted
-	if mustSplitNode(bTree, nodeToInsert.node, totalKeyLen, 8) {
-		fmt.Println("DEBUG::insertNodesRecursivelly::mustSplitNode")
+	if mustSplitNode(nodeToInsert.node, totalKeyLen, 8) {
 		// We verify if value can be shifted to another existing leaf or we really need to create another leaf
 		var splittedNode []TreeNode = nil
 		ourInsertion := 1
 		if newPageOne.node.GetType() == TREE_LEAF {
 			// Leaf case (This is duplicated code unfortunatelly) must remake this
-			fmt.Println("DEBUG::insertNodesRecursivelly::mustSplitNode::TREE_LEAF")
 			splittedNode = nodeToInsert.node.SplitNode(newPageOne.node.GetLeafKeyValueByIndex(0).key, newPageOne.page)
-			fmt.Println("DEBUG::insertNodesRecursivelly::mustSplitNode::TREE_LEAF:1")
 			// Where is our insertion?
 			if splittedNode[0].GetNodeChildByKey(newPageOne.node.GetLeafKeyValueByIndex(0).key) != nil {
-				fmt.Println("DEBUG::insertNodesRecursivelly::mustSplitNode::TREE_LEAF:2")
 				ourInsertion = 0
 			}
 
-			fmt.Println("DEBUG::insertNodesRecursivelly::mustSplitNode::TREE_LEAF:3")
 			// Our insertion is sorted, therefore we must insert the second new node into the second splitted node
 			splittedNode[1].PutNodeNewChild(newPageTwo.node.GetLeafKeyValueByIndex(0).key, newPageTwo.page)
 
 		} else {
-			fmt.Println("DEBUG::insertNodesRecursivelly::mustSplitNode::TREE_NODE")
 			splittedNode = nodeToInsert.node.SplitNode(newPageOne.node.GetNodeChildByIndex(0).key, newPageOne.page)
-			fmt.Println("DEBUG::insertNodesRecursivelly::mustSplitNode::TREE_NODE:1")
 			// Where is our insertion?
 			if splittedNode[0].GetNodeChildByKey(newPageOne.node.GetNodeChildByIndex(0).key) != nil {
-				fmt.Println("DEBUG::insertNodesRecursivelly::mustSplitNode::TREE_NODE:2")
 				ourInsertion = 0
 			}
 
-			fmt.Println("DEBUG::insertNodesRecursivelly::mustSplitNode::TREE_NODE:2")
 			// Our insertion is sorted, therefore we must insert the second new node into the second splitted node
 			splittedNode[1].PutNodeNewChild(newPageTwo.node.GetNodeChildByIndex(0).key, newPageTwo.page)
 		}
@@ -383,12 +358,9 @@ func insertNodesRecursivelly(
 	} else {
 
 		if newPageOne.node.GetType() == TREE_LEAF {
-			fmt.Println("DEBUG::Did not need to split Node node")
 			nodeToInsert.node.PutNodeNewChild(newPageOne.node.GetLeafKeyValueByIndex(0).key, newPageOne.page)
 			nodeToInsert.node.PutNodeNewChild(newPageTwo.node.GetLeafKeyValueByIndex(0).key, newPageTwo.page)
 		} else {
-
-			fmt.Println("DEBUG::Did not need to split Node node")
 			nodeToInsert.node.PutNodeNewChild(newPageOne.node.GetNodeChildByIndex(0).key, newPageOne.page)
 			nodeToInsert.node.PutNodeNewChild(newPageTwo.node.GetNodeChildByIndex(0).key, newPageTwo.page)
 		}
@@ -416,12 +388,10 @@ func splitBackyardsRecursively(
 	key []byte,
 	value []byte,
 ) {
-	fmt.Println("DEBUG::splitBackyardsRecursively")
 	// If it came to here, at least a leaf must be split
 	splittedLeaf := tPage.node.SplitLeaf(key, value)
 	// Means that this leaf is directly linked to the root
 	if len(history) == 0 {
-		fmt.Println("DEBUG::splitBackyardsRecursively history length = 0")
 		newInternalNode := NewNodeNode()
 		setParentAddr(newInternalNode, 0)
 		newNodeAddress := bTree.New(*newInternalNode)
@@ -459,7 +429,6 @@ func splitBackyardsRecursively(
 		}
 	}
 
-	fmt.Println("DEBUG:: About to insertNodeRecursivelly")
 	// Insert into node recursivelly
 	insertNodesRecursivelly(bTree, tPage, newLeavesPages, history)
 }
@@ -482,9 +451,6 @@ func BTreeInsert(bTree *BTree, key []byte, value []byte) {
 
 	// Get node from page
 	rootNode := bTree.Get(root)
-	fmt.Printf("DEBUG::BTreeInsert::ROOT > N Itens %d and page %d\n", rootNode.GetNItens(), root)
-	fmt.Printf("DEBUG::BTreeInsert::ROOT Bytes %d\n", GetFreeBytes(&rootNode))
-	fmt.Printf("DEBUG::BTreeInsert::ROOT Type %d\n\n\n", rootNode.GetType())
 
 	// Find leaf to insert value
 	leafToInsert, history := findLeaf(bTree, rootNode, key, root, make([]TreeNodePage, 0))
@@ -497,7 +463,6 @@ func BTreeInsert(bTree *BTree, key []byte, value []byte) {
 		leafToInsert, history = findFirstLeaf(bTree)
 	}
 
-	fmt.Printf("DEBUG::LEAF FOUND AT PAGE %d with %d Items \n", leafToInsert.page, leafToInsert.node.GetNItens())
 	// Verify whether leaf must be splitted
 	insertAndReorderTree(bTree, *leafToInsert, history, key, value)
 }
@@ -511,7 +476,6 @@ func BTreeDelete(bTree *BTree, key []byte) {
 	if leaf == nil {
 		return
 	}
-	fmt.Printf("DEBUG::BTreeDelete::Leaf found at page %d\n", leaf.page)
 
 	DeleteKeyValueInLeafAndUpdateNodesRecursivelly(bTree, key, *leaf, history)
 }
@@ -547,9 +511,7 @@ func BTreeGetOne(bTree *BTree, key []byte) *BTreeKeyValue {
 	rootAddr := bTree.GetRoot()
 	rootPage := bTree.Get(rootAddr)
 	// Lookup tree to find
-	fmt.Println("DEBUG::BTreeGetOne:: Before Leaf found")
 	leaf, _ := findLeaf(bTree, rootPage, key, rootAddr, make([]TreeNodePage, 0))
-	fmt.Println("DEBUG::BTreeGetOne::Leaf found")
 	if leaf == nil {
 		return nil
 	}
@@ -583,8 +545,6 @@ func BTreeGet(bTree *BTree, key []byte) []BTreeKeyValue {
 	/* if leavesFound is empty, and history is also empty, means that the root page is a Leaf.
 	Therefore, we induce that there might be a key in root page
 	*/
-	fmt.Println("LeavesFound")
-	fmt.Println(leavesFound)
 	if len(leavesFound) == 0 && len(history) == 0 {
 		// Get all key values from root page
 		leavesFound = append(leavesFound, TreeNodePage{node: rootPage, page: rootAddr})
@@ -593,12 +553,9 @@ func BTreeGet(bTree *BTree, key []byte) []BTreeKeyValue {
 	if leavesFound != nil {
 		for i := 0; i < len(leavesFound); i++ {
 			allLeafValues := getAllLeafKeyValues(&leavesFound[i].node)
-			fmt.Println("Dentro do primeiro for")
 
 			for j := 0; j < len(allLeafValues); j++ {
-				fmt.Println("Dentro do segundo for")
 				if bytes.Equal(allLeafValues[j].key, key) {
-					fmt.Println("Dentro é igual")
 					// Found key
 					keyValue := new(BTreeKeyValue)
 					keyValue.Key = allLeafValues[j].GetKey()
@@ -608,7 +565,6 @@ func BTreeGet(bTree *BTree, key []byte) []BTreeKeyValue {
 						keyValue.Value = getAllBytesFromSequences(bTree, leavesFound[j].node)
 					}
 					keyValues = append(keyValues, *keyValue)
-					fmt.Println("Depois do append")
 				}
 			}
 		}

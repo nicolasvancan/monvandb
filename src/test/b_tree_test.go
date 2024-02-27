@@ -110,7 +110,7 @@ func TestSimpleBTreeInsertion(t *testing.T) {
 	node := tree.Get(1)
 	kval := node.GetLeafKeyValueByIndex(0)
 
-	if bytes.Compare(kval.GetKey(), []byte("1")) != 0 {
+	if !bytes.Equal(kval.GetKey(), []byte("1")) {
 		t.Errorf("Bytes are not equivalent expected string('1'), found string('%s')", kval.GetKey())
 	}
 }
@@ -140,7 +140,7 @@ func TestInsertMultipleLines(t *testing.T) {
 		keyValue := bTree.BTreeGetOne(tree, []byte(strconv.Itoa(i)))
 
 		if keyValue == nil {
-			t.Errorf("Should have found the key %s\n", keyValue.Key)
+			t.Errorf("Should have found the key %d\n", i)
 		}
 	}
 }
@@ -160,7 +160,7 @@ func TestInsertMultipleLinesForLargeInt(t *testing.T) {
 		binary.BigEndian.PutUint32(integerBytes, uint32(i))
 		res := bTree.BTreeGetOne(tree, integerBytes)
 		if res == nil {
-			tmp := binary.BigEndian.Uint32(res.Key)
+			tmp := binary.BigEndian.Uint32(integerBytes)
 			t.Errorf("Did not find a value for %d\n", tmp)
 		}
 	}
@@ -247,7 +247,7 @@ func TestDeletionOfAnElementFromRootLeafAndTryInsertingAnotherOne(t *testing.T) 
 	res = bTree.BTreeGetOne(tree, []byte("4"))
 
 	if res == nil {
-		t.Errorf("Should have found a value for %s\n", res.Key)
+		t.Errorf("Should have found a value for key []byte('4')")
 	}
 
 }

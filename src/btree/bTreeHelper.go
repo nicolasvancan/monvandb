@@ -2,7 +2,6 @@ package btree
 
 import (
 	"bytes"
-	"fmt"
 )
 
 // This structure is used to map all leaves and history from bTree
@@ -125,16 +124,12 @@ func findLeaves(bTree *BTree, node TreeNode, key []byte, page uint64, history []
 	// Means it has reached some leaf
 	if node.GetType() == TREE_NODE {
 		// Tries to find Leaf through Internal Node
-		fmt.Println("findLeaves:: Node is a TREE_NODE")
 		if node.GetNItens() == 0 {
-			fmt.Println("findLeaves:: NItens = 0")
 			return nil, nil
 		}
 
 		if idx := lookupKeys(node, key); len(idx) > 0 {
-			fmt.Println("findLeaves:: Found index for key")
 			for i := 0; i < len(idx); i++ {
-				fmt.Printf("LookupKeys, found index %d\n", idx[i])
 				nodeKeyAddr := node.GetNodeChildByIndex(idx[i])
 				// Reach out the address from bTree file
 				tmpNode := bTree.Get(nodeKeyAddr.addr)
@@ -274,7 +269,7 @@ func insertOneKeyLeafAndReorderTree(bTree *BTree, tPage TreeNodePage, SeqPage Tr
 	// Verify if must split node
 	keyLen := SeqPage.node.GetLeafKeyValueByIndex(0).GetKeyLen()
 	// If the parent key must be splitted we must create a new node and insert it into parent
-	if mustSplitNode(bTree, parentNode.node, int(keyLen), 8) {
+	if mustSplitNode(parentNode.node, int(keyLen), 8) {
 		splitParentNodeRecursivellyAndReorderTreeIfNeeded(bTree, SeqPage, history)
 		return
 	}
@@ -306,7 +301,7 @@ func splitParentNodeRecursivellyAndReorderTreeIfNeeded(bTree *BTree, SeqPage Tre
 	}
 
 	if len(history)-2 > 0 {
-		if mustSplitNode(bTree, history[len(history)-2].node, len(key), 8) {
+		if mustSplitNode(history[len(history)-2].node, len(key), 8) {
 			splitParentNodeRecursivellyAndReorderTreeIfNeeded(bTree, TreeNodePage{node: splittedNode[0], page: parentNode.page}, history[:len(history)-1])
 			return
 		}
@@ -342,7 +337,7 @@ func createLeafAndSequencesForLargeBytes(bTree *BTree, key []byte, value []byte)
 }
 
 /* Verify whether leaf should be splitted*/
-func mustSplitNode(bTree *BTree, node TreeNode, keyLen int, valueLen int) bool {
+func mustSplitNode(node TreeNode, keyLen int, valueLen int) bool {
 	freeBytes := GetFreeBytes(&node)
 	totalNewBytes := keyLen + valueLen
 	/* If it is TREE_NODE, it has fixed value length of 8 bytes and 2 bytes of

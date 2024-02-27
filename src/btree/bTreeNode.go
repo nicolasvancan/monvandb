@@ -346,7 +346,6 @@ func (n *TreeNode) DeleteNodeChildrenByKey(key []byte) {
 	allNodeKeyAddr := getAllNodeKeyAddr(n)
 	tmp := NewNodeNode()
 	setParentAddr(tmp, n.GetParentAddr())
-	fmt.Printf("DeleteNodeChildrenByKey Deleting key %s\n", key)
 	for i := 0; i < len(allNodeKeyAddr); i++ {
 		if bytes.Equal(allNodeKeyAddr[i].key, key) {
 			continue
@@ -632,7 +631,6 @@ func (n *TreeNode) SplitLeaf(key []byte, value []byte) []TreeNode {
 		return r
 	}
 
-	fmt.Printf("DEBUG::SplitLeaf key = %s, value %s\n", key, value)
 	// Get all leaf members
 	allLeafMembers := getAllLeafKeyValues(n)
 	// Append new member
@@ -723,7 +721,6 @@ func CreateLeafWithSequence(key []byte, value []byte) (*TreeNode, []TreeNode) {
 	*/
 	valueBytesForFirstLeaf := PAGE_SIZE - LEAF_VAL_START_OFFSET - LEAF_KEY_LEN_LEN - len(key) - LEAF_VAL_LEN_LEN
 	numberOfLeaves := (valueLen - valueBytesForFirstLeaf) / LEAF_SEQ_FREE_BYTES_SIZE
-	fmt.Printf("Len for value first leaf %d\n", valueBytesForFirstLeaf)
 	if (valueLen-valueBytesForFirstLeaf)%LEAF_SEQ_FREE_BYTES_SIZE != 0 {
 		numberOfLeaves += 1
 	}
