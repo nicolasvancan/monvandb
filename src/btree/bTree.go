@@ -571,3 +571,48 @@ func BTreeGetOne(bTree *BTree, key []byte) *BTreeKeyValue {
 
 	return keyValue
 }
+
+func BTreeGet(bTree *BTree, key []byte) []BTreeKeyValue {
+	// Create empty array
+	var keyValues []BTreeKeyValue = make([]BTreeKeyValue, 0)
+	// Load root page
+	rootAddr := bTree.GetRoot()
+	rootPage := bTree.Get(rootAddr)
+	// Lookup tree to find many keys values if they exist
+	leavesFound, history := findLeaves(bTree, rootPage, key, rootAddr, make([]TreeNodePage, 0))
+	/* if leavesFound is empty, and history is also empty, means that the root page is a Leaf.
+	Therefore, we induce that there might be a key in root page
+	*/
+	fmt.Println("LeavesFound")
+	fmt.Println(leavesFound)
+	if len(leavesFound) == 0 && len(history) == 0 {
+		// Get all key values from root page
+		leavesFound = append(leavesFound, TreeNodePage{node: rootPage, page: rootAddr})
+	}
+
+	if leavesFound != nil {
+		for i := 0; i < len(leavesFound); i++ {
+			allLeafValues := getAllLeafKeyValues(&leavesFound[i].node)
+			fmt.Println("Dentro do primeiro for")
+
+			for j := 0; j < len(allLeafValues); j++ {
+				fmt.Println("Dentro do segundo for")
+				if bytes.Equal(allLeafValues[j].key, key) {
+					fmt.Println("Dentro é igual")
+					// Found key
+					keyValue := new(BTreeKeyValue)
+					keyValue.Key = allLeafValues[j].GetKey()
+					keyValue.Value = allLeafValues[j].GetValue()
+					// In case it has no sequence
+					if leavesFound[i].node.GetLeafHasSeq() == uint16(1) {
+						keyValue.Value = getAllBytesFromSequences(bTree, leavesFound[j].node)
+					}
+					keyValues = append(keyValues, *keyValue)
+					fmt.Println("Depois do append")
+				}
+			}
+		}
+
+	}
+	return keyValues
+}

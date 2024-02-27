@@ -332,6 +332,56 @@ func TestFileMapping(t *testing.T) {
 	}
 }
 
+func TestBTreeGetMultipleItemsWithSameKey(t *testing.T) {
+	t.Log("Creating basic database to test mapping")
+	dbFilePath := setupTests(t)
+	// Load bTree
+	t.Log("Loading bTree to be used")
+	tree := helper.LoadBTreeFromPath(t, dbFilePath)
+	// Insert another element
+	bTree.BTreeInsert(tree, []byte("4"), []byte("fourth"))
+	bTree.BTreeInsert(tree, []byte("4"), []byte("fifth"))
+	res := bTree.BTreeGet(tree, []byte("4"))
+	if len(res) != 2 {
+		t.Errorf("Should have found 2 items for key 4, found %d\n", len(res))
+	}
+
+	// Here enters one more key []byte("4")
+	fillUpLeafUntilItSplits(tree)
+	// Insert again
+	bTree.BTreeInsert(tree, []byte("4"), []byte("sixth"))
+	// Get all items for key []byte("4")
+	res = bTree.BTreeGet(tree, []byte("4"))
+	if len(res) != 4 {
+		t.Errorf("Should have found 4 items for key 4, found %d\n", len(res))
+	}
+}
+
+func TestBTreeGetMultipleItemsWithSameKeyAndLargeValues(t *testing.T) {
+	t.Log("Creating basic database to test mapping")
+	dbFilePath := setupTests(t)
+	// Load bTree
+	t.Log("Loading bTree to be used")
+	tree := helper.LoadBTreeFromPath(t, dbFilePath)
+	// Insert another element
+	bTree.BTreeInsert(tree, []byte("4"), []byte("fourth"))
+	bTree.BTreeInsert(tree, []byte("4"), []byte("fifth"))
+	res := bTree.BTreeGet(tree, []byte("4"))
+	if len(res) != 2 {
+		t.Errorf("Should have found 2 items for key 4, found %d\n", len(res))
+	}
+
+	// Here enters one more key []byte("4")
+	fillUpLeafUntilItSplits(tree)
+	// Insert again
+	bTree.BTreeInsert(tree, []byte("4"), createValueOf16kLen())
+	// Get all items for key []byte("4")
+	res = bTree.BTreeGet(tree, []byte("4"))
+	if len(res) != 4 {
+		t.Errorf("Should have found 4 items for key 4, found %d\n", len(res))
+	}
+}
+
 func TestSingleLeafUpdate(t *testing.T) {
 	// We insert multiple lines until it splits into two different leaves
 	t.Log("Starting Test simple bTree Insertion")
