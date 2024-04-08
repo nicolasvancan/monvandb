@@ -167,7 +167,7 @@ func main() {
 Also returning Hello From Nicolas, which was expected. I don't feel that using os.OpenFile is the proper way of doing access to files when constant modifications keep happening. The OS requests resources to kernel to access files and other peripherals. Why not using directly the Kernel to read file bytes? The answer to this question remains for posterity, with all of the testing made today, I have already a notion of how I should use Golang's API for files.
 
 
-#### Day Two - Understanding more about Page Size
+#### Day Two - Understanding more about File Systems
 
 Reading books has not always been my passion. When I was younger I didn't have the habbit of reading. Out of curiosity, I gave reading a try, bought some history books, and one of them was a mistery solving book. After finished the first book (The mistery one) I fell in love with reading. The feeling of mstery beginning to reveal itself is exciting, you literally can't stop reading when that feeling comes up.
 
@@ -179,6 +179,21 @@ I think that to respond this question I shall learn how the machine deals with t
 
 **Atomicity**
 
-Atomic operations are defined as operations that cannot be interrupted, in other words, they are one step oprations
+Atomic operations are defined as operations that cannot be interrupted by any other process or task. To achieve that in file system operation, such as Write, ou read, may be sometimes hard.
 
+One good way of modifying files with one single atomic operation is to rename the file. Yes, the idea is simply to always have a copy of the original file (Database), and whenever we want to commit changes to the original database, the file name is changed. This action is always atomic, meaning that if any fault occours during process, either the operation occours or not, the file would not be corrupted. 
+
+**Page Size**
+
+Since reading and writing data to disk means more Disk operations, we want to ensure that those operations are done in a optmized way. But how? Knowing the size of the OS Page Size, helps us to determine what will be the size of our pages used in our data structure.
+
+Ensuring that the pages have the size of the OS page size, we not only have a efficient memory usage by the kernel and system, but also many more advantages, both for concurrency control, disk operations, recovery mechanisms.
+
+If you have a Unix like os, using *getconf PAGE_SIZE* will display the page size of you computer.
+
+#### Conclusion
+
+I really tought that the file parts would be sensible, but not that there were so many possiblities and details in the subject. I think that during the project building, I'll have more and more modifications to the code, in order to fit all requirements presented at the beginning of the project.
+
+For now, I'll focus on enabling the most basic blocks of the project. The first part is to build the BTree and its basic operations. I am really excited to start this chapter of the project. I don't have much experience with Golang, nor I have the fixed idea of how it will be implemented, but I'll do it anyway.
 
