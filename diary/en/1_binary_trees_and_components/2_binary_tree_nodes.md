@@ -8,9 +8,9 @@ Preparing a byte structure to be saved within a file page is something that I ha
 - Are they going to share any type of information?
 - What kind of information do I need?
 
-Answering the first question: **Yes!**, since we have nodes and leaves, we have to create both structures. Sharing information would be good, both of them store something, either addresses to nodes or real values, so basically we can store some informations regarding stored items, maybe the number of items in the page? Or even better, we can store how much space we have left in a page, or even what address belongs to the parent node.
+Answering the first question: **Yes!** since we have nodes and leaves, we have to create both structures. Sharing information would be good, both of them store something, either addresses to nodes or real values, so basically we can store information related to stored items, maybe the number of items in the page? Or even better, we can store how much space we have left in a page, or even what address belongs to the parent node.
 
-I think that starting with those basic information for both is enought.
+I think that starting with those basic information for both is enough.
 
 The basic (functional) bytes structure is not a hard task, working with IoT gave me a good idea of how to build data protocols for wireless comunication, building data sctructures out of byte arrays or **structs**. The bad news for me now is that everything was written in C in that time, not Golang.
 
@@ -37,7 +37,7 @@ type Node struct {
 }
 ```
 
-Golang also provides struct types, with some diferences. In C, struct serialization occours direcly. Let's saym I use malloc to allocate a page size of memory, in this case 4096 bytes. When I cast it to a struct type, it uses automatically the total amount of bytes that the struct needs, and the rest stays free for another purpose.
+Golang also provides struct types, with some diferences. In C, struct serialization occours direcly. Let's say I use malloc to allocate a page size of memory, in this case 4096 bytes. When I cast it to a struct type, it uses automatically the total amount of bytes that the struct needs, and the rest stays free for another purpose.
 
 In Golang, it is also possible to serialize a struct, but it is not so direct as in C. Knowing that, and considering that converting bytes to another data type to convert them again and, afterwards, do some operations, would become slow for large data operations, I've decided to build my own serialization process for my Nodes and Leaves.
 
@@ -115,20 +115,20 @@ Before I start writing any getter or setter, I decided to create some macros var
 ```go
 // Example of const declaration
 const (
-	NODE_TYPE_LEN            = 2
-	NODE_OFFSET_LEN          = 2
-	NODE_N_ITENS_LEN         = 2
-	NODE_FREE_BYTES_LEN      = 2
-	NODE_PARENT_ADDR         = 8
-	NODE_P_KEY_LEN           = 8
-	NODE_P_CHILD_ADD_LEN     = 8
-	NODE_P_KEY_ADDRESS_LEN   = NODE_P_KEY_LEN + NODE_P_CHILD_ADD_LEN
-	LEAF_HAS_SEQ_LEN         = 2
-	LEAF_SEQ_P_LEN           = 8
-	LEAF_KEY_LEN_LEN         = 2
-	LEAF_VAL_LEN_LEN         = 8
-	LEAF_SEQ_N_BYTES         = 2
-	LEAF_SEQ_FREE_BYTES_SIZE = PAGE_SIZE - LEAF_SEQ_BYTES_OFFSET
+	NODE_TYPE_LEN            = 2 // Length of node type field in bytes
+	NODE_OFFSET_LEN          = 2 // Length of offset field in bytes
+	NODE_N_ITENS_LEN         = 2 // Length of field n Itens in bytes
+	NODE_FREE_BYTES_LEN      = 2 // Length of node free bytes field in bytes
+	NODE_PARENT_ADDR         = 8 // Length of node parent address field in bytes
+	NODE_P_KEY_LEN           = 8 // Length of node key len
+	NODE_P_CHILD_ADD_LEN     = 8 // Length of node children address in bytes
+	NODE_P_KEY_ADDRESS_LEN   = NODE_P_KEY_LEN + NODE_P_CHILD_ADD_LEN // Length key address len for node
+	LEAF_HAS_SEQ_LEN         = 2 // Length of leaf has sequence field
+	LEAF_SEQ_P_LEN           = 8 // Length of leaf sequence address field
+	LEAF_KEY_LEN_LEN         = 2 // Length of leaf key lenght field in bytes
+	LEAF_VAL_LEN_LEN         = 8 // Length of leaf val lenght field in bytes
+	LEAF_SEQ_N_BYTES         = 2 // Length number of bytes in leaf sequence
+	LEAF_SEQ_FREE_BYTES_SIZE = PAGE_SIZE - LEAF_SEQ_BYTES_OFFSET // Length of sequences free bytes size
 )
 ```
 
@@ -174,5 +174,220 @@ func NewNodeNode() *TreeNode {
 
 ```
 
+## Advancing - Nodes types and Insertion Deletion Methodes
+
+Getters and Setters were implemented using *binary.LittleEndian* methodes to work with bytes array. Now it's time to implement functions to enable us inserting, deleting, updating and getting key values and addresses from our Node pages. I must confess that I am feeling really lazy and don't want to spend so much time in this task neither develop a complex logic to do so.
+
+I think that the only constraint that I have is to maintain all values on pages sorted, in other words, to store them sorted (Desired), but retrieving them sorted is enought.
+
+Before advancing more in the subject, I had to create some concrete struct types to demonstrate what are the types and information stored inside the pages, which are: **NodeKeyAddr**, **LeafKeyValue**, as shown below:
+
+```go
+type LeafKeyValue struct {
+	keyLength   uint16
+	valueLength uint64
+	key         []byte
+	value       []byte
+}
+
+type NodeKeyAddr struct {
+	keyLen uint16
+	key    []byte
+	addr   uint64
+}
+
+```
+
+I decided to change the key from uint64 to byte array, considering any possibility of use of indexed keys, such as string, different bytes, objects, among others, changing the field to bytes array was the best option I could choose.
+
+For every type of node a function to insert, delete, update values is created. In fact, the update method will not be implemented, updating is the same as deleting and inserting the same key.
+
+**Insert**
+
+```go
+func (n *TreeNode) PutNodeNewChild(key []byte, addr uint64) error {
+
+	// Verify whether it will exceed total bytes
+	aditionalLength := len(key) + 2 + 8
+	if int(GetFreeBytes(n))-(aditionalLength) < 0 {
+		return errors.New("exceeds total bytes")
+	}
+	keyLen := uint16(len(key))
+	// takes offset
+	offset := getNodeOffset(n)
+
+	/*
+		2B - Len of key
+		Len of Key B - Key
+		8B - Address
+		Example:
+		key = ["a","t","o","m","i","c"]
+		addr = 157
+
+		keyLen = 6 - Therefore the size will be 2B + 6B + 8B = 16B
+	*/
+
+	// Write len 2B
+	binary.LittleEndian.PutUint16(n.data[offset:offset+2], keyLen)
+	// Write Key (variable)
+	copy(n.data[offset+2:offset+2+keyLen], key)
+	// Write Address 8B
+	binary.LittleEndian.PutUint64(n.data[offset+2+keyLen:offset+2+keyLen+8], addr)
+
+	// Set new offset
+	setNodeOffset(n, offset+2+keyLen+8)
+	// Set new Free Bytes
+	setFreeBytes(n, GetFreeBytes(n)-(2+8+keyLen))
+	// Set NItems
+	setNItens(n, n.GetNItens()+1)
+
+	return nil
+}
+
+func (n *TreeNode) PutLeafNewKeyValue(key []byte, value []byte) error {
+	aditionalLength := len(key) + 2 + 8 + len(value)
+
+	if int(GetFreeBytes(n))-(aditionalLength) < 0 {
+		return errors.New("exceeds total bytes")
+	}
+	keyLen := uint16(len(key))
+	valLen := uint64(len(value))
+	// takes offset
+	offset := getNodeOffset(n)
+	/*
+		2B - Len of key
+		8B - Len of value
+		Len of Key B - Key
+		8B - Value
+		Example:
+		key = ["a","t","o","m","i","c"]
+		value = []byte("some value inserted in here")
+
+		keyLen = 6 - Therefore the size will be 2B + 8B + 6B + 27B = 43B
+	*/
+
+	// Write keylen 2B
+	binary.LittleEndian.PutUint16(n.data[offset:offset+2], keyLen)
+	// Write valuelen 8B
+	binary.LittleEndian.PutUint64(n.data[offset+2:offset+2+8], valLen)
+	// Write Key (variable)
+	copy(n.data[offset+10:offset+10+keyLen], key)
+	// Write Address 8B
+	copy(n.data[offset+10+keyLen:offset+10+keyLen+uint16(valLen)], value)
+
+	// Set new offset
+	setNodeOffset(n, offset+10+keyLen+uint16(valLen))
+	// Set new Free Bytes
+	setFreeBytes(n, GetFreeBytes(n)-(10+keyLen+uint16(valLen)))
+	// Set NItems
+	setNItens(n, n.GetNItens()+1)
+
+	return nil
+}
+```
+
+The idea is simple. In order to facilitate my life, I've created another field called offset, which indicates what is the position of the first free byte to be the reference for new incomming bytes to be saved. The difference between both is that the value len of a LeafKeyValue is variable, therefore, it has one field more regarding the length of the bytes to be saved.
+
+For every new item to be added, the system look at offset and then stores the data after the offset, updates the number of itens in the page and also updates the offset value to the new one. Doing so, I don't have to compute a lot and don't have to create a mirabulos logic solution to this. But you may ask me: **How do you guarantee that it is sorted?**
+
+In fact I don't guarantee anything while inserting data, just that the data is there. The sorted data comes when reading from page, as shown below for get methodes:
+
+```go
+func getAllLeafKeyValues(n *TreeNode) []LeafKeyValue {
+	nItems := n.GetNItens()
+	r := make([]LeafKeyValue, nItems)
+	baseOffset := LEAF_VAL_START_OFFSET
+	for i := 0; i < int(nItems); i++ {
+		kLen := binary.LittleEndian.Uint16(n.data[baseOffset : baseOffset+2])
+		vLen := binary.LittleEndian.Uint64(n.data[baseOffset+2 : baseOffset+2+8])
+		key := n.data[baseOffset+10 : baseOffset+10+int(kLen)]
+		value := n.data[baseOffset+10+int(kLen) : baseOffset+10+int(kLen)+int(vLen)]
+		r[i] = LeafKeyValue{
+			keyLength:   kLen,
+			valueLength: vLen,
+			key:         key,
+			value:       value,
+		}
+		// Add values to offset
+		baseOffset += (int(kLen)) + int(vLen) + 2 + 8
+	}
+
+	sortLeafKeyValues(r)
+	return r
+}
 
 
+func getAllNodeKeyAddr(n *TreeNode) []NodeKeyAddr {
+	// Get number of items
+	nItens := n.GetNItens()
+	// Initiate return array
+	r := make([]NodeKeyAddr, nItens)
+	// Start always at the very beginning
+	lastStart := NODE_P_KEY_ADDR_OFFSET
+	for i := 0; i < int(nItens); i++ {
+		// Get key Length
+		kLen := binary.LittleEndian.Uint16(n.data[lastStart : lastStart+2])
+		// Get key value in []bytes
+		key := n.data[lastStart+2 : lastStart+2+int(kLen)]
+		// Get key address
+		addr := binary.LittleEndian.Uint64(n.data[lastStart+2+int(kLen) : lastStart+2+int(kLen)+8])
+		r[i] = NodeKeyAddr{
+			keyLen: kLen,
+			key:    key,
+			addr:   addr,
+		}
+		lastStart += 2 + int(kLen) + 8
+	}
+
+	sortNodeChildren(r)
+	return r
+}
+```
+
+The idea of getting all data is the same as storing, except by the fact that is done inversely, returning an array of the respective type, either returning an array of LeafKeyValues, or NodeKeyAddress.
+
+After getting arrays in golang, we can easly apply the sort method
+
+```go
+func sortNodeChildren(c []NodeKeyAddr) {
+	sort.Slice(c, func(i, j int) bool {
+		return bytes.Compare(c[i].key, c[j].key) <= 0
+	})
+}
+```
+
+I had to create the same method for LeafKeyValue, and the code is getting duplicated in some parts, which I don't like, but it is not something to worry about right now.
+
+**Delete Functions**
+
+Deleting specific part of byte array, specially when it is not a fixed length byte, may be a dificult task. I know that this implementation done here is not something special and is not fast the way I want, but it's usefull to advance with the first version of my bTree.
+
+What I do is not to delete anything, I read all values from a page (Node), remove the desired key, and then store everything again in the renewed array. Simple but slow, one best alternative is to identify the real position of the desired field in the page, and copy other bytes to it's position, namelly shifting bytes from right to left.
+
+One exemple of the implemented method is show below:
+
+```go
+func (n *TreeNode) DeleteLeafKeyValueByKey(key []byte) {
+	allLeafKeyValues := getAllLeafKeyValues(n)
+	// Reset Node
+	tmp := NewNodeLeaf()
+	setParentAddr(tmp, n.GetParentAddr())
+	setLeafHasSeq(tmp, n.GetLeafHasSeq())
+	setLeafSeqPointer(tmp, n.GetLeafSeqPointer())
+	for i := 0; i < len(allLeafKeyValues); i++ {
+		if bytes.Equal(allLeafKeyValues[i].key, key) {
+			continue
+		}
+		tmp.PutLeafNewKeyValue(allLeafKeyValues[i].key, allLeafKeyValues[i].value)
+	}
+	copy(n.data, tmp.data)
+}
+```
+
+# Time to move on
+
+After implementing everything I got tired and needed to advance with this subject, I wanted to start creating the binary tree crud functions, and I'll do so. I realized that I could merge both structures **LeafKeyValue** and **NodeKeyAddress**, remove duplicated methodes for inserting, deleting, sorting, and so on. I'll do this later, so this will be kept in a TODO file.
+
+Implementing delete method directly into the bytes will be much faster and improve the speed of my software, although I'll let this task for myself from the future. 
+
+The last considerations for this package is that I'll write it again using some pattern for naming and letting it less verbous, and the PAGE_SIZE constant could be changed to work as a PAGE_SIZE for each bTree file, this information would be stored at the first page from the file.
