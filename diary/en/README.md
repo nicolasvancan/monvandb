@@ -1,6 +1,6 @@
 # Chapters
 
-The Diary is composed of many different chapters, which can contain one ore more diary files (Markdown), resulting in a real story of how the database was built. The division of chapters was made by milestones in the project, in other words, when key parts are completed (It's basic version), one good example is the Binary Trees module, which comprehends the first chapter of the serie. That means that every new feature of the software will gain a story telling list of markdown files.
+The Diary is composed of many different chapters, that can contain one ore more diary files (Markdown), resulting in a real story of how the database was built. The division of chapters was made by milestones in the project, in other words, when key parts are completed (It's basic version), one good example is the Binary Trees module, which comprehends the first chapter of the serie. That means that every new feature of the software will gain a story telling list of markdown files.
 
 I've been thinking on how to divide the chapters to make a good story, but I got nowhere. I listed some possibles modules that may enter the software but not all of them. So, it's possible that, as the project evolves, the order and this file itself change. But anyway, the first chapters are the following:
 
@@ -12,7 +12,7 @@ I've been thinking on how to divide the chapters to make a good story, but I got
 - Queries and Commands
 - Server
 
-If one day I am able to finish what is in this list, I'll probably be much older (Depending on the effort and time I spend in the project), and I also will be much wiser (In terms of software development)
+If one day I finish what is in this list, I'll probably be much older (Depending on the effort and time I spend in the project), and I also will be much wiser (In terms of software development)
 
 # The Project
 

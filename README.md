@@ -21,7 +21,7 @@ I hope this project makes someone laugh, and hope this project brings the joy an
 
 I am not a writer, nor a English native speaker, which means that my english will be something curious to those that are more familiarized with the language. Although I wanted to use chat gpt to correct my comic english, I will not do that! I think that AI removes personallity of things and padronize everything to something near perfection, which is not my case. 
 
-> **I HOPE YOU ENJOY THE WRITING!!!**
+> **I HOPE YOU ENJOY IT!!!**
 
 ## What is this project?
 
@@ -33,7 +33,7 @@ I'm still thinking why, probably the best answer would be the following: "Not en
 
 ## What do I excpect with this work?
 
-I expect to tell the history and the project evolution as an Story, every obstacle, every bug, every situation that I face, will be documented and also the solutions that I had. I think this kind of diary is a good idea, and I have never seen anything like it.
+I expect to tell the history and the project evolution as a Story, every obstacle, every bug, every situation that I face, will be documented and also the solutions that I had. I think this kind of diary is a good idea, and I have never seen anything like it.
 
 ## What are my goals developing this software?
 
@@ -52,3 +52,7 @@ I expect to tell the history and the project evolution as an Story, every obstac
 - It must have cache
 - It must have backup
 - It must have a API in one or more languages, such as Python and JS, for instance
+
+# Where to follow?
+
+The stories are saved in the diary folder at the root **/diary** as markdown files. They are separated by languages, for now, just portuguese and english are available, because I am not using AI to help me write my texts and I'll not do it, I want the texts to be original. Inside the folders, the chapter are numerated, followed by a small title about it. Entering the chapter folder, different markdown files can be found, also following a numerical order. Than is just click and read.

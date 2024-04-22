@@ -59,7 +59,7 @@ Find first leaf for given bTree
 func findFirstLeaf(bTree *BTree) (*TreeNodePage, []TreeNodePage) {
 	rootPage := bTree.GetRoot()
 	rootNode := bTree.Get(bTree.GetRoot())
-	return findLeafByOrder(bTree, rootNode, rootPage, make([]TreeNodePage, 0), "last")
+	return findLeafByOrder(bTree, rootNode, rootPage, make([]TreeNodePage, 0), "first")
 }
 
 /*
@@ -142,7 +142,6 @@ func findLeaves(bTree *BTree, node TreeNode, key []byte, page uint64, history []
 				for i := 0; i < len(leavesFound); i++ {
 					treeNodes = append(treeNodes, leavesFound[i])
 				}
-
 			}
 			return treeNodes, history
 		} else {
@@ -268,6 +267,7 @@ func insertOneKeyLeafAndReorderTree(bTree *BTree, tPage TreeNodePage, SeqPage Tr
 	parentNode := history[len(history)-1]
 	// Verify if must split node
 	keyLen := SeqPage.node.GetLeafKeyValueByIndex(0).GetKeyLen()
+
 	// If the parent key must be splitted we must create a new node and insert it into parent
 	if mustSplitNode(parentNode.node, int(keyLen), 8) {
 		splitParentNodeRecursivellyAndReorderTreeIfNeeded(bTree, SeqPage, history)
@@ -291,6 +291,7 @@ func splitParentNodeRecursivellyAndReorderTreeIfNeeded(bTree *BTree, SeqPage Tre
 	}
 
 	parentNode := history[len(history)-1]
+
 	// If the parent key must be splitted we must create a new node and insert it into parent
 	splittedNode := parentNode.node.SplitNode(key, SeqPage.page)
 	newPage := bTree.New(splittedNode[1])
@@ -348,7 +349,7 @@ func splitBackyardsRecursively(
 
 	/* Every time a node splits, two new nodes emerge. The key point is that we must replace
 	nodes page from previous page. For instance, we have a node at page 1 followed by a node at page 2.
-	For some reason, the node 2 must be split into 2 new nodes, at page 10 and 11. Knowing that, we ensure that basically
+	For some reason, the node 2 must be splitted into 2 new nodes, at page 10 and 11. Knowing that, we ensure that basically
 	the page 2 now has turned into two pages 10 and 11, therefore, the page two, that is placed within the values range from
 	node in page one must also be replaced, because we don't use the page two anymore. So, the top node would lose the reference
 	to page 2, and gain two new for page 10 and 11
@@ -473,7 +474,7 @@ func shiftValuesBetweenLeaves(bTree *BTree, tPage TreeNodePage, history []TreeNo
 }
 
 /*
-Insert value changin the bTree structure whenever it is needed.
+Insert value changing the bTree structure whenever it is needed.
 
 # The logic flow is relativelly simple
 
@@ -495,22 +496,55 @@ func insertAndReorderTree(bTree *BTree, tPage TreeNodePage, history []TreeNodePa
 			// Special case
 			leaf := createLeafAndSequencesForLargeBytes(bTree, key, value)
 			insertOneKeyLeafAndReorderTree(bTree, tPage, *leaf, history)
-		} else {
-			// Verify whether the leaf if the last one by comparing he page number
-			lastLeaf, _ := findLastLeaf(bTree)
-
-			if lastLeaf.page == tPage.page {
-				// Last leaf split's backyards Node Recursivelly
-				splitBackyardsRecursively(bTree, tPage, history, key, value)
-				return
-			}
-			shiftValuesBetweenLeaves(bTree, tPage, history, key, value)
+			return
 		}
+		// Verify whether the leaf if the last one by comparing he page number
+		lastLeaf, _ := findLastLeaf(bTree)
+
+		if lastLeaf.page == tPage.page {
+			// Last leaf split's backyards Node Recursivelly
+			splitBackyardsRecursively(bTree, tPage, history, key, value)
+			return
+		}
+		shiftValuesBetweenLeaves(bTree, tPage, history, key, value)
 		return
 	}
 
 	tPage.node.PutLeafNewKeyValue(key, value)
 	bTree.Set(tPage.node, tPage.page)
+}
+
+func getTotalKeyLen(nodes []TreeNode) int {
+	totalKeyLen := 0
+	for i := 0; i < len(nodes); i++ {
+		if nodes[i].GetType() == TREE_LEAF {
+			totalKeyLen += len(nodes[i].GetLeafKeyValueByIndex(0).key)
+			continue
+		}
+
+		totalKeyLen += len(nodes[i].GetNodeChildByIndex(0).key)
+	}
+	totalKeyLen += 10
+	return totalKeyLen
+}
+
+func insertNewPagesToNode(bTree *BTree, nodeToInsert TreeNodePage, newPages []TreeNodePage) {
+	// Insert new nodes information to parent node
+	if newPages[0].node.GetType() == TREE_LEAF {
+		nodeToInsert.node.PutNodeNewChild(newPages[0].node.GetLeafKeyValueByIndex(0).key, newPages[0].page)
+		nodeToInsert.node.PutNodeNewChild(newPages[1].node.GetLeafKeyValueByIndex(0).key, newPages[1].page)
+	} else {
+		nodeToInsert.node.PutNodeNewChild(newPages[0].node.GetNodeChildByIndex(0).key, newPages[0].page)
+		nodeToInsert.node.PutNodeNewChild(newPages[1].node.GetNodeChildByIndex(0).key, newPages[1].page)
+	}
+
+	// Update parent from nodes
+	setParentAddr(&newPages[0].node, nodeToInsert.page)
+	setParentAddr(&newPages[1].node, nodeToInsert.page)
+	// Update pages
+	bTree.Set(nodeToInsert.node, nodeToInsert.page)
+	bTree.Set(newPages[0].node, newPages[0].page)
+	bTree.Set(newPages[1].node, newPages[1].page)
 }
 
 func insertNodesRecursivelly(
@@ -521,119 +555,91 @@ func insertNodesRecursivelly(
 ) {
 	// Get nodeToInsert, it will never happen when there is an empty history, so we can do it
 	nodeToInsert := history[len(history)-1]
-	for o := 0; o < len(history); o++ {
-	}
 	// New pages always come divided into 2 pieces
 	newPageOne := newPages[0]
 	newPageTwo := newPages[1]
 
-	var totalKeyLen int
+	totalKeyLen := getTotalKeyLen([]TreeNode{newPageOne.node, newPageTwo.node})
 	// Remove oldPage reference from node that will receive new pages
 	nodeToInsert.node.DeleteNodeChildrenByAddress(oldPage.page)
 
-	// Get total key length that will be added to nodeToInsert
-	if newPageOne.node.GetType() == TREE_LEAF {
-		totalKeyLen = (len(newPageOne.node.GetLeafKeyValueByIndex(0).key) +
-			len(newPageTwo.node.GetLeafKeyValueByIndex(0).key) + 10) // Added 10 to fit two new records into mustSplitNode
-	} else {
-		totalKeyLen = (len(newPageOne.node.GetNodeChildByIndex(0).key) +
-			len(newPageTwo.node.GetNodeChildByIndex(0).key) + 10)
+	// No need to split node
+	if !mustSplitNode(nodeToInsert.node, totalKeyLen, 8) {
+		insertNewPagesToNode(bTree, nodeToInsert, newPages)
+		return
 	}
 
-	// verify whether or not the node must be splitted
-	if mustSplitNode(nodeToInsert.node, totalKeyLen, 8) {
-		// We verify if value can be shifted to another existing leaf or we really need to create another leaf
-		var splittedNode []TreeNode = nil
-		ourInsertion := 1
-		if newPageOne.node.GetType() == TREE_LEAF {
-			// Leaf case (This is duplicated code unfortunatelly) must remake this
-			splittedNode = nodeToInsert.node.SplitNode(newPageOne.node.GetLeafKeyValueByIndex(0).key, newPageOne.page)
-			// Where is our insertion?
-			if splittedNode[0].GetNodeChildByKey(newPageOne.node.GetLeafKeyValueByIndex(0).key) != nil {
-				ourInsertion = 0
-			}
-
-			// Our insertion is sorted, therefore we must insert the second new node into the second splitted node
-			splittedNode[1].PutNodeNewChild(newPageTwo.node.GetLeafKeyValueByIndex(0).key, newPageTwo.page)
-
-		} else {
-			splittedNode = nodeToInsert.node.SplitNode(newPageOne.node.GetNodeChildByIndex(0).key, newPageOne.page)
-			// Where is our insertion?
-			if splittedNode[0].GetNodeChildByKey(newPageOne.node.GetNodeChildByIndex(0).key) != nil {
-				ourInsertion = 0
-			}
-
-			// Our insertion is sorted, therefore we must insert the second new node into the second splitted node
-			splittedNode[1].PutNodeNewChild(newPageTwo.node.GetNodeChildByIndex(0).key, newPageTwo.page)
+	// We verify if value can be shifted to another existing leaf or we really need to create another leaf
+	var splittedNode []TreeNode = nil
+	ourInsertion := 1
+	if newPageOne.node.GetType() == TREE_LEAF {
+		// Leaf case (This is duplicated code unfortunatelly) must remake this
+		splittedNode = nodeToInsert.node.SplitNode(newPageOne.node.GetLeafKeyValueByIndex(0).key, newPageOne.page)
+		// Where did our key insertion go to the first or second leaf?
+		if splittedNode[0].GetNodeChildByKey(newPageOne.node.GetLeafKeyValueByIndex(0).key) != nil {
+			ourInsertion = 0
 		}
 
-		// Create our new pages
-		addr0 := bTree.New(splittedNode[0])
-		addr1 := bTree.New(splittedNode[1])
-
-		// Set the parent addresses
-		if ourInsertion == 0 {
-			setParentAddr(&newPageOne.node, addr0)
-		} else {
-			setParentAddr(&newPageOne.node, addr1)
-		}
-
-		setParentAddr(&newPageTwo.node, addr1)
-
-		// Update those pages
-		bTree.Set(newPageOne.node, newPageOne.page)
-		bTree.Set(newPageTwo.node, newPageTwo.page)
-
-		// Has parent
-		if len(history) > 1 {
-			// Call the stack recursivelly
-
-			insertNodesRecursivelly(
-				bTree,
-				nodeToInsert,
-				[]TreeNodePage{
-					{node: splittedNode[0], page: addr0},
-					{node: splittedNode[1], page: addr1},
-				},
-				history[:len(history)-1])
-
-		} else { // No parent :(
-			// Create new root Node
-			newRoot := NewNodeNode()
-			setParentAddr(newRoot, 0)
-			newRootAddress := bTree.New(*newRoot)
-			setParentAddr(&splittedNode[0], newRootAddress)
-			setParentAddr(&splittedNode[1], newRootAddress)
-			newRoot.PutNodeNewChild(splittedNode[0].GetNodeChildByIndex(0).key, addr0)
-			newRoot.PutNodeNewChild(splittedNode[1].GetNodeChildByIndex(0).key, addr1)
-			bTree.Set(*newRoot, newRootAddress)
-			bTree.Set(splittedNode[0], addr0)
-			bTree.Set(splittedNode[1], addr1)
-			// Set bTree to be redirected to new Root
-			bTree.SetRoot(newRootAddress)
-			// Commit changes
-			bTree.SetHeader(*bTree)
-		}
+		// Our insertion is sorted, therefore we must insert the second new node into the second splitted node
+		splittedNode[1].PutNodeNewChild(newPageTwo.node.GetLeafKeyValueByIndex(0).key, newPageTwo.page)
 
 	} else {
-
-		if newPageOne.node.GetType() == TREE_LEAF {
-			nodeToInsert.node.PutNodeNewChild(newPageOne.node.GetLeafKeyValueByIndex(0).key, newPageOne.page)
-			nodeToInsert.node.PutNodeNewChild(newPageTwo.node.GetLeafKeyValueByIndex(0).key, newPageTwo.page)
-		} else {
-			nodeToInsert.node.PutNodeNewChild(newPageOne.node.GetNodeChildByIndex(0).key, newPageOne.page)
-			nodeToInsert.node.PutNodeNewChild(newPageTwo.node.GetNodeChildByIndex(0).key, newPageTwo.page)
+		splittedNode = nodeToInsert.node.SplitNode(newPageOne.node.GetNodeChildByIndex(0).key, newPageOne.page)
+		// Where is our insertion?
+		if splittedNode[0].GetNodeChildByKey(newPageOne.node.GetNodeChildByIndex(0).key) != nil {
+			ourInsertion = 0
 		}
 
-		// Insert new nodes
+		// Our insertion is sorted, therefore we must insert the second new node into the second splitted node
+		splittedNode[1].PutNodeNewChild(newPageTwo.node.GetNodeChildByIndex(0).key, newPageTwo.page)
+	}
 
-		// Update parent from nodes
-		setParentAddr(&newPageOne.node, nodeToInsert.page)
-		setParentAddr(&newPageTwo.node, nodeToInsert.page)
-		// Update pages
-		bTree.Set(nodeToInsert.node, nodeToInsert.page)
-		bTree.Set(newPageOne.node, newPageOne.page)
-		bTree.Set(newPageTwo.node, newPageTwo.page)
+	// Create our new pages
+	addr0 := bTree.New(splittedNode[0])
+	addr1 := bTree.New(splittedNode[1])
+
+	// Set the parent addresses
+	if ourInsertion == 0 {
+		setParentAddr(&newPageOne.node, addr0)
+	} else {
+		setParentAddr(&newPageOne.node, addr1)
+	}
+
+	setParentAddr(&newPageTwo.node, addr1)
+
+	// Update those pages
+	bTree.Set(newPageOne.node, newPageOne.page)
+	bTree.Set(newPageTwo.node, newPageTwo.page)
+
+	// Has parent
+	if len(history) > 1 {
+		// Call the stack recursivelly
+
+		insertNodesRecursivelly(
+			bTree,
+			nodeToInsert,
+			[]TreeNodePage{
+				{node: splittedNode[0], page: addr0},
+				{node: splittedNode[1], page: addr1},
+			},
+			history[:len(history)-1])
+
+	} else { // No parent :(
+		// Create new root Node
+		newRoot := NewNodeNode()
+		setParentAddr(newRoot, 0)
+		newRootAddress := bTree.New(*newRoot)
+		setParentAddr(&splittedNode[0], newRootAddress)
+		setParentAddr(&splittedNode[1], newRootAddress)
+		newRoot.PutNodeNewChild(splittedNode[0].GetNodeChildByIndex(0).key, addr0)
+		newRoot.PutNodeNewChild(splittedNode[1].GetNodeChildByIndex(0).key, addr1)
+		bTree.Set(*newRoot, newRootAddress)
+		bTree.Set(splittedNode[0], addr0)
+		bTree.Set(splittedNode[1], addr1)
+		// Set bTree to be redirected to new Root
+		bTree.SetRoot(newRootAddress)
+		// Commit changes
+		bTree.SetHeader(*bTree)
 	}
 }
 
