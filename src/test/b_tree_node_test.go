@@ -6,7 +6,6 @@ BTree node Test cases
 
 import (
 	"bytes"
-	"fmt"
 	"strconv"
 	"testing"
 
@@ -39,7 +38,6 @@ func createValueOf16kLen() []byte {
 	for i := 0; i < 16450; i++ {
 		r = append(r, byte(i%255))
 	}
-	fmt.Printf("Len of created value is %d\n", len(r))
 	return r
 }
 
@@ -102,7 +100,7 @@ func TestInternalNodeInsertion(t *testing.T) {
 		t.Errorf("Number of FreeBytes shoud be 4069, found %d\n", newNode.GetNItens())
 	}
 
-	if bytes.Compare(newNode.GetNodeChildByIndex(0).GetKey(), key) != 0 {
+	if !bytes.Equal(newNode.GetNodeChildByIndex(0).GetKey(), key) {
 		t.Errorf("Wrong key, found %s\n", newNode.GetNodeChildByIndex(0).GetKey())
 	}
 
@@ -118,7 +116,7 @@ func TestInternalNodeInsertion(t *testing.T) {
 		t.Errorf("Number of FreeBytes shoud be 4058, found %d\n", newNode.GetNItens())
 	}
 
-	if bytes.Compare(newNode.GetNodeChildByIndex(0).GetKey(), key) != 0 {
+	if !bytes.Equal(newNode.GetNodeChildByIndex(0).GetKey(), key) {
 		t.Errorf("Wrong key, found %s\n", newNode.GetNodeChildByIndex(0).GetKey())
 	}
 
@@ -150,7 +148,7 @@ func TestInternalLeafInsertion(t *testing.T) {
 		t.Errorf("Number of FreeBytes shoud be 4054, found %d\n", newNode.GetNItens())
 	}
 
-	if bytes.Compare(newNode.GetLeafKeyValueByIndex(0).GetKey(), key) != 0 {
+	if !bytes.Equal(newNode.GetLeafKeyValueByIndex(0).GetKey(), key) {
 		t.Errorf("Wrong key, found %s\n", newNode.GetNodeChildByIndex(0).GetKey())
 	}
 
@@ -169,7 +167,7 @@ func TestInternalLeafInsertion(t *testing.T) {
 		t.Errorf("Number of FreeBytes shoud be 4037, found %d\n", bTree.GetFreeBytes(newNode))
 	}
 
-	if bytes.Compare(newNode.GetLeafKeyValueByIndex(0).GetKey(), key) != 0 {
+	if !bytes.Equal(newNode.GetLeafKeyValueByIndex(0).GetKey(), key) {
 		t.Errorf("Wrong key, found %s\n", newNode.GetLeafKeyValueByIndex(0).GetKey())
 	}
 
@@ -205,12 +203,7 @@ func TestNodeSplit(t *testing.T) {
 	}
 
 	// Check for the second Node
-	if splittedNodeCaseOne[1].GetNItens() != 1 {
-		t.Logf("It should have only 1 Item in this Node, found %d\n", splittedNodeCaseOne[1].GetNItens())
-	}
-
-	// Check for the second Node
-	if bytes.Compare(splittedNodeCaseOne[1].GetNodeChildByIndex(0).GetKey(), key1) != 0 {
+	if !bytes.Equal(splittedNodeCaseOne[1].GetNodeChildByIndex(0).GetKey(), key1) {
 		t.Logf("The first item in the array should be %s\n", splittedNodeCaseOne[1].GetNodeChildByIndex(0).GetKey())
 	}
 
@@ -302,7 +295,7 @@ func TestCreateLeafSequence(t *testing.T) {
 		finalBytes = append(finalBytes, te...)
 	}
 
-	if bytes.Compare(finalBytes, initialBytes) != 0 {
+	if !bytes.Equal(finalBytes, initialBytes) {
 		t.Error("Bytes should be the same")
 	}
 
@@ -310,4 +303,24 @@ func TestCreateLeafSequence(t *testing.T) {
 		t.Error("Bytes len should be the same")
 	}
 
+}
+
+func TestLeafDeletionByKey(t *testing.T) {
+	// Create Node
+	node := fillUpNode("leaf")
+	firstItem := node.GetLeafKeyValueByIndex(0)
+	if !bytes.Equal(firstItem.GetKey(), []byte("0")) {
+		t.Logf("Should be 0")
+	}
+
+	//Delete Value
+	node.DeleteLeafKeyValueByKey([]byte("0"))
+	// Get values to evaluate
+
+	firstItem = node.GetLeafKeyValueByIndex(0)
+	if !bytes.Equal(firstItem.GetValue(), []byte("1teste")) {
+		t.Error("Should be 6")
+	}
+
+	node.DeleteLeafKeyValueByKey([]byte("1"))
 }
