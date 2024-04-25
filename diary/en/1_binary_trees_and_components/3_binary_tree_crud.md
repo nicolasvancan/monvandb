@@ -2,7 +2,7 @@
 
 Having all required functions to initiate my work with the binary trees, I had one objective in mind, to create a simple CRUD for my tree, whose  functions would be insert, delete, update and get.
 
-The challange now is to reconcile my free time and paternity to conclude this task. I'm writing this text while me and my wife stay in the hospital waiting for our baby to come. She had to udergo a labor induction due to some unexpected reduction in amniotic fluid. But there is nothing to worry about, it was preventive, not emergencial, and since it has no determined time to happen, it can be now or within 3 days, who knows? Knowing I'd spend a lot of time waiting in the Hospital, I brought my notebook to develop and write for a while.
+The challange now is to reconcile my free time and paternity to conclude this task. I'm writing this text while me and my wife stay in the hospital waiting for our baby to come. She had to udergo a labor induction due to some unexpected reduction in amniotic fluid. But there is nothing to worry about, it was preventive, not emergencial, and since the labor has no determined time to happen, I brought my notebook to develop and write for a while.
 
 I must confess that coding helps me overcoming anxiety and nervousness, but the ideas of how to implement the binary tree functions are not easly comming.
 

@@ -16,7 +16,7 @@ If one day I finish what is in this list, I'll probably be much older (Depending
 
 # The Project
 
-A Database can be practically anything. Yes, a simple text file can store relevant data that is important to a company, for instance, but storing data is not the only thing that a Database can do. In the real world, Data is stored, retrieved, replicated, consulted all the time by different sources and business.
+A Database can be practically anything. Yes, a simple text file can store relevant data that is important to a company, for instance. But storing data is not the only thing that a Database can do. In the real world, Data is stored, retrieved, replicated, consulted all the time by different sources and business.
 
 Data has become the new gold. The better the data quality the more you can earn money with that or even create better products for your businnes and clients, that is why storing it is so important, but far more important is how we delivery, ensuring safety, velocity, security.
 
@@ -30,7 +30,7 @@ Acording to oracles definition, a database is an organized collection of structu
 
 Ok, fair enough, that describes well what I want to build, a Database Management System, but the previous description is the same as describing a car as a driving cabine built upon at least three or more wheels, that can take the driver and more passengers to another place. In other words, it's too generic. I need to know a little bit more of its functions and inner parts.
 
-Using my research abilities I started the quest of understanding the inner components of a generic database, starting from database files and its structures. After some reading, I found some interesting articles saying that Database files and how they are structured depends on the database. Some databases are open source, so you can read their code and see what is happening there and how they save their data, and many others are completly hidden.
+Using my research abilities I started the quest of understanding the inner components of a generic database, starting from database files and its structures. After some reading, I found some interesting articles saying that Database files and how they are structured depends on the database. Some are open source, so you can read their code and see what is happening there and how they save their data, and many others are completly hidden.
 
 I don't want to copy a project and build something based on another one. I want to suffer and make it my own way, out of nowhere. Of course I am not reinventing the wheel, I am just building some parts of the wheel again in my own way (For the purpose of learning and also suffering).
 

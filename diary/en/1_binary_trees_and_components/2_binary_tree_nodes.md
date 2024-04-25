@@ -37,7 +37,7 @@ type Node struct {
 }
 ```
 
-Golang also provides struct types, with some diferences. In C, struct serialization occours direcly. Let's say I use malloc to allocate a page size of memory, in this case 4096 bytes. When I cast it to a struct type, it uses automatically the total amount of bytes that the struct needs, and the rest stays free for another purpose.
+Golang also provides struct types, with some differences. In C, struct serialization occours direcly. Let's say I use malloc to allocate a page size of memory, in this case 4096 bytes. When I cast it to a struct type, it uses automatically the total amount of bytes that the struct needs, and the rest stays free for another purpose.
 
 In Golang, it is also possible to serialize a struct, but it is not so direct as in C. Knowing that, and considering that converting bytes to another data type to convert them again and, afterwards, do some operations, would become slow for large data operations, I've decided to build my own serialization process for my Nodes and Leaves.
 
@@ -75,7 +75,7 @@ type TreeNode struct {
 }
 ```
 
-It's also required to create a enum type for diferentiating node type, using iota
+It's also required to create a enum type for differentiating node type, using iota
 
 ```go
 /* TreeNode implementation */

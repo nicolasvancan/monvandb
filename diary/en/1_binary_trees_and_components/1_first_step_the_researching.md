@@ -2,9 +2,9 @@
 
 Sometimes, while working on projects, I feel like I'm playing a RPG, where I have some quests to complete for achieving new quests, gain experience and gather new weapons, all of that to enable me facing new and more challenging situations.
 
-I think I really like this feeling of RPG in development, and that is something that motivates me to keep pushing and learning new subjects. I must confess, I felt upset and unmotivated recently, there were some things in my life that were worryng me, that is normal, concerns are part of our life, despite of that you must keep yourself positive and work to push away those concerns and bring joy to your life.
+I think I really like this feeling of RPG in development, and that is something that motivates me to keep pushing and learning new subjects. I must confess, I felt upset and unmotivated recently, there were some things in my life that were worryng me, which is normal, concerns are part of our life, despite of that you must keep yourself positive and work to push away those concerns and bring joy to your life.
 
-Among the problems I have to face in the end of 2023, there is my boredom in the free time. I'm a very active guy, I go to the gym, I watch animes, but I also like to involve myself into programming or engineering projects. 
+Among the problems I have to face in the end of 2023, there is my boredom in the free time. I'm a very active guy, I go to the gym, I watch animes, but I also like to involve myself into programming or engineering projects, and I was feeling to lazy to do any of those things. I had to change it 
 
 You know, I need money for me and my family, my wife is pregnant and I have a lot of bills to pay, we are reforming our appartment to welcome the baby. I am investing a lot of my free time on building a SaaS platform (which is still in development) for accounting services, the project itself is interesting in the perspective of software and cloud architecture and also in the perspective of money, but it is letting me tired, and in the sense of reasoning challenge was not satisfying.
 
@@ -164,7 +164,7 @@ func main() {
 }
 ```
 
-Also returning Hello From Nicolas, which was expected. I don't feel that using os.OpenFile is the proper way of doing access to files when constant modifications keep happening. The OS requests resources to kernel to access files and other peripherals. Why not using directly the Kernel to read file bytes? The answer to this question remains for posterity, with all of the testing made today, I have already a notion of how I should use Golang's API for files.
+Also returning Hello From Nicolas, which was expected. I don't know if using os.OpenFile is the proper way of doing access to files when constant modifications keep happening. The OS requests resources to kernel to access files and other peripherals. Why not using directly the Kernel to read file bytes? The answer to this question remains for posterity, with all of the testing made today, I have already a notion of how I should use Golang's API for files.
 
 
 #### Day Two - Understanding more about File Systems
@@ -193,7 +193,7 @@ If you have a Unix like os, using *getconf PAGE_SIZE* will display the page size
 
 #### Conclusion
 
-I really tought that the file parts would be sensible, but not that there were so many possiblities and details in the subject. I think that during the project building, I'll have more and more modifications to the code, in order to fit all requirements presented at the beginning of the project.
+I really tought that the file subjects would be sensitive, but not that there were so many possiblities and details in the subject. I think that during the project building, I'll have more and more modifications to the code, in order to fit all requirements presented at the beginning of the project.
 
 For now, I'll focus on enabling the most basic blocks of the project. The first part is to build the BTree and its basic operations. I am really excited to start this chapter of the project. I don't have much experience with Golang, nor I have the fixed idea of how it will be implemented, but I'll do it anyway.
 
