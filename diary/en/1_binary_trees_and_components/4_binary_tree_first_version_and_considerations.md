@@ -1,31 +1,31 @@
-# Próximos passos
+# Next steps
 
-Tendo em mente que o CRUD básico da minha árvore binária foi construído (A qualidade deve ser melhorada), quero avançar no desenvolvimento do meu banco de dados e passar para o próximo nível. Antes de apresentar o próximo capítulo desta aventura, quero fazer algumas considerações e destacar alguns pontos que deverão ser retrabalhados no futuro:
+Keeping in mind that the basic CRUD of my binary tree has been built (Quality must be improved), I want to advance my database development and move to the next level. Before presenting the next chapter of this adventure, I want to make some considerations and highlight some points that should be reworked in the future:
 
-## Nós e Folhas
+## Knots and Leaves
 
-A base da árvore binária funcionou muito bem, embora eu ache que muitas linhas de código poderiam ser removidas facilmente com uma boa refatoração. Outra tarefa que considero realmente necessária é melhorar o tempo gasto para exclusão de itens em folhas e nós. Quando projetei os campos pertencentes à estrutura TreeNode, realmente pensei que o endereço pai seria usado com frequência, e à medida que desenvolvi as funções CRUD, ficou claro para mim que aquele campo seria inútil na forma como eu estava implementando a solução . Acho que vou removê-lo no futuro, talvez adicione algum outro campo sobre se a página faz ou não parte da árvore atual.
+The binary tree base worked very well, although I think many lines of code could be removed easily with a good refactoring. Another task that I consider really necessary is to improve the time spent deleting items in sheets and nodes. When I designed the fields belonging to the TreeNode structure, I really thought that the parent address would be used frequently, and as I developed the CRUD functions, it became clear to me that that field would be useless in the way I was implementing the solution. I think I'll remove it in the future, maybe add some other field about whether or not the page is part of the current tree.
 
-Junto com essas modificações mencionadas, gostaria de reescrever e renomear diversas funções, facilitando o entendimento.
+Along with these mentioned modifications, I would like to rewrite and rename several functions, making them easier to understand.
 
-## Gravações e atualizações de páginas BTree
+## BTree page recordings and updates
 
-Este talvez seja um dos assuntos mais sensatos do projeto, o gerenciamento de arquivos. Quer dizer, qual a melhor forma de atualizar um arquivo ou expandi-lo. Optei por uma forma ingênua de atualizar o arquivo, só queria fazê-lo funcionar, sem pensar ainda em algum possível sistema multi thread. Eu atualizo páginas e escrevo todas de uma vez, ou seja, sempre que atualizo um único valor de página, como número de itens, escrevo o valor total do tamanho de uma página em bytes.
+This is perhaps one of the most sensible topics in the project, file management. I mean, what is the best way to update a file or expand it. I opted for a naive way of updating the file, I just wanted to make it work, without thinking about any possible multi thread system. I update pages and write them all at once, that is, whenever I update a single page value, such as number of items, I write the total value of a page's size in bytes.
 
-Isso não é nada atômico, algo pode dar errado e minha página ficar corrompida, o que não é algo desejável. Outra solução possível é trabalhar diretamente com o mapa de memória, onde não tenho o callback definido, mas atualizo os bytes mapeados. A segunda solução possível exigiria alguma refatoração do CRUD.
+This is not atomic at all, something could go wrong and my page could become corrupted, which is not desirable. Another possible solution is to work directly with the memory map, where I don't have the callback defined, but I update the mapped bytes. The second possible solution would require some CRUD refactoring.
 
-Outra variação é nunca atualizar um Node, ou seja, sempre que houver uma atualização na árvore, outro branch é criado, copiando o branch a ser modificado, e a única atualização é definir a página raiz para o novo branch gerado. Essa abordagem resolveria facilmente o problema de desligamentos inesperados, mas nos levaria a várias páginas não utilizadas, tornando nosso arquivo bTree extremamente grande.
+Another variation is to never update a Node, that is, whenever there is an update to the tree, another branch is created, copying the branch to be modified, and the only update is to set the root page to the new generated branch. This approach would easily solve the problem of unexpected shutdowns, but it would leave us with several unused pages, making our bTree file extremely large.
 
-Nem sempre podemos vencer, e isso também se aplica quando se trata de programação. Se você reduzir a complexidade de uma tarefa, poderá haver outra que também lhe custará mais tempo e complexidade.
+We can't always win, and this also applies when it comes to programming. If you reduce the complexity of one task, there may be another that will also cost you more time and complexity.
 
-Quando chegar à parte de desempenho, será bom avaliar também as diferenças entre a chamada do sistema mmap e o os.FileRead, para obter e armazenar informações. A partir de agora não importa muito qual deles será utilizado para desenvolver outras partes do projeto.
+When you get to the performance part, you'll want to also evaluate the differences between the mmap and os.FileRead system call for getting and storing information. From now on, it doesn't matter much which one will be used to develop other parts of the project.
 
-## A história
+## The story
 
-A história também poderá ser reescrita algum dia, como expliquei: meu tempo livre está ficando escasso, e eu queria seguir em frente com o projeto e pensar como meu coração e minha cabeça me mandassem, até mesmo para escrever. É claro que não gastei tanto tempo corrigindo meus erros de inglês ou mesmo revisando algumas frases e como elas foram escritas, apenas fiz isso como um diário. Talvez um dia eu faça algo profissional, também baseado neste projeto.
+The story could also be rewritten someday, as I explained: my free time was getting scarce, and I wanted to move forward with the project and think as my heart and head told me, even to write. Of course, I didn't spend that much time correcting my English mistakes or even reviewing some sentences and how they were written, I just did it as a diary. Maybe one day I'll do something professional, also based on this project.
 
-O que tentarei fazer na próxima vez. Documentarei mais sobre os testes e experiências que tive durante o processo, e não apenas a forma final das minhas ideias. Para cada implementação e teste, escreverei logo depois sobre isso, acho que vai dar mais um toque de experienciação do que de explicação da solução final.
+Which I will try to do next time. I will document more about the tests and experiences I had during the process, not just the final form of my ideas. For each implementation and test, I will write about it soon after, I think it will give more of an experience rather than an explanation of the final solution.
 
-# Próximo Capítulo
+# Next chapter
 
-O próximo capítulo abordará uma parte mais profunda do tratamento de arquivos, e abordarei principalmente as definições de banco de dados e tabelas, como nome de tabela, banco de dados, coluna, linha, entre outras. Estou animado para ver o que resultará disso.
+The next chapter will cover a deeper part of file processing, and I will mainly cover database and table definitions, such as table name, database, column, row, among others. I'm excited to see what comes of this.
