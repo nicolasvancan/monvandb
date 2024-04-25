@@ -22,12 +22,21 @@ func fillUpLeafUntilItSplits(btree *bTree.BTree) {
 	}
 }
 
-func fillUpLeafWithNumericValuesUntilItSplits(btree *bTree.BTree) {
-	for i := 1; i <= 10000; i++ {
+func fillUpLeafWithNumericValuesUntilItSplits(btree *bTree.BTree, number int, offset int) {
+	for i := 1 + offset; i <= number+offset; i++ {
 		// I'm going to use little endian 32 bits so 4 bytes
 		integerBytes := make([]byte, 4)
 		binary.BigEndian.PutUint32(integerBytes, uint32(i))
 		bTree.BTreeInsert(btree, integerBytes, []byte(string("teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_"+strconv.Itoa(i))))
+	}
+}
+
+func fillUpLeavesWith16kvalues(btree *bTree.BTree, number int, offset int) {
+	for i := 1 + offset; i <= number+offset; i++ {
+		// I'm going to use little endian 32 bits so 4 bytes
+		integerBytes := make([]byte, 4)
+		binary.BigEndian.PutUint32(integerBytes, uint32(i))
+		bTree.BTreeInsert(btree, integerBytes, createValueOf16kLen())
 	}
 }
 
@@ -101,7 +110,7 @@ func TestSimpleBTreeInsertion(t *testing.T) {
 	node := tree.Get(1)
 	kval := node.GetLeafKeyValueByIndex(0)
 
-	if bytes.Compare(kval.GetKey(), []byte("1")) != 0 {
+	if !bytes.Equal(kval.GetKey(), []byte("1")) {
 		t.Errorf("Bytes are not equivalent expected string('1'), found string('%s')", kval.GetKey())
 	}
 }
@@ -131,7 +140,7 @@ func TestInsertMultipleLines(t *testing.T) {
 		keyValue := bTree.BTreeGetOne(tree, []byte(strconv.Itoa(i)))
 
 		if keyValue == nil {
-			t.Errorf("Should have found the key %s\n", keyValue.Key)
+			t.Errorf("Should have found the key %d\n", i)
 		}
 	}
 }
@@ -144,16 +153,160 @@ func TestInsertMultipleLinesForLargeInt(t *testing.T) {
 	t.Log("Loading bTree to be used")
 	tree := helper.LoadBTreeFromPath(t, dbFilePath)
 	// Fillup with sequencial bytes
-	fillUpLeafWithNumericValuesUntilItSplits(tree)
+	fillUpLeafWithNumericValuesUntilItSplits(tree, 10000, 0)
 
 	for i := 1; i <= 10000; i++ {
 		integerBytes := make([]byte, 4)
 		binary.BigEndian.PutUint32(integerBytes, uint32(i))
 		res := bTree.BTreeGetOne(tree, integerBytes)
 		if res == nil {
-			tmp := binary.BigEndian.Uint32(res.Key)
+			tmp := binary.BigEndian.Uint32(integerBytes)
 			t.Errorf("Did not find a value for %d\n", tmp)
 		}
+	}
+}
+
+func TestInsertMultipleLinesWithOneLeafSequence(t *testing.T) {
+	// We insert multiple lines until it splits into two different leaves
+	t.Log("Starting Test simple bTree Insertion")
+	dbFilePath := setupTests(t)
+	// Load bTree
+	t.Log("Loading bTree to be used")
+	tree := helper.LoadBTreeFromPath(t, dbFilePath)
+	// Fillup with sequencial bytes
+	fillUpLeafWithNumericValuesUntilItSplits(tree, 250, 0)
+	key := make([]byte, 4)
+	binary.BigEndian.PutUint32(key, uint32(251))
+	value := createValueOf16kLen()
+
+	bTree.BTreeInsert(tree, key, value)
+	res := bTree.BTreeGetOne(tree, key)
+	if res == nil {
+		t.Errorf("Did not find a value for %d\n", 4)
+	}
+}
+
+func TestInsertMultipleLinesWithMultipleOneLeafSequence(t *testing.T) {
+	// We insert multiple lines until it splits into two different leaves
+	t.Log("Starting Test simple bTree Insertion")
+	dbFilePath := setupTests(t)
+	// Load bTree
+	t.Log("Loading bTree to be used")
+	tree := helper.LoadBTreeFromPath(t, dbFilePath)
+	// Fillup with sequencial bytes
+	fillUpLeafWithNumericValuesUntilItSplits(tree, 250, 0)
+	key := make([]byte, 4)
+	binary.BigEndian.PutUint32(key, uint32(252))
+	fillUpLeavesWith16kvalues(tree, 200, 251)
+
+	res := bTree.BTreeGetOne(tree, key)
+	if res == nil {
+		t.Errorf("Did not find a value for %s\n", key)
+	}
+}
+
+func TestDeletionOfAnElementInMiddleOfALeaf(t *testing.T) {
+	// We insert multiple lines until it splits into two different leaves
+	t.Log("Starting Test simple bTree Insertion")
+	dbFilePath := setupTests(t)
+	// Load bTree
+	t.Log("Loading bTree to be used")
+	tree := helper.LoadBTreeFromPath(t, dbFilePath)
+	bTree.BTreeInsert(tree, []byte("1"), []byte("first"))
+	bTree.BTreeInsert(tree, []byte("2"), []byte("second"))
+	bTree.BTreeInsert(tree, []byte("3"), []byte("third"))
+
+	// Delete the second element
+	bTree.BTreeDelete(tree, []byte("2"))
+
+	// Check if the element is still there
+	res := bTree.BTreeGetOne(tree, []byte("2"))
+	if res != nil {
+		t.Errorf("Should not have found a value for %s\n", res.Key)
+	}
+}
+
+func TestDeletionOfAnElementFromRootLeafAndTryInsertingAnotherOne(t *testing.T) {
+	// We insert multiple lines until it splits into two different leaves
+	t.Log("Starting Test simple bTree Insertion")
+	dbFilePath := setupTests(t)
+	// Load bTree
+	t.Log("Loading bTree to be used")
+	tree := helper.LoadBTreeFromPath(t, dbFilePath)
+	bTree.BTreeInsert(tree, []byte("1"), []byte("first"))
+	bTree.BTreeDelete(tree, []byte("1"))
+	t.Log("After Deleting the first element")
+	res := bTree.BTreeGetOne(tree, []byte("1"))
+	t.Log("After trying to get the first element")
+	if res != nil {
+		t.Errorf("Should not have found a value for %s\n", res.Key)
+	}
+
+	// Insert another element
+	bTree.BTreeInsert(tree, []byte("4"), []byte("fourth"))
+	res = bTree.BTreeGetOne(tree, []byte("4"))
+
+	if res == nil {
+		t.Errorf("Should have found a value for key []byte('4')")
+	}
+
+}
+
+func TestDeletionOfFirstElementOfAnLeaf(t *testing.T) {
+	// We insert multiple lines until it splits into two different leaves
+	t.Log("Starting Test simple bTree Insertion")
+	dbFilePath := setupTests(t)
+	// Load bTree
+	t.Log("Loading bTree to be used")
+	tree := helper.LoadBTreeFromPath(t, dbFilePath)
+	fillUpLeafUntilItSplits(tree)
+	fmt.Println("------------------------")
+	// Delete element 267
+	bTree.BTreeDelete(tree, []byte("267"))
+	firstPage := tree.Get(tree.GetRoot())
+	topNodePreviousKey := firstPage.GetNodeChildByKey([]byte("267"))
+
+	if topNodePreviousKey != nil {
+		t.Errorf("Should not have found a value for %s\n", topNodePreviousKey.GetKey())
+	}
+
+	replacedKey := firstPage.GetNodeChildByIndex(1)
+
+	if !bytes.Equal(replacedKey.GetKey(), []byte("268")) {
+		t.Errorf("Should have found a value for %s\n", replacedKey.GetKey())
+
+	}
+}
+
+func TestDeletionOfAnEntireLeaf(t *testing.T) {
+	// We insert multiple lines until it splits into two different leaves
+	t.Log("Starting Test simple bTree Insertion")
+	dbFilePath := setupTests(t)
+	// Load bTree
+	t.Log("Loading bTree to be used")
+	tree := helper.LoadBTreeFromPath(t, dbFilePath)
+	fillUpLeafUntilItSplits(tree)
+
+	pageFour := tree.Get(4)
+	allKeys := make([][]byte, 0)
+	for i := 0; i < int(pageFour.GetNItens()); i++ {
+		fmt.Println("----------------------------------")
+		fmt.Printf("Appended key %s\n", pageFour.GetLeafKeyValueByIndex(uint16(i)).GetKey())
+		tmp := make([]byte, len(pageFour.GetLeafKeyValueByIndex(uint16(i)).GetKey()))
+		copy(tmp, pageFour.GetLeafKeyValueByIndex(uint16(i)).GetKey())
+		allKeys = append(allKeys, tmp)
+	}
+
+	for i := 0; i < len(allKeys); i++ {
+		fmt.Printf("Deleting key %s\n", allKeys[i])
+		bTree.BTreeDelete(tree, allKeys[i])
+	}
+
+	// Print root page
+	rootPage := tree.Get(tree.GetRoot())
+	nItens := rootPage.GetNItens()
+	if nItens != 1 {
+		t.Error("Should be only one item")
 	}
 }
 
@@ -176,5 +329,73 @@ func TestFileMapping(t *testing.T) {
 		if len(mapped[i].History) != 2 {
 			t.Errorf("History should have length of 2 found %d\n", len(mapped[i].History))
 		}
+	}
+}
+
+func TestBTreeGetMultipleItemsWithSameKey(t *testing.T) {
+	t.Log("Creating basic database to test mapping")
+	dbFilePath := setupTests(t)
+	// Load bTree
+	t.Log("Loading bTree to be used")
+	tree := helper.LoadBTreeFromPath(t, dbFilePath)
+	// Insert another element
+	bTree.BTreeInsert(tree, []byte("4"), []byte("fourth"))
+	bTree.BTreeInsert(tree, []byte("4"), []byte("fifth"))
+	res := bTree.BTreeGet(tree, []byte("4"))
+	if len(res) != 2 {
+		t.Errorf("Should have found 2 items for key 4, found %d\n", len(res))
+	}
+
+	// Here enters one more key []byte("4")
+	fillUpLeafUntilItSplits(tree)
+	// Insert again
+	bTree.BTreeInsert(tree, []byte("4"), []byte("sixth"))
+	// Get all items for key []byte("4")
+	res = bTree.BTreeGet(tree, []byte("4"))
+	if len(res) != 4 {
+		t.Errorf("Should have found 4 items for key 4, found %d\n", len(res))
+	}
+}
+
+func TestBTreeGetMultipleItemsWithSameKeyAndLargeValues(t *testing.T) {
+	t.Log("Creating basic database to test mapping")
+	dbFilePath := setupTests(t)
+	// Load bTree
+	t.Log("Loading bTree to be used")
+	tree := helper.LoadBTreeFromPath(t, dbFilePath)
+	// Insert another element
+	bTree.BTreeInsert(tree, []byte("4"), []byte("fourth"))
+	bTree.BTreeInsert(tree, []byte("4"), []byte("fifth"))
+	res := bTree.BTreeGet(tree, []byte("4"))
+	if len(res) != 2 {
+		t.Errorf("Should have found 2 items for key 4, found %d\n", len(res))
+	}
+
+	// Here enters one more key []byte("4")
+	fillUpLeafUntilItSplits(tree)
+	// Insert again
+	bTree.BTreeInsert(tree, []byte("4"), createValueOf16kLen())
+	// Get all items for key []byte("4")
+	res = bTree.BTreeGet(tree, []byte("4"))
+	if len(res) != 4 {
+		t.Errorf("Should have found 4 items for key 4, found %d\n", len(res))
+	}
+}
+
+func TestSingleLeafUpdate(t *testing.T) {
+	// We insert multiple lines until it splits into two different leaves
+	t.Log("Starting Test simple bTree Insertion")
+	dbFilePath := setupTests(t)
+	// Load bTree
+	t.Log("Loading bTree to be used")
+	tree := helper.LoadBTreeFromPath(t, dbFilePath)
+	fillUpLeafUntilItSplits(tree)
+
+	bTree.BTreeUpdate(tree, []byte("5"), []byte("updated"))
+	// Get item for key []byte("5")
+	item := bTree.BTreeGetOne(tree, []byte("5"))
+	// Compare if the value is equal to updated
+	if !bytes.Equal(item.Value, []byte("updated")) {
+		t.Errorf("Should have found a value for %s\n", item.Value)
 	}
 }

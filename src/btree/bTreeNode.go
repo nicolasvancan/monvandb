@@ -84,7 +84,6 @@ const (
 	LEAF_VAL_START_OFFSET = LEAF_SEQ_P_OFFSET + LEAF_SEQ_P_LEN
 )
 
-/*  */
 const (
 	LEAF_SEQ_HAS_SEQ_OFFSET = NODE_TYPE_OFFSET + NODE_TYPE_LEN
 	LEAF_SEQ_SEQ_OFFSET     = LEAF_SEQ_HAS_SEQ_OFFSET + LEAF_HAS_SEQ_LEN
@@ -146,8 +145,50 @@ type TreeNode struct {
 	data []byte
 }
 
+/*Print all information about node*/
+func (n *TreeNode) PrintNode() {
+	fmt.Println("Printing Node")
+	var nType string = ""
+	if n.GetType() == TREE_NODE {
+		nType = "Node"
+	} else if n.GetType() == TREE_LEAF {
+		nType = "Leaf"
+
+	} else {
+		nType = "Leaf Sequence"
+	}
+
+	fmt.Printf("Type: %s\n", nType)
+	fmt.Printf("NItens: %d\n", n.GetNItens())
+	fmt.Printf("FreeBytes: %d\n", GetFreeBytes(n))
+	fmt.Printf("ParentAddr: %d\n", n.GetParentAddr())
+	fmt.Printf("Offset: %d\n", getNodeOffset(n))
+	if n.GetType() == TREE_LEAF {
+		fmt.Printf("HasSeq: %d\n", n.GetLeafHasSeq())
+		fmt.Printf("SeqPointer: %d\n", n.GetLeafSeqPointer())
+		// Get all key value from Node and print them
+		allLeafKeyValues := getAllLeafKeyValues(n)
+		for i := 0; i < len(allLeafKeyValues); i++ {
+			fmt.Printf("Key: %s\n", allLeafKeyValues[i].key)
+			fmt.Printf("Value: %s\n", allLeafKeyValues[i].value)
+		}
+	} else if n.GetType() == TREE_LEAF_SEQUENCE {
+		fmt.Printf("HasSeq: %d\n", n.GetLeafHasSeq())
+		fmt.Printf("SeqPointer: %d\n", n.GetLeafSeqPointer())
+		fmt.Printf("SeqBytes: %s\n", n.GetLeafSequenceBytes())
+	} else {
+		// Get all key value from Node and print them
+		allNodeKeyAddr := getAllNodeKeyAddr(n)
+		for i := 0; i < len(allNodeKeyAddr); i++ {
+			fmt.Printf("Key: %s\n", allNodeKeyAddr[i].key)
+			fmt.Printf("Addr: %d\n", allNodeKeyAddr[i].addr)
+		}
+	}
+}
+
 func LoadTreeNode(data []byte) *TreeNode {
-	treeNode := &TreeNode{data: data}
+	treeNode := new(TreeNode)
+	treeNode.data = data
 
 	return treeNode
 }
@@ -253,7 +294,7 @@ func (n *TreeNode) PutNodeNewChild(key []byte, addr uint64) error {
 	// Verify whether it will exceed total bytes
 	aditionalLength := len(key) + 2 + 8
 	if int(GetFreeBytes(n))-(aditionalLength) < 0 {
-		return errors.New("Exceeds total bytes")
+		return errors.New("exceeds total bytes")
 	}
 	keyLen := uint16(len(key))
 	// takes offset
@@ -289,28 +330,28 @@ func (n *TreeNode) PutNodeNewChild(key []byte, addr uint64) error {
 
 func (n *TreeNode) DeleteNodeChildrenByAddress(addr uint64) {
 	allNodeKeyAddr := getAllNodeKeyAddr(n)
-	// Reset Node
-	n.ResetNode()
-	// Sort Array
-	sortNodeChildren(allNodeKeyAddr)
+	tmp := NewNodeNode()
+	setParentAddr(tmp, n.GetParentAddr())
 	for i := 0; i < len(allNodeKeyAddr); i++ {
-		if allNodeKeyAddr[i].addr != addr {
-			n.PutNodeNewChild(allNodeKeyAddr[i].key, allNodeKeyAddr[i].addr)
+		if allNodeKeyAddr[i].addr == addr {
+			continue
 		}
+		tmp.PutNodeNewChild(allNodeKeyAddr[i].key, allNodeKeyAddr[i].addr)
 	}
+	copy(n.data, tmp.data)
 }
 
 func (n *TreeNode) DeleteNodeChildrenByKey(key []byte) {
 	allNodeKeyAddr := getAllNodeKeyAddr(n)
-	// Reset Node
-	n.ResetNode()
-	// Sort Array
-	sortNodeChildren(allNodeKeyAddr)
+	tmp := NewNodeNode()
+	setParentAddr(tmp, n.GetParentAddr())
 	for i := 0; i < len(allNodeKeyAddr); i++ {
-		if bytes.Compare(allNodeKeyAddr[i].key, key) != 0 {
-			n.PutNodeNewChild(allNodeKeyAddr[i].key, allNodeKeyAddr[i].addr)
+		if bytes.Equal(allNodeKeyAddr[i].key, key) {
+			continue
 		}
+		tmp.PutNodeNewChild(allNodeKeyAddr[i].key, allNodeKeyAddr[i].addr)
 	}
+	copy(n.data, tmp.data)
 }
 
 func sortNodeChildren(c []NodeKeyAddr) {
@@ -347,7 +388,7 @@ func (n *TreeNode) GetNodeChildByKey(key []byte) *NodeKeyAddr {
 	var r *NodeKeyAddr = nil
 	sortedChildren := getAllNodeKeyAddr(n)
 	for j := 0; j < len(sortedChildren); j++ {
-		if bytes.Compare(sortedChildren[j].key, key) == 0 {
+		if bytes.Equal(sortedChildren[j].key, key) {
 			r = &sortedChildren[j]
 			break
 		}
@@ -396,9 +437,7 @@ func NewNodeLeafSequence() *TreeNode {
 
 func (n *TreeNode) setLeafSequenceNumberBytes(numberBytes uint16) {
 	if n.GetType() == TREE_LEAF_SEQUENCE {
-		fmt.Println("Setting Leaf Sequence Number Bytes")
 		binary.LittleEndian.PutUint16(n.data[LEAF_SEQ_N_BYTES_OFFSET:LEAF_SEQ_N_BYTES_OFFSET+LEAF_SEQ_N_BYTES], numberBytes)
-		fmt.Println("Setting Leaf Sequence Number Bytes finalized")
 	}
 }
 
@@ -416,7 +455,7 @@ func (n *TreeNode) SetLeafSequenceBytes(value []byte) error {
 		remainingBytesSpace := PAGE_SIZE - LEAF_SEQ_BYTES_OFFSET
 
 		if valueLen > remainingBytesSpace {
-			return errors.New("Exceeded max size of bytes for the leaf sequence page")
+			return errors.New("exceeded max size of bytes for the leaf sequence page")
 		}
 
 		n.setLeafSequenceNumberBytes(uint16(valueLen))
@@ -439,7 +478,6 @@ func setLeafHasSeq(n *TreeNode, hasSeq uint16) {
 		binary.LittleEndian.PutUint16(n.data[LEAF_HAS_SEQ_OFFSET:LEAF_HAS_SEQ_OFFSET+LEAF_HAS_SEQ_LEN], hasSeq)
 		return
 	}
-
 	binary.LittleEndian.PutUint16(n.data[LEAF_SEQ_HAS_SEQ_OFFSET:LEAF_SEQ_HAS_SEQ_OFFSET+LEAF_HAS_SEQ_LEN], hasSeq)
 }
 
@@ -454,6 +492,7 @@ func (n *TreeNode) GetLeafHasSeq() uint16 {
 func setLeafSeqPointer(n *TreeNode, p uint64) {
 	if n.GetType() != TREE_LEAF_SEQUENCE {
 		binary.LittleEndian.PutUint64(n.data[LEAF_SEQ_P_OFFSET:LEAF_SEQ_P_OFFSET+LEAF_SEQ_P_LEN], p)
+		return
 	}
 
 	binary.LittleEndian.PutUint64(n.data[LEAF_SEQ_SEQ_OFFSET:LEAF_SEQ_SEQ_OFFSET+LEAF_SEQ_P_LEN], p)
@@ -495,7 +534,7 @@ func (n *TreeNode) PutLeafNewKeyValue(key []byte, value []byte) error {
 	aditionalLength := len(key) + 2 + 8 + len(value)
 
 	if int(GetFreeBytes(n))-(aditionalLength) < 0 {
-		return errors.New("Exceeds total bytes")
+		return errors.New("exceeds total bytes")
 	}
 	keyLen := uint16(len(key))
 	valLen := uint64(len(value))
@@ -544,8 +583,6 @@ func (n *TreeNode) GetLeafKeyValueByIndex(idx uint16) *LeafKeyValue {
 	}
 
 	allKeyValues := getAllLeafKeyValues(n)
-	sortLeafKeyValues(allKeyValues)
-
 	return &allKeyValues[idx]
 }
 
@@ -553,7 +590,7 @@ func (n *TreeNode) GetLeafKeyValueByKey(key []byte) *LeafKeyValue {
 	var r *LeafKeyValue = nil
 	allKeyValues := getAllLeafKeyValues(n)
 	for i := 0; i < len(allKeyValues); i++ {
-		if bytes.Compare(allKeyValues[i].key, key) == 0 {
+		if bytes.Equal(allKeyValues[i].key, key) {
 			r = &allKeyValues[i]
 		}
 	}
@@ -561,21 +598,20 @@ func (n *TreeNode) GetLeafKeyValueByKey(key []byte) *LeafKeyValue {
 	return r
 }
 
-func getSplitParameters(n *TreeNode, times int) (int, int) {
-	nItems := n.GetNItens()
-
-	var quantityPerTime int
-	var lastAdditional = 0
-	if times >= int(nItems) {
-		quantityPerTime = 1
-	} else {
-		quantityPerTime = int(nItems) / times
-		if nItems%uint16(times) != 0 {
-			lastAdditional = int(nItems) - (times * quantityPerTime)
+func (n *TreeNode) DeleteLeafKeyValueByKey(key []byte) {
+	allLeafKeyValues := getAllLeafKeyValues(n)
+	// Reset Node
+	tmp := NewNodeLeaf()
+	setParentAddr(tmp, n.GetParentAddr())
+	setLeafHasSeq(tmp, n.GetLeafHasSeq())
+	setLeafSeqPointer(tmp, n.GetLeafSeqPointer())
+	for i := 0; i < len(allLeafKeyValues); i++ {
+		if bytes.Equal(allLeafKeyValues[i].key, key) {
+			continue
 		}
+		tmp.PutLeafNewKeyValue(allLeafKeyValues[i].key, allLeafKeyValues[i].value)
 	}
-
-	return quantityPerTime, lastAdditional
+	copy(n.data, tmp.data)
 }
 
 func (n *TreeNode) SplitLeaf(key []byte, value []byte) []TreeNode {
@@ -584,7 +620,7 @@ func (n *TreeNode) SplitLeaf(key []byte, value []byte) []TreeNode {
 	   where our new value will be inserted. The left leaf will return filled with all possible data
 	   trying to use the most of it space, whereas the second one, will have just the remaining data
 	*/
-	// Case Leaf to be splited has sequence
+	// Case Leaf to be splitted has sequence
 	if n.GetLeafHasSeq() == 1 {
 		r := make([]TreeNode, 2)
 		r[0] = *n
@@ -594,7 +630,6 @@ func (n *TreeNode) SplitLeaf(key []byte, value []byte) []TreeNode {
 		return r
 	}
 
-	fmt.Printf("DEBUG::SplitLeaf key = %s, value %s\n", key, value)
 	// Get all leaf members
 	allLeafMembers := getAllLeafKeyValues(n)
 	// Append new member
@@ -615,7 +650,6 @@ func (n *TreeNode) SplitLeaf(key []byte, value []byte) []TreeNode {
 	activeLeaf := 0
 	for i := 0; i < len(allLeafMembers); i++ {
 
-		fmt.Printf("SPLIT_LEAF:: key of leaf %s\n", (allLeafMembers[i].GetKey()))
 		freeBytes := GetFreeBytes(&newLeaves[activeLeaf])
 
 		member := allLeafMembers[i]
@@ -686,7 +720,6 @@ func CreateLeafWithSequence(key []byte, value []byte) (*TreeNode, []TreeNode) {
 	*/
 	valueBytesForFirstLeaf := PAGE_SIZE - LEAF_VAL_START_OFFSET - LEAF_KEY_LEN_LEN - len(key) - LEAF_VAL_LEN_LEN
 	numberOfLeaves := (valueLen - valueBytesForFirstLeaf) / LEAF_SEQ_FREE_BYTES_SIZE
-	fmt.Printf("Len for value first leaf %d\n", valueBytesForFirstLeaf)
 	if (valueLen-valueBytesForFirstLeaf)%LEAF_SEQ_FREE_BYTES_SIZE != 0 {
 		numberOfLeaves += 1
 	}
@@ -700,14 +733,11 @@ func CreateLeafWithSequence(key []byte, value []byte) (*TreeNode, []TreeNode) {
 	for i := 0; i < numberOfLeaves; i++ {
 		var tmpValue []byte = nil
 		if i < numberOfLeaves-1 {
-			fmt.Printf("Inserting leaf = %d\n", i)
 			tmpValue = value[valueBytesForFirstLeaf+i*LEAF_SEQ_FREE_BYTES_SIZE : valueBytesForFirstLeaf+(i+1)*LEAF_SEQ_FREE_BYTES_SIZE]
 		} else {
-			fmt.Printf("Inserting last leaf = %d\n", i)
 			tmpValue = value[valueBytesForFirstLeaf+i*LEAF_SEQ_FREE_BYTES_SIZE:]
 		}
 		sequences[i] = *NewNodeLeafSequence()
-		fmt.Printf("Inserting bytes len = %d\n", len(tmpValue))
 		sequences[i].SetLeafSequenceBytes(tmpValue)
 	}
 
