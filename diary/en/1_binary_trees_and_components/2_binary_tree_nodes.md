@@ -1,20 +1,20 @@
 # Tree Nodes
 
-The first day of implementation was a common day. My daily job was not tiring and I decided to start shaping the beginning of the BTree. The concept of the binary tree is a Data Structure based on nodes and leaves. I know that there are several types of trees but I'll implement the B+Tree, whose nodes are responsible to store other nodes or leaves positions, whereas leaves store Key Vlues (Bytes). 
+The first day of implementation was a common day. My daily job was not tiring, and I decided to start shaping the beginning of the B-tree. The concept of the binary tree is a data structure based on nodes and leaves. I know that there are several types of trees, but I'll implement the B+Tree, whose nodes are responsible for storing other nodes or leaves positions, whereas leaves store key values (bytes).
 
 Preparing a byte structure to be saved within a file page is something that I had to think about. I normally ask myself some questions before I write something, and the questions were:
 
-- Will the structure need more than one type of bytes arrangement?
+- Will the structure need more than one type of byte arrangement?
 - Are they going to share any type of information?
 - What kind of information do I need?
 
-Answering the first question: **Yes!** since we have nodes and leaves, we have to create both structures. Sharing information would be good, both of them store something, either addresses to nodes or real values, so basically we can store information related to stored items, maybe the number of items in the page? Or even better, we can store how much space we have left in a page, or even what address belongs to the parent node.
+Answering the first question: **Yes!** Since we have nodes and leaves, we have to create both structures. Sharing information would be good; both of them store something, either addresses to nodes or real values, so basically, we can store information related to stored items, maybe the number of items on the page? Or even better, we can store how much space we have left on a page, or even what address belongs to the parent node.
 
 I think that starting with those basic information for both is enough.
 
-The basic (functional) bytes structure is not a hard task, working with IoT gave me a good idea of how to build data protocols for wireless comunication, building data sctructures out of byte arrays or **structs**. The bad news for me now is that everything was written in C in that time, not Golang.
+The basic (functional) byte structure is not a hard task; working with IoT gave me a good idea of how to build data protocols for wireless communication, building data structures out of byte arrays or **structs**. The bad news for me now is that everything was written in C at that time, not Golang.
 
-For those who have experience coding in C, what I want to build for basic data sctructure is something similar to the following C code:
+For those who have experience coding in C, what I want to build for basic data structure is something similar to the following C code:
 
 ```C
 #include <stdint.h>
@@ -37,15 +37,15 @@ type Node struct {
 }
 ```
 
-Golang also provides struct types, with some differences. In C, struct serialization occours direcly. Let's say I use malloc to allocate a page size of memory, in this case 4096 bytes. When I cast it to a struct type, it uses automatically the total amount of bytes that the struct needs, and the rest stays free for another purpose.
+Golang also provides struct types, with some differences. In C, struct serialization occurs directly. Let's say I use malloc to allocate a page size of memory, in this case, 4096 bytes. When I cast it to a struct type, it automatically uses the total amount of bytes that the struct needs, and the rest stays free for another purpose.
 
-In Golang, it is also possible to serialize a struct, but it is not so direct as in C. Knowing that, and considering that converting bytes to another data type to convert them again and, afterwards, do some operations, would become slow for large data operations, I've decided to build my own serialization process for my Nodes and Leaves.
+In Golang, it is also possible to serialize a struct, but it is not so direct as in C. Knowing that, and considering that converting bytes to another data type to convert them again and, afterwards, do some operations would become slow for large data operations, I've decided to build my own serialization process for my Nodes and Leaves.
 
-I researched and saw that Golang has two libraries used to deal with byte arrays, Binary and Bytes, containing functions to work directly with bytes and binary information.
+I researched and saw that Golang has two libraries used to deal with byte arrays: Binary and Bytes, containing functions to work directly with bytes and binary information.
 
 ## Golang Struct
 
-Every Node is one page, and one page corresponds to an array of bytes. So, to build our struct we need to fill up an array of bytes. I thought it would be a good idea to have a struct like this:
+Every node is one page, and one page corresponds to an array of bytes. So, to build our struct, we need to fill up an array of bytes. I thought it would be a good idea to have a struct like this:
 
 ```go
 type TreeNode struct {
@@ -53,17 +53,17 @@ type TreeNode struct {
 }
 ```
 
-That means, when I serialize data, I just take the data field containing all node bytes. I don't like personally to do it this way, but, I am not sure whether ot not there is another option that may be as fast as this one.
+That means, when I serialize data, I just take the data field containing all node bytes. I don't personally like to do it this way, but I am not sure whether or not there is another option that may be as fast as this one.
 
-The disadvantages of this sort of implementation is that we must build all getters and setters for all specific partes of our page, which brings more complexity to my solution. I'll continue with this solution anyway, let's see what I get.
+The disadvantages of this sort of implementation are that we must build all getters and setters for all specific parts of our page, which brings more complexity to my solution. I'll continue with this solution anyway; let's see what I get.
 
 # The Node Node
 
-I was not inspired today to create something fabulous, so let's try to do the basic. The Node node should have a header and also a structure to save data from nodes or leaves. Btree normally requires keys that are used as indexes to searches. What kind of Key will the bTree have?
+I was not inspired today to create something fabulous, so let's try to do the basic. The Node node should have a header and also a structure to save data from nodes or leaves. B-tree normally requires keys that are used as indexes to searches. What kind of Key will the B-tree have?
 
-Normally, what I see are columns with non negative integer numbers that increase automatically with time, I think the first approach would be to use a integer number as key, I don't want complexity right now. The key can become huge, so I assume that it is the largest number available in the language: **uint64**.
+Normally, what I see are columns with non-negative integer numbers that increase automatically with time. I think the first approach would be to use an integer number as key; I don't want complexity right now. The key can become huge, so I assume that it is the largest number available in the language: **uint64**.
 
-For every key we store value, but for the case of Node Node, we store a address, not a memory address, but a page address, that can also be huge, so we assume page address is **uint64** as well.
+For every key, we store a value, but for the case of the Node Node, we store an address, not a memory address, but a page address, that can also be huge, so we assume the page address is **uint64** as well.
 
 So, the first step is to create the basic structure for our nodes:
 
@@ -91,7 +91,7 @@ It's time to think and build the basic structure to the node. I thought it would
 - **nItems**: Indicates how many items the node has **uint16**
 - **freeBytes**: Indicates how many free bytes the node has **uint16**
 - **pParent**: Page refering to parent node (In case we need it) **uint64**
-- **n * NodeStructure**: This is just a representation for explaining that after pParent bytes there is just data related to another nodes and addresses **Can be many bytes**
+- **n * NodeStructure**: This is just a representation for explaining that, after pParent bytes, there is just data related to another nodes and addresses **Can be many bytes**
 - **NodeStructure**:
 - - **key**: lowest key of the page referenced **uint64**
 - - **addr**: Address of the page **uint64**
@@ -100,9 +100,9 @@ I created an image to show an example of how the key address **NodeStructure** w
 
 ![Node Diagram](../../assets/node_diagram.png)
 
-There is the header, it is composed by the fields: type, nItems, etc; followed by free space used to store information related to key addresses. Whenever a new key address struct is added to the page, the value is concatenated to the page after the headers, the count of nItems is increased by one and the number of free bytes decreses.
+There is the header, which is composed of the fields: type, nItems, etc.; followed by free space used to store information related to key addresses. Whenever a new key address struct is added to the page, the value is concatenated to the page after the headers, the count of nItems is increased by one, and the number of free bytes decreases.
 
-The same idea would apply to the key values pairs, differing only by the fact that the number os bytes stored in value is variable, therefore, we need information about how many bytes does value consist.
+The same idea would apply to the key-value pairs, differing only by the fact that the number of bytes stored in value is variable; therefore, we need information about how many bytes does value consist.
 
 ## First implementation
 
@@ -136,9 +136,9 @@ I know that the names are possibly not so easy to understand nor really beatiful
 
 **Writing Getters and Setters**
 
-I have never written some getters and setters in golang before. I've done this in different languages, C, Java, JS, Python, but in Golang is something really new. I've read that it is possible to both write them linked to some struct, namelly class methodes, or to write passing some struct address as a function parameter, and modify what you want inside the function.
+I have never written some getters and setters in Golang before. I've done this in different languages: C, Java, JS, Python, but in Golang it is something really new. I've read that it is possible to both write them linked to some struct, namely class methods, or to write by passing some struct address as a function parameter, and modify what you want inside the function.
 
-I am going to be honest. I mixed both trying to differ some characteristics of the node leaf and node node, but that ended up being some confusion and a non pattern way of writing code. Fixing it is a task for the posterity. But let's code
+I am going to be honest. I mixed both trying to differ some characteristics of the node leaf and node node, but that ended up being some confusion and a non-pattern way of writing code. Fixing it is a task for posterity. But let's code.
 
 ```go
 func (n *TreeNode) GetType() uint16 {
@@ -159,7 +159,9 @@ Here a two examples of how can you use methodes with structs. I tryed to differ 
 
 **The NewNode function**
 
-I wanted to have also a function that would return me a empty Node Node to be used in my application, would be the same as a Constructor for my structure. Therefore, the creation of a function for that seemed a good idea, the problem was that I didn't kwnow how to initialize a struct containing byte array as a property. After a while testing, I figured out that there is a couple built in functions that help you create an object out of a type easly, those are: **make** and **new** functions. Make is usefull when creating arrays of types, in my case, an array of bytes. Whereas the new function is used to create empty structs for the given type. Furthermore, you can create manually the struct such as in C, as shown I my example, where I combined make and C form struct creation to create a new TreeNode struct.
+I wanted to have a function that would return me an empty Node Node to be used in my application, similar to a constructor for my structure. Therefore, creating a function for that seemed like a good idea. The problem was that I didn't know how to initialize a struct containing a byte array as a property. After a while of testing, I figured out that there are a couple of built-in functions that help you create an object out of a type easily. These are the make and new functions.
+
+The make function is useful when creating arrays of types. In my case, I needed an array of bytes. On the other hand, the new function is used to create empty structs for the given type. Additionally, you can manually create the struct similar to C, as shown in my example, where I combined make and C-style struct creation to create a new TreeNode struct.
 
 ```go
 func NewNodeNode() *TreeNode {
@@ -176,11 +178,11 @@ func NewNodeNode() *TreeNode {
 
 ## Advancing - Nodes types and Insertion Deletion Methodes
 
-Getters and Setters were implemented using *binary.LittleEndian* methodes to work with bytes array. Now it's time to implement functions to enable us inserting, deleting, updating and getting key values and addresses from our Node pages. I must confess that I am feeling really lazy and don't want to spend so much time in this task neither develop a complex logic to do so.
+Getters and setters were implemented using *binary.LittleEndian* methods to work with byte arrays. Now it's time to implement functions to enable us to insert, delete, update, and get key values and addresses from our Node pages. I must confess that I am feeling quite lazy and don't want to spend too much time on this task, nor do I want to develop complex logic for it.
 
-I think that the only constraint that I have is to maintain all values on pages sorted, in other words, to store them sorted (Desired), but retrieving them sorted is enought.
+I think the only constraint I have is to maintain all values on pages sorted, in other words, to store them sorted (which is desired), but retrieving them sorted is enough.
 
-Before advancing more in the subject, I had to create some concrete struct types to demonstrate what are the types and information stored inside the pages, which are: **NodeKeyAddr**, **LeafKeyValue**, as shown below:
+Before advancing further on the subject, I needed to create some concrete struct types to demonstrate what types of information are stored inside the pages. These are **NodeKeyAddr** and **LeafKeyValue**, as shown below:
 
 ```go
 type LeafKeyValue struct {
@@ -198,9 +200,9 @@ type NodeKeyAddr struct {
 
 ```
 
-I decided to change the key from uint64 to byte array, considering any possibility of use of indexed keys, such as string, different bytes, objects, among others, changing the field to bytes array was the best option I could choose.
+I decided to change the key from uint64 to a byte array, considering the possibility of using indexed keys such as strings, different bytes, objects, among others. Changing the field to a byte array was the best option I could choose.
 
-For every type of node a function to insert, delete, update values is created. In fact, the update method will not be implemented, updating is the same as deleting and inserting the same key.
+For every type of node, a function to insert, delete, and update values is created. In fact, the update method will not be implemented, as updating is essentially the same as deleting and inserting the same key.
 
 **Insert**
 
@@ -286,11 +288,11 @@ func (n *TreeNode) PutLeafNewKeyValue(key []byte, value []byte) error {
 }
 ```
 
-The idea is simple. In order to facilitate my life, I've created another field called offset, which indicates what is the position of the first free byte to be the reference for new incomming bytes to be saved. The difference between both is that the value len of a LeafKeyValue is variable, therefore, it has one field more regarding the length of the bytes to be saved.
+The idea is simple. To facilitate my life, I've created another field called offset, which indicates the position of the first free byte to be the reference for new incoming bytes to be saved. The difference between both is that the value len of a LeafKeyValue is variable, therefore, it has one more field regarding the length of the bytes to be saved.
 
-For every new item to be added, the system look at offset and then stores the data after the offset, updates the number of itens in the page and also updates the offset value to the new one. Doing so, I don't have to compute a lot and don't have to create a mirabulos logic solution to this. But you may ask me: **How do you guarantee that it is sorted?**
+For every new item to be added, the system looks at the offset and then stores the data after the offset, updates the number of items in the page, and also updates the offset value to the new one. Doing so, I don't have to compute a lot and don't have to create a miraculous logic solution for this. But you may ask me: How do you guarantee that it is sorted?
 
-In fact I don't guarantee anything while inserting data, just that the data is there. The sorted data comes when reading from page, as shown below for get methodes:
+In fact, I don't guarantee anything while inserting data, just that the data is there. The sorted data comes when reading from the page, as shown below for getter methods:
 
 ```go
 func getAllLeafKeyValues(n *TreeNode) []LeafKeyValue {
@@ -356,15 +358,15 @@ func sortNodeChildren(c []NodeKeyAddr) {
 }
 ```
 
-I had to create the same method for LeafKeyValue, and the code is getting duplicated in some parts, which I don't like, but it is not something to worry about right now.
+I had to create the same method for *LeafKeyValue*, and the code is getting duplicated in some parts, which I don't like, but it is not something to worry about right now.
 
 **Delete Functions**
 
-Deleting specific part of byte array, specially when it is not a fixed length byte, may be a dificult task. I know that this implementation done here is not something special and is not fast the way I want, but it's usefull to advance with the first version of my bTree.
+Deleting a specific part of a byte array, especially when it is not of fixed length, may be a difficult task. I know that this implementation done here is not something special and is not as fast as I want, but it's useful to advance with the first version of my B-tree.
 
-What I do is not to delete anything, I read all values from a page (Node), remove the desired key, and then store everything again in the renewed array. Simple but slow, one best alternative is to identify the real position of the desired field in the page, and copy other bytes to it's position, namelly shifting bytes from right to left.
+What I do is not to delete anything; I read all values from a page (Node), remove the desired key, and then store everything again in the renewed array. Simple but slow. One better alternative is to identify the real position of the desired field in the page and copy other bytes to its position, namely shifting bytes from right to left.
 
-One exemple of the implemented method is show below:
+One example of the implemented method is shown below:
 
 ```go
 func (n *TreeNode) DeleteLeafKeyValueByKey(key []byte) {
@@ -386,8 +388,8 @@ func (n *TreeNode) DeleteLeafKeyValueByKey(key []byte) {
 
 # Time to move on
 
-After implementing everything I got tired and needed to advance with this subject, I wanted to start creating the binary tree crud functions, and I'll do so. I realized that I could merge both structures **LeafKeyValue** and **NodeKeyAddress**, remove duplicated methodes for inserting, deleting, sorting, and so on. I'll do this later, so this will be kept in a TODO file.
+After implementing everything I got tired and needed to advance with this subject, I wanted to start creating the binary tree CRUD functions, and I'll do so. I realized that I could merge both structures LeafKeyValue and NodeKeyAddress, remove duplicated methods for inserting, deleting, sorting, and so on. I'll do this later, so this will be kept in a TODO file.
 
-Implementing delete method directly into the bytes will be much faster and improve the speed of my software, although I'll let this task for myself from the future. 
+Implementing delete method directly into the bytes will be much faster and improve the speed of my software, although I'll leave this task for myself in the future.
 
-The last considerations for this package is that I'll write it again using some pattern for naming and letting it less verbous, and the PAGE_SIZE constant could be changed to work as a PAGE_SIZE for each bTree file, this information would be stored at the first page from the file.
+The last considerations for this package are that I'll write it again using some pattern for naming and making it less verbose, and the PAGE_SIZE constant could be changed to work as a PAGE_SIZE for each B-tree file; this information would be stored on the first page of the file.

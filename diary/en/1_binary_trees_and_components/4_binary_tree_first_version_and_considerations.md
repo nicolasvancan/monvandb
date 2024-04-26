@@ -10,7 +10,7 @@ Along with these mentioned modifications, I would like to rewrite and rename sev
 
 ## BTree page recordings and updates
 
-This is perhaps one of the most sensible topics in the project, file management. I mean, what is the best way to update a file or expand it. I opted for a naive way of updating the file, I just wanted to make it work, without thinking about any possible multi thread system. I update pages and write them all at once, that is, whenever I update a single page value, such as number of items, I write the total value of a page's size in bytes.
+This is perhaps one of the most sensible topics in the project, file management. I mean, what is the best way to update a file or expand it. I opted for a naive way of updating the file, I just wanted to make it work, without thinking about any possible multi-thread system. I update pages and write them all at once, that is, whenever I update a single page value, such as the number of items, I write the total value of a page's size in bytes.
 
 This is not atomic at all, something could go wrong and my page could become corrupted, which is not desirable. Another possible solution is to work directly with the memory map, where I don't have the callback defined, but I update the mapped bytes. The second possible solution would require some CRUD refactoring.
 
