@@ -1,44 +1,59 @@
 package main
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
-	"os"
 )
 
-func generateByteArray() []byte {
-	header := []byte("Hello From Nicolas")
-	// Create new empty 4096 byte array
-	mArray := make([]byte, 4096)
-	// Copy header to mArray
-	copy(mArray[:len(header)], header)
-
-	// fill out the rest with hashtag
-	for i := len(header); i < len(mArray); i++ {
-		mArray[i] = byte('#')
-	}
-
-	return mArray
+type TableTest struct {
+	Id     int
+	Name   string
+	City   string
+	Number int
 }
 
 func main() {
-	// I'll implement the code here
-	fileName := "/home/nicolas/Desktop/nicolas/projetos/monvandb/test.txt"
-	fp, err := os.OpenFile(fileName, os.O_CREATE|os.O_RDWR, 0666)
-
-	if err != nil {
-		panic("Could not create file")
+	// Create an instance of the Person struct
+	rows := make([]TableTest, 2)
+	rows[0] = TableTest{
+		Id:     1,
+		Name:   "Nicolas",
+		City:   "Paris",
+		Number: 123456,
+	}
+	rows[1] = TableTest{
+		Id:     2,
+		Name:   "John",
+		City:   "London",
+		Number: 789456,
 	}
 
-	// Output with the size that we want to read
-	output := make([]byte, 18)
-	_, err = fp.ReadAt(output, 0)
+	// Create a new buffer to write the serialized data to
+	var b bytes.Buffer
 
-	if err != nil {
-		panic("Could not read file")
+	// Create a new gob encoder and use it to encode the person struct
+	enc := gob.NewEncoder(&b)
+	if err := enc.Encode(rows); err != nil {
+		fmt.Println("Error encoding struct:", err)
+		return
 	}
 
-	// print readData
-	fmt.Printf("First 100 characteres = %s\n", output)
+	// The serialized data can now be found in the buffer
+	serializedData := b.Bytes()
+	fmt.Printf("Serialized data: %s and its length = %d\n", serializedData, len(b.Bytes()))
 
-	defer fp.Close()
+	// Create a new buffer from the serialized data
+	c := bytes.NewBuffer(serializedData)
+
+	// Create a new gob decoder and use it to decode the person struct
+	var deserialized []TableTest
+	dec := gob.NewDecoder(c)
+	if err := dec.Decode(&deserialized); err != nil {
+		fmt.Println("Error decoding struct:", err)
+		return
+	}
+
+	// The person struct has now been deserialized
+	fmt.Println("Deserialized struct:", deserialized)
 }
