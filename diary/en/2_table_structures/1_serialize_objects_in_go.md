@@ -164,3 +164,5 @@ The result is exactly what I've serialized before, as shown below:
 ![alt text](../../assets/serialized_2.png)
 
 Even though this process of serialization requires more bytes to be done than It would if I just inserted every field separatedly, it can represent exactly a Go Struct, which provides much more flexibility when working with structured and not structured data. What type of struct should I build in order to guarantee flexibility, reusability and a not complex solution? That will be done on the next diary.
+
+**PS: I decided to create in every chapter of this project a folder called files, which contains all .go files related to experiments that I may attempt or I really do to understand some desired behaviours**
