@@ -9,7 +9,7 @@ import (
 type TableTest struct {
 	Id     int
 	Name   string
-	City   string
+	City   interface{}
 	Number int
 }
 
@@ -19,7 +19,7 @@ func Serialization() {
 	rows[0] = TableTest{
 		Id:     1,
 		Name:   "Nicolas",
-		City:   "Paris",
+		City:   float32(0.8),
 		Number: 123456,
 	}
 	rows[1] = TableTest{

@@ -142,5 +142,5 @@ func (p *DataFile) loadCallbacks() error {
 
 # Next steps
 
-This was an important step for advancing with my projects but was not direcly related to tables structures and so on. Now that I have an interface to access and use the binary tree easly, I'll pursuit the table divisions. 
+This was an important step for advancing with my projects but was not direcly related to tables structures and so on. Now that I have an interface to access and use the binary tree easly, stored in folder files, I'll pursuit the table divisions. 
 

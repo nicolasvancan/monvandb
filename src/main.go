@@ -5,6 +5,5 @@ import (
 )
 
 func main() {
-
-	a.FileStruct()
+	a.Serialization()
 }
