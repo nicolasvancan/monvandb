@@ -1,4 +1,4 @@
-package test_helper_b_tree
+package helper
 
 import (
 	"fmt"

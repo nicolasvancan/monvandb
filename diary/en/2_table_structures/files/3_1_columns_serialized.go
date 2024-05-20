@@ -145,7 +145,7 @@ func getFuncForType(t int, fn string) (interface{}, bool) {
 	return f, ok
 }
 
-func (s *SerializedColumnValue) GetConvertedValue() interface{} {
+func (s *SerializedColumnValue) DeserializeValue() interface{} {
 
 	fn, ok := getFuncForType(s.Type, "deserialize")
 	if !ok {
@@ -186,9 +186,9 @@ func SerializeValue(value interface{}, valType int) *SerializedColumnValue {
 func TestSerialize() {
 	fmt.Println("Int32")
 	val := SerializeValue(int16(2), COL_TYPE_SMALL_INT)
-	fmt.Println(val.GetConvertedValue())
+	fmt.Println(val.DeserializeValue())
 	fmt.Println("String")
 	val = SerializeValue("asdasdasdasd", COL_TYPE_STRING)
-	fmt.Println(val.GetConvertedValue())
+	fmt.Println(val.DeserializeValue())
 
 }
