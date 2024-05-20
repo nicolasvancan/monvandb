@@ -1,9 +1,15 @@
 package main
 
-import (
-	a "github.com/nicolasvancan/monvandb/diary/en/2_table_structures/files"
-)
-
 func main() {
-	a.Serialization()
+	teste := map[string]string{
+		"base":      "utils.Monvan_paths['base']",
+		"databases": "utils.Monvan_paths[databases]",
+		"users":     "utils.Monvan_paths[users]",
+	}
+
+	opa := []string{"base", "databases", "users"}
+
+	for i, v := range opa {
+		println(i, v, teste[v])
+	}
 }

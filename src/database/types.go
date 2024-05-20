@@ -1,7 +1,7 @@
-package table
+package database
 
 import (
-	files "github.com/nicolasvancan/monvandb/diary/en/2_table_structures/files"
+	files "github.com/nicolasvancan/monvandb/src/files"
 )
 
 // Column represents a column in a table
@@ -16,6 +16,22 @@ const (
 	COL_TYPE_TIMESTAMP
 	COL_TYPE_BLOB
 )
+
+type RawRow = map[string]interface{}
+
+type Database struct {
+	Name       string            // Database's name
+	Tables     map[string]*Table // reference to Tables
+	TablePaths map[string]string // Paths to the tables
+	Path       string            // Path to the database dir
+}
+
+type Table struct {
+	Name      string          // Table's name
+	Path      string          // Where the table configuration is stored
+	Columns   []Column        // reference to Columns
+	PDataFile *files.DataFile // private Access btree (Simple)
+}
 
 type ColumnValue struct {
 	Value interface{} // Value of the column
@@ -37,11 +53,4 @@ type Column struct {
 	Primary       bool
 	Unique        bool
 	Foreign       bool
-}
-
-type Table struct {
-	Name      string          // Table's name
-	Path      string          // Where the table configuration is stored
-	Columns   []Column        // reference to Columns
-	pDataFile *files.DataFile // private Access btree (Simple)
 }
