@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"testing"
 
@@ -73,12 +72,11 @@ func TestListFilesInDir(t *testing.T) {
 
 	// ListFilesInDir lists all files in a directory
 	files, err := utils.ListFilesInDir(basePath + string(os.PathSeparator) + "monvandb")
-	fmt.Println(files)
+
 	if err != nil {
 		t.Errorf(errorString, err)
 	}
-
-	if len(files) != 2 {
+	if len(files) != 3 {
 		t.Errorf(errorString, err)
 	}
 
@@ -92,7 +90,7 @@ func TestListFilesInDir(t *testing.T) {
 		t.Errorf(errorString, err)
 	}
 
-	if files[0].Name() != "teste1.db" {
+	if files[0].Name() != "test1.db" {
 		t.Error("Not file name")
 	}
 
@@ -183,6 +181,7 @@ func TestToJson(t *testing.T) {
 	if string(fileContent) != string(json) {
 		t.Error("File content is not the same")
 	}
+
 	decodedJson := new(database.Table)
 	err = utils.FromJson(fileContent, decodedJson)
 
