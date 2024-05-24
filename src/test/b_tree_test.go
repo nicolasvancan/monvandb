@@ -44,7 +44,7 @@ func fillUpLeavesWith16kvalues(btree *bTree.BTree, number int, offset int) {
 func setupTests(t *testing.T) string {
 	// Create tmp file path
 	tmpFilePath := t.TempDir()
-	t.Logf("Created tmpFile path %s\n", tmpFilePath)
+	t.Logf("created tmpFile path %s\n", tmpFilePath)
 	// Create a new bTree
 	return helper.CreateBtreeFileAndSetFile(t, tmpFilePath)
 }
@@ -60,7 +60,7 @@ func TestSimpleBTreeLoad(t *testing.T) {
 	t.Logf("Tmp db FIlename is %s\n", dbFilePath)
 
 	// Load bTree
-	t.Log("Loading bTree to be used")
+	t.Log("loading bTree to be used")
 
 	tree := helper.LoadBTreeFromPath(t, dbFilePath)
 	btreeName := tree.GetName()[:8]
@@ -79,11 +79,11 @@ func TestSimpleBTreeLoad(t *testing.T) {
 }
 
 func TestSimpleBTreeInsertion(t *testing.T) {
-	t.Log("Starting Test simple bTree Insertion")
+	t.Log("starting Test simple bTree Insertion")
 	dbFilePath := setupTests(t)
 
 	// Load bTree
-	t.Log("Loading bTree to be used")
+	t.Log("loading bTree to be used")
 	tree := helper.LoadBTreeFromPath(t, dbFilePath)
 
 	// Read file stat from Fp
@@ -117,10 +117,10 @@ func TestSimpleBTreeInsertion(t *testing.T) {
 
 func TestInsertMultipleLines(t *testing.T) {
 	// We insert multiple lines until it splits into two different leaves
-	t.Log("Starting Test simple bTree Insertion")
+	t.Log("starting Test simple bTree Insertion")
 	dbFilePath := setupTests(t)
 	// Load bTree
-	t.Log("Loading bTree to be used")
+	t.Log("loading bTree to be used")
 	tree := helper.LoadBTreeFromPath(t, dbFilePath)
 
 	// fill Leaf until it splits
@@ -147,10 +147,10 @@ func TestInsertMultipleLines(t *testing.T) {
 
 func TestInsertMultipleLinesForLargeInt(t *testing.T) {
 	// We insert multiple lines until it splits into two different leaves
-	t.Log("Starting Test simple bTree Insertion")
+	t.Log("starting Test simple bTree Insertion")
 	dbFilePath := setupTests(t)
 	// Load bTree
-	t.Log("Loading bTree to be used")
+	t.Log("loading bTree to be used")
 	tree := helper.LoadBTreeFromPath(t, dbFilePath)
 	// Fillup with sequencial bytes
 	fillUpLeafWithNumericValuesUntilItSplits(tree, 10000, 0)
@@ -311,7 +311,7 @@ func TestDeletionOfAnEntireLeaf(t *testing.T) {
 }
 
 func TestFileMapping(t *testing.T) {
-	t.Log("Creating basic database to test mapping")
+	t.Log("creating basic database to test mapping")
 	dbFilePath := setupTests(t)
 	// Load bTree
 	t.Log("Loading bTree to be used")
@@ -323,7 +323,7 @@ func TestFileMapping(t *testing.T) {
 	for i := 0; i < len(mapped); i++ {
 
 		if expectedPages[i] != (mapped[i].TreeNode) {
-			t.Errorf("Mapped leaves equal %d Should be %d\n", mapped[i].TreeNode, i+4)
+			t.Errorf("mapped leaves equal %d Should be %d\n", mapped[i].TreeNode, i+4)
 		}
 
 		if len(mapped[i].History) != 2 {
