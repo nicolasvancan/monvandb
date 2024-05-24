@@ -1,5 +1,10 @@
 package table_structures
 
+import (
+	files "github.com/nicolasvancan/monvandb/src/files"
+	utils "github.com/nicolasvancan/monvandb/src/utils"
+)
+
 type Column struct {
 	Name          string
 	Type          int
@@ -11,33 +16,36 @@ type Column struct {
 	Foreign       bool
 }
 
-type Indices struct {
-	Primary []string
-	Unique  []string
-	Foreign []string
-}
-
 type Table struct {
-	Name    string    // Table's name
-	Path    string    // Where the table configuration is stored
-	Columns []Column  // reference to Columns
-	dFile   *DataFile // Access btree (Simple)
+	Name      string          // Table's name
+	Path      string          // Where the table configuration is stored
+	Columns   []Column        // reference to Columns
+	PDataFile *files.DataFile // Access btree (Simple)
 }
 
 // Prototype for Loading an existing Table
 func LoadTable(path string) (*Table, error) {
-	return nil, nil
-}
+	// Read the table metadata
+	tableMetadata, err := utils.ReadFromFile(path + utils.SEPARATOR + utils.METDATA_FILE)
 
-// Prototype for Creating a new Table
-func CreateTable(name string, columns []Column) (*Table, error) {
-	return nil, nil
-}
+	if err != nil {
+		return nil, err
+	}
 
-func UpdateTable(table *Table, fields interface{}) error {
-	return nil
-}
+	// Deserialize the table metadata
+	table := new(Table)
+	err = utils.FromJson(tableMetadata, table)
 
-func DeleteTable(table *Table) error {
-	return nil
+	if err != nil {
+		return nil, err
+	}
+
+	// Initialize the table data file
+	table.PDataFile, err = files.OpenDataFile(path + utils.SEPARATOR + utils.TABLE_FILE)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return table, nil
 }
