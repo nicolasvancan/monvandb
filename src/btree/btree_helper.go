@@ -170,9 +170,7 @@ After the map we'll have the following array
 
 func MapAllLeavesToArray(bTree *BTree) []TreeNodeHistoryPages {
 	var mappedLeaves []TreeNodeHistoryPages = make([]TreeNodeHistoryPages, 0)
-
 	root := *new(TreeNodePage)
-
 	// Bind base history to root
 	root = TreeNodePage{
 		node: bTree.Get(bTree.GetRoot()),
@@ -192,15 +190,20 @@ func MapAllLeavesToArray(bTree *BTree) []TreeNodeHistoryPages {
 	for i := 0; i < int(nItens); i++ {
 
 		tmpNode := root.node.GetNodeChildByIndex(i)
-		mappedLeavesFromNode := getMappedLeafForNode(bTree, bTree.Get(tmpNode.GetAddr()), tmpNode.GetAddr(), make([]uint64, root.page))
-
+		history := make([]uint64, 0)
+		history = append(history, root.page)
+		mappedLeavesFromNode := getMappedLeafForNode(
+			bTree,
+			bTree.Get(tmpNode.GetAddr()),
+			tmpNode.GetAddr(),
+			history,
+		)
 		// Append every item in order to the final array
 		for j := 0; j < len(mappedLeavesFromNode); j++ {
 			itemToBeAppended := mappedLeavesFromNode[j]
 			mappedLeaves = append(mappedLeaves, itemToBeAppended)
 		}
 	}
-
 	return mappedLeaves
 }
 
@@ -215,7 +218,7 @@ func getMappedLeafForNode(bTree *BTree, node TreeNode, page uint64, history []ui
 
 			tmpKeyVal := node.GetNodeChildByIndex(i)
 			addr := tmpKeyVal.GetAddr()
-			newHistory := append(history, addr)
+			newHistory := append(history, page)
 			tmp := getMappedLeafForNode(bTree, bTree.Get(addr), addr, newHistory)
 			for j := 0; j < len(tmp); j++ {
 				mappedLeaf = append(mappedLeaf, tmp[j])
