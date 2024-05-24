@@ -9,6 +9,46 @@ import (
 	utils "github.com/nicolasvancan/monvandb/src/utils"
 )
 
+func CreateDatabase(name string) (*Database, error) {
+	// Create a new database
+	database := &Database{
+		Name:       name,
+		Tables:     make(map[string]*Table),
+		TablePaths: make(map[string]string),
+		Path:       utils.GetPath("databases") + utils.SEPARATOR + name,
+	}
+
+	// Create the database folder
+	err := utils.CreateFolder(database.Path, os.ModePerm)
+
+	if err != nil {
+		return nil, fmt.Errorf("error creating database folder: %v", err)
+	}
+
+	// Create the database metadata file
+	_, err = utils.CreateFile(database.Path + utils.SEPARATOR + utils.METDATA_FILE)
+
+	if err != nil {
+		return nil, fmt.Errorf("error creating database metadata file: %v", err)
+	}
+
+	// Serialize the database
+	json, err := utils.ToJson(database)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Write the database to the file
+	err = utils.WriteToFile(database.Path+utils.SEPARATOR+utils.METDATA_FILE, json)
+
+	if err != nil {
+		return nil, fmt.Errorf("could not write to database metadata file: %v", err)
+	}
+
+	return database, nil
+}
+
 func LoadDatabase(path string) (*Database, error) {
 	// Read the database metadata
 	databaseMetadata, err := utils.ReadFromFile(path + utils.SEPARATOR + utils.METDATA_FILE)
@@ -108,7 +148,7 @@ func (d *Database) CreateTable(tableName string, columns []Column) error {
 	}
 
 	// Add table to database
-	d.Tables[tableName] = newTable
+	d.TablePaths[tableName] = tablePath
 
 	// Update Database file
 	json, err := utils.ToJson(d)
@@ -121,6 +161,12 @@ func (d *Database) CreateTable(tableName string, columns []Column) error {
 
 	if err != nil {
 		return fmt.Errorf("could not write to database metadata.json file: %v", err)
+	}
+
+	d.Tables[tableName], err = LoadTable(tablePath)
+
+	if err != nil {
+		return err
 	}
 
 	return nil
