@@ -13,6 +13,32 @@ type DataFile struct {
 	fp    *os.File
 }
 
+// Comparators
+
+const (
+	EQ  = iota // Equal
+	GT         // Greater than
+	GTE        // Greater than or equal
+	LT         // Less than
+	LTE        // Less than or equal
+	NE         // Not equal
+)
+
+/*
+Range options is the most simplified version that I could think of to make the range function
+It will go from
+*/
+type RangeOptions struct {
+	From        []byte
+	To          []byte
+	FComparator int
+	TComparator int
+}
+
+func (p *DataFile) GetBTree() *btree.BTree {
+	return p.bTree
+}
+
 func OpenDataFile(path string) (*DataFile, error) {
 	p := DataFile{
 		path:  path,
@@ -28,6 +54,7 @@ func OpenDataFile(path string) (*DataFile, error) {
 	}
 
 	stat, _ := file.Stat()
+
 	// If the file is empty, create a new tree
 	if stat.Size() == 0 {
 		bTree := btree.NewTree(btree.PAGE_SIZE)
@@ -71,6 +98,11 @@ func (p *DataFile) Delete(key []byte) {
 // Update updates a key-value pair in the BTree
 func (p *DataFile) Update(key []byte, value []byte) {
 	btree.BTreeUpdate(p.bTree, key, value)
+}
+
+// Get iterator
+func (p *DataFile) GetIterator(key []byte) *btree.BTreeCrawler {
+	return p.bTree.FindLeafForCrawling(key)
 }
 
 // ForceSync forces the os to flush the file to disk
