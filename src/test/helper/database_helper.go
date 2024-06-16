@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/nicolasvancan/monvandb/src/database"
-	db "github.com/nicolasvancan/monvandb/src/database"
 	utils "github.com/nicolasvancan/monvandb/src/utils"
 )
 
@@ -30,11 +29,11 @@ func CreateDatabaseFileAndSetFile(t *testing.T) {
 
 	// Create a new database
 
-	database := new(db.Database)
-	database.Name = "db_teste"
-	database.Path = databaseFolderName
-	database.TablePaths = make(map[string]string)
-	database.Tables = make(map[string]*db.Table)
+	db := new(database.Database)
+	db.Name = "db_teste"
+	db.Path = databaseFolderName
+	db.TablePaths = make(map[string]string)
+	db.Tables = make(map[string]*database.Table)
 	// We first create a db at the tmp folder
 	_, err = utils.CreateFile(
 		databaseFolderName +
@@ -47,7 +46,7 @@ func CreateDatabaseFileAndSetFile(t *testing.T) {
 	}
 
 	// Serialize the database
-	res, err := utils.ToJson(*database)
+	res, err := utils.ToJson(*db)
 
 	if err != nil {
 		t.Errorf("error encoding struct: %s", err)
@@ -81,8 +80,9 @@ func CreateMockTable(t *testing.T) *database.Table {
 	// Create a new table
 	err = db.CreateTable("table_teste", []database.Column{
 		{
-			Name: "id",
-			Type: database.COL_TYPE_INT,
+			Name:    "id",
+			Type:    database.COL_TYPE_INT,
+			Primary: true,
 		},
 		{
 			Name: "name",
@@ -103,6 +103,9 @@ func CreateMockTable(t *testing.T) *database.Table {
 	if table.Name != "table_teste" {
 		t.Errorf("expected table_teste, got %v", table.Name)
 	}
+
+	table.Indexes = make(map[string]database.Index)
+	table.PrimaryKey = *table.GetColumnByName("id")
 
 	return table
 }
