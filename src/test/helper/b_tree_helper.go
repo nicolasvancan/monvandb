@@ -1,8 +1,10 @@
 package helper
 
 import (
+	"encoding/binary"
 	"fmt"
 	"os"
+	"strconv"
 	"testing"
 
 	bTree "github.com/nicolasvancan/monvandb/src/btree"
@@ -161,4 +163,73 @@ func CreateFakeDbPagesForMapping(t *testing.T, tree *bTree.BTree) *bTree.BTree {
 	tree.New(*sixthLeaf)  // 9
 
 	return tree
+}
+
+func FillUpLeafUntilItSplits(btree *bTree.BTree) {
+	// Fill up leaf until it splits
+	for i := 0; i < 282; i++ {
+		bTree.BTreeInsert(btree, []byte(strconv.Itoa(i)), []byte(string("teste_"+strconv.Itoa(i))))
+	}
+}
+
+func FillUpLeafWithNumericValuesUntilItSplits(btree *bTree.BTree, number int, offset int) {
+	for i := 1 + offset; i <= number+offset; i++ {
+		// I'm going to use little endian 32 bits so 4 bytes
+		integerBytes := make([]byte, 4)
+		binary.BigEndian.PutUint32(integerBytes, uint32(i))
+		bTree.BTreeInsert(btree, integerBytes, []byte(string("teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_teste_"+strconv.Itoa(i))))
+	}
+}
+
+func FillUpLeavesWith16kvalues(btree *bTree.BTree, number int, offset int) {
+	for i := 1 + offset; i <= number+offset; i++ {
+		// I'm going to use little endian 32 bits so 4 bytes
+		integerBytes := make([]byte, 4)
+		binary.BigEndian.PutUint32(integerBytes, uint32(i))
+		bTree.BTreeInsert(btree, integerBytes, CreateValueOf16kLen())
+	}
+}
+
+// Basic setup for testing
+func SetupTests(t *testing.T) string {
+	// Create tmp file path
+	tmpFilePath := t.TempDir()
+	t.Logf("created tmpFile path %s\n", tmpFilePath)
+	// Create a new bTree
+	return CreateBtreeFileAndSetFile(t, tmpFilePath)
+}
+
+func CleanUp() {
+	// We close Fp after test is concluded
+	fmt.Println("Cleaning up test")
+	defer Fp.Close()
+}
+
+func FillUpNode(t string) *bTree.TreeNode {
+	// Fill up Node until it reaches max Limit
+	var newNode *bTree.TreeNode
+
+	if t == "node" {
+		newNode = bTree.NewNodeNode()
+		for i := 0; i < 322; i++ {
+			newNode.PutNodeNewChild([]byte(strconv.Itoa(i)), uint64(i))
+		}
+
+	} else {
+		newNode = bTree.NewNodeLeaf()
+		for i := 0; i < 280; i++ {
+			newNode.PutLeafNewKeyValue([]byte(strconv.Itoa(i)), []byte(string(strconv.Itoa(i)+"teste")))
+		}
+	}
+
+	return newNode
+}
+
+func CreateValueOf16kLen() []byte {
+	r := make([]byte, 0)
+
+	for i := 0; i < 16450; i++ {
+		r = append(r, byte(i%255))
+	}
+	return r
 }
