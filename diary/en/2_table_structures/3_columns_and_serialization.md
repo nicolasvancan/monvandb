@@ -138,7 +138,7 @@ I had great time understanding some Golang concepts through the first experiment
 
 **How it looks like now with **any** type? **
 
-The projected schema has changed. I don't need to track the type of the value for the generic type in Golang. The *gob* library addresses this problem really well and can convert even **nil** values when needed. It became much more simple. I created another package, **table** that holds all files related to tables and its definitions, alongside with some utilities, that will be moved to another place in the future, in which I added the file **serialization.go**, having two functions: Serialize and Deserialize, working for all types of structs, as show below:
+The projected schema has changed. I don't need to track the type of the value for the generic type in Golang. The *gob* library addresses this problem really well and can convert even **nil** values when needed. It became much more simple. I created another package, **table** that holds all files related to tables and its definitions, alongside some utilities, that will be moved to another place in the future, in which I added the file **serialization.go**, having two functions: Serialize and Deserialize, working for all types of structs, as show below:
 
 ```go
 func Deserialize(value []byte, dst interface{}) error {

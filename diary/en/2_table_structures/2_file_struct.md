@@ -140,6 +140,8 @@ func (p *DataFile) loadCallbacks() error {
 
 ```
 
+Those callbacks above are not definitive. In the near future, I plan to create another module responsible for dealing with file access requests for getting and modifying data files, enabling many diferent threads to run in parallel on the same file. For the current purpose, is enough to use the functions the way they are.
+
 # Next steps
 
 This was an important step for advancing with my projects but was not direcly related to tables structures and so on. Now that I have an interface to access and use the binary tree easly, stored in folder files, I'll pursuit the table divisions. 

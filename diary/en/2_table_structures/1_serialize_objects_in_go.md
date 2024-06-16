@@ -4,9 +4,9 @@ Today I want to validate the concept of objects (Structs) serialization and it's
 
 ## Why am I researching serialization?
 
-The answer to this question is simple. Since I can store an array of bytes in the binary tree, I want to test if I can serialize a complex structure, whose fields would be analog to a table, containing columns. One of the problems is the serialization itself, the other one is the structure that will hold values regarding some specific structure.
+The answer to this question is simple. Since I can store an array of bytes in the binary tree, I want to test if I can serialize a complex structure, whose fields would be analog to a table, containing different columns. One of the problems is the serialization itself, the other one is the structure that will hold values regarding some specific table structure.
 
-When an user declares a create table function in a SQL Statement, he/she uses normally the following:
+When an user writes a create table SQL Statement, he/she uses normally the following:
 
 ```SQL
 -- Example of SQL STATEMENT
@@ -26,7 +26,7 @@ SELECT name
 FROM some_table
 ``` 
 
-The database would ask the table accessor to read data out of the binary tree file, and get only the name field. If we serialize the entire struct, for instance, a struct with the same fields
+The database would ask the table to read data out of the binary tree file, and get only the name field. If we serialize the entire struct, for instance, a struct with the same fields
 
 ```go
 type some_table struct {
@@ -36,7 +36,7 @@ type some_table struct {
 }
 ```
 
-when reading data, the retrieved data would be the whole struct, and thinking about efficiency in storing and retrieving data, getting only what is required would be the best option, but not the easiest.
+when reading data, the retrieved data would be the whole struct, and thinking about efficiency in storing and retrieving data, getting only what is required would be the best option, but not the easiest. I am not sure whether my first implementation will contain getting specific columns directly from the Data file. The direct path is to get all columns data and filter what you want afterwards, although it may bring to memory some undesired data that might be also huge.
 
 **Other Problem -- Tables are variables**
 
