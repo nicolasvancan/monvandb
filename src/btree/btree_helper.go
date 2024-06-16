@@ -102,7 +102,7 @@ func findLeaf(bTree *BTree, node TreeNode, key []byte, page uint64, history []Tr
 			return nil, nil
 		}
 
-		if idx := lookupKey(node, key); idx > -1 {
+		if idx := lookupKey(node, key, false); idx > -1 {
 			// Get keyAddress from it
 			nodeKeyAddr := node.GetNodeChildByIndex(idx)
 			// Reach out the address from bTree file
@@ -689,43 +689,46 @@ func mustSplitNode(node TreeNode, keyLen int, valueLen int) bool {
 /*
 Implementation of function to lookup key in internal Node, returning page number
 */
-func lookupKey(node TreeNode, key []byte) int {
+func lookupKey(node TreeNode, key []byte, ascend bool) int {
 	// Declare found variable initiated with -1 (Case we don't find any)
 	var found int = -1
 	var allNodeKeyAddr []NodeKeyAddr = nil
-	var allLeafKeyValues []LeafKeyValue = nil
 	nItens := node.GetNItens()
 	// Just in case it is a Internal Node
 	if node.GetType() == TREE_NODE {
 		allNodeKeyAddr = ([]NodeKeyAddr)(getAllNodeKeyAddr(&node))
 		// Iterate over all items to find a corresponding key
-
-		for i := int(nItens) - 1; i >= 0; i-- {
-			if bytes.Compare(allNodeKeyAddr[i].key, key) <= 0 {
-				found = i
-				break
-			}
-		}
-
-	} else {
-		allLeafKeyValues = ([]LeafKeyValue)(getAllLeafKeyValues(&node))
-		// Iterate over all items to find a corresponding key
-		for i := int(nItens) - 1; i >= 0; i-- {
-
-			if bytes.Compare(allLeafKeyValues[i].key, key) <= 0 {
-				found = i
-				break
-			}
+		if !ascend {
+			found = findKeyDescending(allNodeKeyAddr, key, int(nItens))
+		} else {
+			found = findKeyAscending(allNodeKeyAddr, key, int(nItens))
 		}
 	}
 	return found
+}
+
+func findKeyDescending(allNodeKeyAddr []NodeKeyAddr, key []byte, nItens int) int {
+	for i := nItens - 1; i >= 0; i-- {
+		if bytes.Compare(allNodeKeyAddr[i].key, key) <= 0 {
+			return i
+		}
+	}
+	return -1
+}
+
+func findKeyAscending(allNodeKeyAddr []NodeKeyAddr, key []byte, nItens int) int {
+	for i := 0; i < nItens; i++ {
+		if bytes.Compare(allNodeKeyAddr[i].key, key) >= 0 {
+			return i
+		}
+	}
+	return -1
 }
 
 func lookupKeys(node TreeNode, key []byte) []int {
 	// Declare found variable initiated with -1 (Case we don't find any)
 	var found []int = make([]int, 0)
 	var allNodeKeyAddr []NodeKeyAddr = nil
-	var allLeafKeyValues []LeafKeyValue = nil
 	nItens := node.GetNItens()
 	// Just in case it is a Internal Node
 	if node.GetType() == TREE_NODE {
@@ -741,19 +744,8 @@ func lookupKeys(node TreeNode, key []byte) []int {
 				}
 			}
 		}
-	} else {
-		allLeafKeyValues = ([]LeafKeyValue)(getAllLeafKeyValues(&node))
-		// Iterate over all items to find a corresponding key
-		for i := int(nItens) - 1; i >= 0; i-- {
-			comparsion := bytes.Compare(allLeafKeyValues[i].key, key)
-			if comparsion <= 0 {
-				found = append(found, i)
-				if comparsion < 0 {
-					break
-				}
-			}
-		}
 	}
+
 	return found
 
 }
