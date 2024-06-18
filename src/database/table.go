@@ -108,6 +108,8 @@ Insert a row into the table for given []RawRow.
 */
 
 func (t *Table) Insert([]RawRow) int {
+	// First step - Validate rows
+
 	return 0
 }
 
@@ -126,6 +128,14 @@ func (t *Table) Delete([]RawRow) int {
 func (t *Table) isColumnIndexed(column string) bool {
 	_, ok := t.Indexes[column]
 	return ok
+}
+
+func (t *Table) getLastItem() RawRow {
+	lastLeafCrawler := btree.GoToLastLeaf(t.PDataFile.GetBTree())
+	lastLeaf := lastLeafCrawler.Net[len(lastLeafCrawler.Net)-1]
+	lastLeafNItens := lastLeaf.GetNItens()
+	lastItem := lastLeaf.GetLeafKeyValueByIndex(uint16(lastLeafNItens - 1))
+	return t.FromKeyValueToRawRow([]btree.BTreeKeyValue{{Key: lastItem.GetKey(), Value: lastItem.GetValue()}})[0]
 }
 
 func (t *Table) GetColumnByName(colName string) *Column {

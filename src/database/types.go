@@ -28,7 +28,7 @@ type Table struct {
 	Name         string           // Table's name
 	Path         string           // Where the table configuration is stored
 	Columns      []Column         // reference to Columns
-	PrimaryKey   Column           // reference to PrimaryKey
+	PrimaryKey   *Column          // reference to PrimaryKey
 	CompositeKey []Column         // Case column is composite
 	Indexes      map[string]Index // reference to Indexes
 	PDataFile    *files.DataFile  // private Access btree (Simple)
@@ -130,5 +130,4 @@ type Column struct {
 	Nullable      bool
 	AutoIncrement bool
 	Primary       bool
-	Unique        bool
 }

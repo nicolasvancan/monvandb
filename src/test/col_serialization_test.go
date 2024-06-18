@@ -113,11 +113,11 @@ func TestSerializationWithColumnRawRows(t *testing.T) {
 	myTable := new(table.Table)
 	myTable.Columns = make([]table.Column, 5)
 
-	myTable.Columns[0] = table.Column{Name: "test", Type: table.COL_TYPE_INT, Default: nil, Nullable: false, AutoIncrement: false, Primary: false, Unique: false}
-	myTable.Columns[1] = table.Column{Name: "test2", Type: table.COL_TYPE_STRING, Default: nil, Nullable: false, AutoIncrement: false, Primary: false, Unique: false}
-	myTable.Columns[2] = table.Column{Name: "test3", Type: table.COL_TYPE_FLOAT, Default: nil, Nullable: false, AutoIncrement: false, Primary: false, Unique: false}
-	myTable.Columns[3] = table.Column{Name: "test4", Type: table.COL_TYPE_BIG_INT, Default: nil, Nullable: false, AutoIncrement: false, Primary: false, Unique: false}
-	myTable.Columns[4] = table.Column{Name: "test5", Type: table.COL_TYPE_INT, Default: nil, Nullable: true, AutoIncrement: false, Primary: false, Unique: false}
+	myTable.Columns[0] = table.Column{Name: "test", Type: table.COL_TYPE_INT, Default: nil, Nullable: false, AutoIncrement: false, Primary: false}
+	myTable.Columns[1] = table.Column{Name: "test2", Type: table.COL_TYPE_STRING, Default: nil, Nullable: false, AutoIncrement: false, Primary: false}
+	myTable.Columns[2] = table.Column{Name: "test3", Type: table.COL_TYPE_FLOAT, Default: nil, Nullable: false, AutoIncrement: false, Primary: false}
+	myTable.Columns[3] = table.Column{Name: "test4", Type: table.COL_TYPE_BIG_INT, Default: nil, Nullable: false, AutoIncrement: false, Primary: false}
+	myTable.Columns[4] = table.Column{Name: "test5", Type: table.COL_TYPE_INT, Default: nil, Nullable: true, AutoIncrement: false, Primary: false}
 
 	// Create a new column
 	tmp := make(table.RawRow)
