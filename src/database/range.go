@@ -67,10 +67,8 @@ func crawlDataFileBasedOnOptions(t *Table, crawler *btree.BTreeCrawler, options 
 
 	// Loop through the datafile
 	limitIdx := 0
-	fmt.Printf("Options.Limit : %d\n", options.Limit)
 	// In case there is a limit
 	if options.Limit > -1 {
-		fmt.Println("Limit is set")
 		rows := make([]RawRow, 0)
 		var err error = nil
 		for err == nil && limitIdx < options.Limit {
@@ -145,7 +143,6 @@ func getCrawlerBasedOnOptions(options RangeOptions) *btree.BTreeCrawler {
 
 	// If from is not null, we find the proper key
 	if options.From != nil {
-		fmt.Println("From is not null")
 		// Find leaf node for the from value
 		crawler = options.PDataFile.GetIterator(options.From)
 		// Set the crawler position to the from value based on From Comparator

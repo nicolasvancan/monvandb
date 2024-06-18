@@ -173,7 +173,6 @@ func (crawler *BTreeCrawler) Previous() error {
 	lastNodeIdx := crawler.Cursor[len(crawler.Cursor)-1]
 
 	if lastNodeIdx == 0 {
-		fmt.Println("Previous lastNodeIdx")
 		removeLastIdx(crawler)
 		crawler.Previous()
 	} else {

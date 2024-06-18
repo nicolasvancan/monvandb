@@ -30,8 +30,6 @@ func CreateBaseFolders(basePath string) error {
 	// Create the base directory
 
 	for _, value := range systemFolders {
-		fmt.Println(os.Getenv("MONVANDB_PATH"))
-		fmt.Println(GetPath(value))
 
 		err := os.MkdirAll(GetPath(value), os.ModePerm)
 

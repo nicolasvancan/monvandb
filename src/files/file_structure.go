@@ -1,7 +1,6 @@
 package files
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/nicolasvancan/monvandb/src/btree"
@@ -122,7 +121,6 @@ func (p *DataFile) loadCallbacks() error {
 		_, err := p.fp.WriteAt(node.GetBytes(), int64(page*btree.PAGE_SIZE))
 
 		if err != nil {
-			fmt.Println(fmt.Errorf("could not write to page %d", page))
 			return false
 		}
 

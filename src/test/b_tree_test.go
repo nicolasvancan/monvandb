@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"strconv"
 	"testing"
 
@@ -221,7 +220,6 @@ func TestDeletionOfFirstElementOfAnLeaf(t *testing.T) {
 	t.Log("Loading bTree to be used")
 	tree := helper.LoadBTreeFromPath(t, dbFilePath)
 	helper.FillUpLeafUntilItSplits(tree)
-	fmt.Println("------------------------")
 	// Delete element 267
 	bTree.BTreeDelete(tree, []byte("267"))
 	firstPage := tree.Get(tree.GetRoot())
@@ -251,15 +249,12 @@ func TestDeletionOfAnEntireLeaf(t *testing.T) {
 	pageFour := tree.Get(4)
 	allKeys := make([][]byte, 0)
 	for i := 0; i < int(pageFour.GetNItens()); i++ {
-		fmt.Println("----------------------------------")
-		fmt.Printf("Appended key %s\n", pageFour.GetLeafKeyValueByIndex(uint16(i)).GetKey())
 		tmp := make([]byte, len(pageFour.GetLeafKeyValueByIndex(uint16(i)).GetKey()))
 		copy(tmp, pageFour.GetLeafKeyValueByIndex(uint16(i)).GetKey())
 		allKeys = append(allKeys, tmp)
 	}
 
 	for i := 0; i < len(allKeys); i++ {
-		fmt.Printf("Deleting key %s\n", allKeys[i])
 		bTree.BTreeDelete(tree, allKeys[i])
 	}
 

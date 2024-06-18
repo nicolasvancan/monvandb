@@ -30,7 +30,6 @@ func MmapPage(f *os.File, page uint64, pageSize uint64) (int, []byte, error) {
 		syscall.MAP_SHARED)
 
 	if err != nil {
-		fmt.Printf("Page error = %d\n", page)
 		return 0, nil, fmt.Errorf("mmap Error %w", err)
 	}
 
