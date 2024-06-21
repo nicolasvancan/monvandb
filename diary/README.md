@@ -11,7 +11,7 @@ I've been thinking about how to divide the chapters to make a good story, but I 
 - Cache and Proxy access to tables
 - Queries and Commands
 - Server
-- 
+  
 If one day I finish what is in this list, I'll probably be much older (Depending on the effort and time I spend on the project), and I'll also be much wiser (in terms of software development).
 
 # The Project

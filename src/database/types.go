@@ -25,13 +25,13 @@ type Database struct {
 }
 
 type Table struct {
-	Name         string           // Table's name
-	Path         string           // Where the table configuration is stored
-	Columns      []Column         // reference to Columns
-	PrimaryKey   *Column          // reference to PrimaryKey
-	CompositeKey []Column         // Case column is composite
-	Indexes      map[string]Index // reference to Indexes
-	PDataFile    *files.DataFile  // private Access btree (Simple)
+	Name         string            // Table's name
+	Path         string            // Where the table configuration is stored
+	Columns      []Column          // reference to Columns
+	PrimaryKey   *Column           // reference to PrimaryKey
+	CompositeKey []Column          // Case column is composite
+	Indexes      map[string]*Index // reference to Indexes
+	PDataFile    *files.DataFile   // private Access btree (Simple)
 }
 
 type RawRow = map[string]interface{}
@@ -42,12 +42,16 @@ const (
 )
 
 const (
-	EQ = iota
-	GT
-	GTE
-	LT
-	LTE
-	NE
+	EQ    = iota // Equal
+	GT           // Greater than
+	GTE          // Greater than or equal
+	LT           // Less than
+	LTE          // Less than or equal
+	NE           // Not equal
+	IN           // In
+	NIN          // Not in
+	LIKE         // Like
+	NLIKE        // Not Like
 )
 
 type RangeOptions struct {
@@ -58,51 +62,6 @@ type RangeOptions struct {
 	Order       int             // Order of the range wheter is ASC os DESC
 	Limit       int             // Limit of the range
 	PDataFile   *files.DataFile // Pointer to the data file to be used
-}
-
-/*
-TableQueryOperation is a struct that represents the literal query conditions that can be used to query a table.
-One exameple is the following WHERE statement:
-
-WHERE id > 10 AND (name = 'John' OR age < 30)
-
-This statement can be represented as the following TableQueryOperation struct:
-
-	TableQueryOperation{
-		Column: "id",
-		Comparator: GT,
-		Value: 10,
-		And: []TableQueryOperation{
-			TableQueryOperation{
-				Column: "name",
-				Comparator: EQ,
-				Value: "John",
-				And: nil,
-				Or: []TableQueryOperation{
-					TableQueryOperation{
-						Column: "age",
-						Comparator: LT,
-						Value: 30,
-						And: nil,
-						Or: nil,
-					}
-				}
-			},
-		},
-
-		Or: nil,
-	}
-
-This structure is also used to represent the conditions of a range query, for example:
-Knowing that the id is the primary key of the table, we know that the primary key is indexed and the value must be greater than 10
-Therefore, it doesn't matter the other columns conditions, the range will not be altered because of them.
-*/
-type TableQueryOperation struct {
-	Column     string
-	Comparator int
-	Value      interface{}
-	And        []TableQueryOperation
-	Or         []TableQueryOperation
 }
 
 type Index struct {
@@ -130,4 +89,41 @@ type Column struct {
 	Nullable      bool
 	AutoIncrement bool
 	Primary       bool
+}
+
+/*
+For a table there are a lot of different operations that can be done. Basically, those are done either in the columns
+spectre or in the tables spectre. Let's say, I can join two tables, that is a table operation. The select statement
+is also done in the table spectre.
+
+When it comes to columns, it reaches another spectre that is responsible for dealling with columns general operations.
+For example, A columns can be used for comparsions, or a column can be transformed or a column can be both used for comparsion
+after a transformation is done with it.
+
+In a general way, the table specre is wider than the column spectre.
+*/
+
+// Col Operations
+const (
+	COL_COMP       = iota // Comparsion
+	COL_TRANSF            // Transformation
+	COL_COMP_TANSF        // Comparsion and Transformation
+	COL_NONE              // No operation
+)
+
+type ColumnOperation struct {
+	Operation      int    // Col Operations
+	ColumnName     string // Column name
+	TableName      string //Table Name
+	Condition      int
+	Value          ColumnConditionValue
+	Transformation func(interface{}) interface{}
+}
+
+type ColumnConditionValue struct {
+	IsOtherColumn bool        // Indicates if the value is a column comparsion
+	IsOtherTable  bool        // Indicates if the value is a column from another table
+	ColumnName    string      // Column name
+	TableName     string      // Table name
+	Value         interface{} // Value is only used if isOther columns and isOtherTable are both false
 }

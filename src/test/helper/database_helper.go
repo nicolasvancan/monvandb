@@ -104,7 +104,7 @@ func CreateMockTable(t *testing.T) *database.Table {
 		t.Errorf("expected table_teste, got %v", table.Name)
 	}
 
-	table.Indexes = make(map[string]database.Index)
+	table.Indexes = make(map[string]*database.Index)
 	table.PrimaryKey = table.GetColumnByName("id")
 
 	return table

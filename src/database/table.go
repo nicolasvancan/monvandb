@@ -2,25 +2,18 @@ package database
 
 import (
 	btree "github.com/nicolasvancan/monvandb/src/btree"
+	"github.com/nicolasvancan/monvandb/src/files"
 	utils "github.com/nicolasvancan/monvandb/src/utils"
 )
 
 /*
 Table interface
 
-The table is the entry point to access the data stored within one Datafile (BTree) and holds also all methodes related to the file itself,
-whether it is just a simple get function, or even a range query, or scan. All those methodes are called within a function.
+The idea of this interface is to provide the most basic and atomic table methodes for the system to be used, namelly, the base CRUD.
+When the system receives a query from an user, it parses it using the parser, translate all parsed commands into structured commands,
+that are in part conversible to minimal and atomic table operations. The table interface is the one that provides these operations.
 
-The basic struct is composed of some table definition fields, such as the name of the table, the path to the table file, and the columns
-of the table. On the otherhand, the table also has other struct that are used to manipulate data or files.
-
-For this version of the database, the table struct is composed of the following fields:
-- Name: The name of the table
-- Path: The path to the table file
-- Columns: The columns of the table
-- PDataFile: A pointer to the DataFile struct, which is used to access the data stored in the table file
-
-### BASIC ACCESS METHODES ###
+BASIC ACCESS METHODES
 
 - Get: Get one or more rows for a given key
 - Insert: Insert a row into the table
@@ -28,16 +21,30 @@ For this version of the database, the table struct is composed of the following 
 - Delete: Delete a row from the table
 - Range: Get all the rows in a given range
 
-### INDEX METHODES ###
+To explain the main idea of this interface, some examples are shown below:
 
-- CreateIndex: Create an index on a given column
-- DropIndex: Drop an index on a given column
-- GetIndex: Get the index on a given column
-- GetIndexValue: Get the value of the index on a given column
-- InsertIndexValue: Put the value of the index on a given column
-- UpdateIndexValue: Update the value of the index on a given column
-- DeleteIndexValue: Delete the value of the index on a given column
+Get:
+SELECT * FROM table WHERE indexedColumn = "value"
 
+This query would result in a call of the Get method, since there is a Where clause with indexed column.
+If we alter this SQL statement to another type, such as the one below:
+
+SELECT * FROM table WHERE notIndexedColumn = "value" AND indexedColumn > 10
+
+It is easy to note that two conditions are evaluated. One indexed and the other one not. Knowing that there is a not indexed
+column needing comparison, there must be a scan through the datafile to get the data.
+
+If the query is altered again, to the one below:
+
+SELECT * FROM table WHERE indexedColumn > 10
+
+Than the Range method is called. This method will return only keys greater than 10.
+
+For other methodes such as, UPDATE and DELETE, the same principle is applied. The main idea is to provide the most basic and atomic
+table operations to be used by the system.
+
+For larger and complex queries the same principle is applyed, but after que table queries return the desired data, other operations
+are applied to the data, such as joins, unions, and so on.
 */
 
 /*
@@ -90,7 +97,7 @@ func (t *Table) Get(column string, value any) ([]RawRow, error) {
 
 		for {
 			kv := crawler.GetKeyValue()
-			keyValues = append(keyValues, kv)
+			keyValues = append(keyValues, *kv)
 
 			// If the crawler is at the end of the file, break the loop
 			if err = crawler.Next(); err != nil {
@@ -107,35 +114,150 @@ func (t *Table) Get(column string, value any) ([]RawRow, error) {
 Insert a row into the table for given []RawRow.
 */
 
-func (t *Table) Insert([]RawRow) int {
+func (t *Table) Insert(rows []RawRow) (int, error) {
 	// First step - Validate rows
 
-	return 0
+	validatedRows, err := t.ValidateRawRows(rows)
+
+	// Returns case there is an error on rows validation process
+	if err != nil {
+		return 0, err
+	}
+
+	// We have to insert it into the base table and also into the indexes
+	for i, row := range validatedRows {
+		// Insert the row into the base table
+		serializedRow := t.FromRawRowToKeyValue(row)
+		t.PDataFile.Insert(serializedRow.Key, serializedRow.Value)
+		// If there is indexed tables, we have to insert the row into the indexed tables
+		for _, index := range t.Indexes {
+			// Get the index DataFile
+			indexDataFile := index.PDataFile
+			// get the column name to be serialized
+			indexKey := row[index.Column]
+			// Serialize the value
+			serializedIndexKey, err := utils.Serialize(indexKey)
+
+			if err != nil {
+				return i, err
+			}
+			// Insert the row into the index table
+			indexDataFile.Insert(serializedIndexKey, serializedRow.Value)
+		}
+	}
+
+	return len(rows), nil
 }
 
 /*
-Update a row into the table for given []RawRow
+To update rows we use the principle of deleting and reinserting it.
 */
 
-func (t *Table) Update(RawRow) int {
-	return 0
+func (t *Table) Update(rows []RawRow) (int, error) {
+	// Delete rows
+	_, err := t.Delete(rows)
+
+	if err != nil {
+		return 0, err
+	}
+	// Insert rows
+	i, err := t.Insert(rows)
+	return i, err
 }
 
-func (t *Table) Delete([]RawRow) int {
-	return 0
+func reinsertKeys(
+	t *Table,
+	indexDataFile *files.DataFile,
+	existingKeys []RawRow,
+	row RawRow,
+	serializedIndexKey []byte,
+) {
+	musReinsert := make([]RawRow, 0)
+	for _, iRow := range existingKeys {
+		indexDataFile.Delete(serializedIndexKey)
+		if iRow[t.PrimaryKey.Name] != row[t.PrimaryKey.Name] {
+			musReinsert = append(musReinsert, iRow)
+		}
+	}
+
+	// Reinsert
+	for _, iRow := range musReinsert {
+		serializedIndexRow := t.FromRawRowToKeyValue(iRow)
+		indexDataFile.Insert(serializedIndexKey, serializedIndexRow.Value)
+	}
 }
 
-func (t *Table) isColumnIndexed(column string) bool {
-	_, ok := t.Indexes[column]
-	return ok
+/*
+The delete function is mainly called when the SQL DELETE Statement is used. In general, the statement is used with the
+the were condition, indicating that a query must be made before the deletion. Knowing that, It is known that the query will
+return the keys of the rows to be deleted. Therefore, the input for this method is an array of byte array
+
+*/
+
+func (t *Table) Delete(rows []RawRow) (int, error) {
+	// Iterate over the input
+	for _, row := range rows {
+		// Delete the row from the base table
+		serializedRow := t.FromRawRowToKeyValue(row)
+
+		t.PDataFile.Delete(serializedRow.Key)
+		// If there is indexed tables, we have to delete the row from the indexed tables
+		for _, index := range t.Indexes {
+			// Get the index DataFile
+			indexDataFile := index.PDataFile
+			// Delete the row from the index table
+			indexColumn := row[index.Column]
+			serializedIndexKey, err := utils.Serialize(indexColumn)
+
+			if err != nil {
+				return 0, err
+			}
+			// Get the keys from the index
+			existingKeys := indexDataFile.Get(serializedIndexKey)
+
+			// Indicates that there is more than one key for the same value
+			// All keys must be deleted and the keys that are different from
+			// the one that is being deleted must be inserted again
+			if len(existingKeys) > 1 {
+				deserializedExistingKeys := t.FromKeyValueToRawRow(existingKeys)
+				reinsertKeys(t, indexDataFile, deserializedExistingKeys, row, serializedIndexKey)
+			} else {
+				indexDataFile.Delete(serializedIndexKey)
+			}
+		}
+
+	}
+	return len(rows), nil
+}
+
+/*
+Range:
+
+Range is one of the main basic table methodes. It is composed of an input of query option, indicating
+some details of query that must be taken in consideration, such as the limit, the offset, the order, and the where
+clauses. For instance, let's say a query statement comes as written below:
+
+SELECT * FROM table WHERE notIndexedColumn = value and indexedColumn > 10 ORDER BY column LIMIT 10
+
+In this case, the query parser (that is not implemented yet) will parse the query and return a QueryOptions struct
+which can be used to execute the range for table or indexes
+*/
+
+// TODO: Must implement
+func (t *Table) Range(input any) any {
+	return nil
 }
 
 func (t *Table) getLastItem() RawRow {
 	lastLeafCrawler := btree.GoToLastLeaf(t.PDataFile.GetBTree())
-	lastLeaf := lastLeafCrawler.Net[len(lastLeafCrawler.Net)-1]
-	lastLeafNItens := lastLeaf.GetNItens()
-	lastItem := lastLeaf.GetLeafKeyValueByIndex(uint16(lastLeafNItens - 1))
-	return t.FromKeyValueToRawRow([]btree.BTreeKeyValue{{Key: lastItem.GetKey(), Value: lastItem.GetValue()}})[0]
+	if len(lastLeafCrawler.Net) > 0 {
+		lastLeaf := lastLeafCrawler.Net[len(lastLeafCrawler.Net)-1]
+		lastLeafNItens := lastLeaf.GetNItens()
+		lastItem := lastLeaf.GetLeafKeyValueByIndex(uint16(lastLeafNItens - 1))
+		return t.FromKeyValueToRawRow([]btree.BTreeKeyValue{{Key: lastItem.GetKey(), Value: lastItem.GetValue()}})[0]
+	}
+
+	return nil
 }
 
 func (t *Table) GetColumnByName(colName string) *Column {

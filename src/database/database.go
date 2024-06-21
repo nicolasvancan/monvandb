@@ -126,6 +126,18 @@ func createNewTableFiles(tableDef Table, path string) error {
 	return nil
 }
 
+func (t *Table) getPrimaryColumns() []Column {
+	var primaryColumns []Column
+
+	for _, column := range t.Columns {
+		if column.Primary {
+			primaryColumns = append(primaryColumns, column)
+		}
+	}
+
+	return primaryColumns
+}
+
 // Basic Database function Create Table
 func (d *Database) CreateTable(tableName string, columns []Column) error {
 	if _, ok := d.Tables[tableName]; ok {
@@ -139,12 +151,27 @@ func (d *Database) CreateTable(tableName string, columns []Column) error {
 		Name:    tableName,
 		Columns: columns,
 		Path:    tablePath,
+		Indexes: make(map[string]*Index),
 	}
 	// Create new table files
 	err := createNewTableFiles(*newTable, tablePath)
 
 	if err != nil {
 		return err
+	}
+
+	// Get all Primary columns
+	primaryColumns := newTable.getPrimaryColumns()
+	if len(primaryColumns) == 0 {
+		return errors.New("table must have at least one primary column")
+	}
+
+	newTable.PrimaryKey = &primaryColumns[0]
+	newTable.CompositeKey = nil
+
+	if len(primaryColumns) > 1 {
+		newTable.PrimaryKey = nil
+		newTable.CompositeKey = primaryColumns
 	}
 
 	// Add table to database
@@ -167,6 +194,54 @@ func (d *Database) CreateTable(tableName string, columns []Column) error {
 
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// TODO: Create test
+func (d *Database) CreateIndex(tableName string, indexedColumn string, indexName string) error {
+	table, err := d.GetTable(tableName)
+
+	if err != nil {
+		return err
+	}
+
+	// Check if the column exists
+	column := table.GetColumnByName(indexedColumn)
+
+	if column == nil {
+		return fmt.Errorf("column %s does not exist in table %s", indexedColumn, tableName)
+	}
+	// Create new pointer to DataFile for index
+	indexPath := table.Path + utils.SEPARATOR + indexName + ".index.db"
+	indexDataFile, err := files.OpenDataFile(indexPath)
+
+	if err != nil {
+		return err
+	}
+	// Create the index
+	index := Index{
+		Name:      indexName,
+		Column:    indexedColumn,
+		Path:      indexPath,
+		PDataFile: indexDataFile,
+	}
+
+	// Add the index to the table
+	table.Indexes[indexedColumn] = &index
+
+	// Update the table metadata file
+	json, err := utils.ToJson(table)
+
+	if err != nil {
+		return err
+	}
+
+	err = utils.WriteToFile(table.Path+string(os.PathSeparator)+utils.METDATA_FILE, json)
+
+	if err != nil {
+		return fmt.Errorf("could not write to table metadata file: %v", err)
 	}
 
 	return nil
