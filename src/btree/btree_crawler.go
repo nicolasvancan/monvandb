@@ -198,7 +198,11 @@ func (crawler *BTreeCrawler) Previous() error {
 /*
 Get actual BTreeKeyValue in the crawler
 */
-func (crawler *BTreeCrawler) GetKeyValue() BTreeKeyValue {
+func (crawler *BTreeCrawler) GetKeyValue() *BTreeKeyValue {
+	if len(crawler.Net) == 0 {
+		return nil
+	}
+
 	leaf := crawler.Net[len(crawler.Net)-1]
 
 	// It is a linked list
@@ -206,7 +210,7 @@ func (crawler *BTreeCrawler) GetKeyValue() BTreeKeyValue {
 		key := leaf.GetLeafKeyValueByIndex(uint16(0)).key
 		value := getAllBytesFromSequences(crawler.bTree, leaf)
 
-		return BTreeKeyValue{
+		return &BTreeKeyValue{
 			Key:   key,
 			Value: value,
 		}
@@ -215,7 +219,7 @@ func (crawler *BTreeCrawler) GetKeyValue() BTreeKeyValue {
 	keyValueIdx := crawler.Cursor[len(crawler.Cursor)-1]
 	kv := crawler.CurrentKeyValues[keyValueIdx]
 
-	return BTreeKeyValue{
+	return &BTreeKeyValue{
 		Key:   kv.key,
 		Value: kv.value,
 	}

@@ -55,7 +55,7 @@ func TestBasicScanWholeData(t *testing.T) {
 		t.Errorf("error getting range: %v", err)
 	}
 
-	if len(rangeData) != 448 {
+	if len(rangeData) != 449 {
 		t.Errorf("error getting value from datafile %d\n", len(rangeData))
 	}
 }

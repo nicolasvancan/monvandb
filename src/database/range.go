@@ -75,7 +75,7 @@ func crawlDataFileBasedOnOptions(t *Table, crawler *btree.BTreeCrawler, options 
 			// Get the key value
 			kv := crawler.GetKeyValue()
 			// Get the row from the key value
-			rows = append(rows, t.FromKeyValueToRawRow(([]btree.BTreeKeyValue{kv}))[0])
+			rows = append(rows, t.FromKeyValueToRawRow(([]btree.BTreeKeyValue{*kv}))[0])
 
 			// Increment the limit index
 			limitIdx++
@@ -94,7 +94,7 @@ func crawlDataFileBasedOnOptions(t *Table, crawler *btree.BTreeCrawler, options 
 			// Get the key value
 			kv := crawler.GetKeyValue()
 			// Get the row from the key value
-			rows = append(rows, t.FromKeyValueToRawRow(([]btree.BTreeKeyValue{kv}))[0])
+			rows = append(rows, t.FromKeyValueToRawRow(([]btree.BTreeKeyValue{*kv}))[0])
 
 			// Check the compare to see if we reached the desired results
 			if comp, err := compare(kv.Key, options.To, options.TComparator); comp || err != nil {
@@ -110,7 +110,7 @@ func crawlDataFileBasedOnOptions(t *Table, crawler *btree.BTreeCrawler, options 
 			// Get the key value
 			kv := crawler.GetKeyValue()
 			// Get the row from the key value
-			rows = append(rows, t.FromKeyValueToRawRow(([]btree.BTreeKeyValue{kv}))[0])
+			rows = append(rows, t.FromKeyValueToRawRow(([]btree.BTreeKeyValue{*kv}))[0])
 		}
 		return rows, nil
 	}
@@ -187,23 +187,19 @@ func scan(pDataFile *file.DataFile) ([]btree.BTreeKeyValue, error) {
 	// Loop through the datafile
 	keyValues := make([]btree.BTreeKeyValue, 0)
 
+	// Get keyval before entering the loop
+
+	kv := crawler.GetKeyValue()
+	if kv == nil {
+		return make([]btree.BTreeKeyValue, 0), nil
+	}
+
+	keyValues = append(keyValues, *kv)
+
 	for crawler.Next() == nil {
 		kv := crawler.GetKeyValue()
-		keyValues = append(keyValues, kv)
+		keyValues = append(keyValues, *kv)
 	}
 
 	return keyValues, nil
-}
-
-/*
-Get Range Options based on given TableQueryOperations
-
-This function simply analyses a table and its columns and also the given query operations to return the range options
-that will be used in the range query.
-
-*/
-
-func GenerateRangeOptions(t *Table, ops []TableQueryOperation) []RangeOptions {
-	// Create a range options
-	return nil
 }

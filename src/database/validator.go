@@ -21,14 +21,16 @@ values that are going to be inserted. The function receives the columns of the t
 The function returns an error if any, otherwise it returns nil.
 */
 
-func (t *Table) ValidateRawRows(rows []*RawRow) error {
+func (t *Table) ValidateRawRows(rows []RawRow) ([]RawRow, error) {
+	validatedRows := make([]RawRow, 0)
 	for _, row := range rows {
-		err := t.ValidateColumns(row)
+		err := t.ValidateColumns(&row)
 		if err != nil {
-			return err
+			return nil, err
 		}
+		validatedRows = append(validatedRows, row)
 	}
-	return nil
+	return validatedRows, nil
 }
 
 func (t *Table) ValidateColumns(row *RawRow) error {
@@ -78,8 +80,12 @@ func fillupMissingFields(t *Table, row *RawRow, column Column) {
 	// Meaning that the columns is an integer between all possiblities
 	// SMALL_INT, BIG_INT, INT, etc
 	if column.AutoIncrement && column.Primary {
-		lastValue := t.getLastItem()[column.Name].(int64) + 1
-		(*row)[column.Name] = lastValue
+		lastValue := t.getLastItem()
+		if lastValue == nil {
+			(*row)[column.Name] = lastValue[column.Name].(int64) + 1
+		} else {
+			(*row)[column.Name] = 1
+		}
 	}
 }
 
