@@ -42,6 +42,13 @@ const (
 )
 
 const (
+	AND = iota
+	OR
+	NOT
+)
+
+// Conditions
+const (
 	EQ    = iota // Equal
 	GT           // Greater than
 	GTE          // Greater than or equal
@@ -111,19 +118,104 @@ const (
 	COL_NONE              // No operation
 )
 
-type ColumnOperation struct {
-	Operation      int    // Col Operations
-	ColumnName     string // Column name
-	TableName      string //Table Name
-	Condition      int
-	Value          ColumnConditionValue
-	Transformation func(interface{}) interface{}
+/*
+ColumnOperation represents a column operation
+
+This struct might change with time. The idea of ColumnOperation is to represent every column operation in SQL statement
+as a ColumnOperation struct. Simple example:
+
+SELECT
+
+	name as name,
+	age as age,
+	age + 10 as age_plus_10
+
+FROM
+
+	users
+
+WHERE
+
+	age > 10
+
+In this example, we have 4 columns operations: name, age, age + 10 and age > 10. The first two are simple columns operations
+, as follows
+
+name as name:
+
+	ColumnOperation{
+		Operation: COL_NONE,
+		ColumnName: "name",
+		TableName: "users",
+		Condition: -1, // No condition
+		Alias: "name",
+		Value: nil,
+		Transformation: nil
+		TransformationParams: nil
+	}
+
+The same happens for age as age. For case where we have a transformation, we have the following:
+
+	func sum(row interface{}, value []interface{}) interface{} {
+		var r int = row.(int)
+		for _, v := range value {
+			r += v.(int)
+		}
+		return r
+	}
+
+	ColumnOperation{
+		Operation: COL_TRANSF,
+		ColumnName: "age",
+		TableName: "users",
+		Condition: -1, // No condition
+		Alias: "age_plus_10",
+		Value: nil,
+		Transformation: sum
+		TransformationParams: [10]
+	}
+
+For the last column operation, we have the following:
+
+		ColumnOperation{
+			Operation: COL_COMP,
+			ColumnName: "age",
+			TableName: "users",
+			Condition: GT,
+			Alias: "",
+			Value: ColumnConditionValue{
+				IsOtherColumn: false,
+				IsOtherTable: false,
+				ColumnName: "",
+				TableHash: "",
+				Value: 10
+			},
+			Transformation: nil
+			TransformationParams: nil
+	}
+
+Note that the structure is supposed to be generic so that we can use it not only for comparsion of select statements but also
+for the select fields, or even where statements fields.
+*/
+type ColumnComparsion struct {
+	ColumnName string               // Column name
+	TableName  string               // Table Name ()
+	Condition  int                  // Condition EQ, NEQ, GT, GTE, LT, LTE, IN, NIN, LIKE, NLIKE
+	Alias      string               // Alias for the column
+	Value      ColumnConditionValue // Value to be used in the comparsion
+	Id         int                  // Identifier for comparsion, example WHERE x < 1 AND x > -3, the identifier belongs
+	// to the layer of comparsion. Bosh x<1 and x>-3 have the same identifier, meaning that they are in the same layer
+	ParentId        int // Parent layer id, if it is base layer, it is -1
+	ParentLogicalOp int // Parent AND or OR
+	LayerLogicalOp  int // AND or OR
 }
 
 type ColumnConditionValue struct {
-	IsOtherColumn bool        // Indicates if the value is a column comparsion
-	IsOtherTable  bool        // Indicates if the value is a column from another table
-	ColumnName    string      // Column name
-	TableName     string      // Table name
-	Value         interface{} // Value is only used if isOther columns and isOtherTable are both false
+	IsOtherColumn        bool                                         // Indicates if the value is a column comparsion
+	IsOtherTable         bool                                         // Indicates if the value is a column from another table
+	ColumnName           string                                       // Column name
+	TableHash            string                                       // Table Hash (Used to get the table from the database)
+	Value                interface{}                                  // Value is only used if isOther columns and isOtherTable are both false
+	Transformation       func(interface{}, []interface{}) interface{} // Still not implemented
+	TransformationParams []interface{}                                // Still not implemented
 }

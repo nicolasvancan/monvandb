@@ -241,11 +241,107 @@ SELECT * FROM table WHERE notIndexedColumn = value and indexedColumn > 10 ORDER 
 
 In this case, the query parser (that is not implemented yet) will parse the query and return a QueryOptions struct
 which can be used to execute the range for table or indexes
-*/
 
-// TODO: Must implement
-func (t *Table) Range(input any) any {
-	return nil
+	It receives an array of column operations related to the table. All columns operation in the array are not
+
+ordered, and don't belong to the same select statement if it is a compound select, rather to the table itself.
+For example, let's say we have a simple table select and join with another table, followed by a filter in the Where
+clause. In this case, the columns operations are related to the table, and not to the select statement.
+
+SELECT
+
+	*
+
+FROM table t
+
+	INNER JOIN table2 t2 on t2.x = t.x
+
+WHERE t.x > 10
+
+We know that the column x for the first table is indexed, and we also know that the column x for the second table is not indexed.
+It will result in two range operations for both tables, as follows:
+
+For the first table (t):
+
+  - input []ColumnOperation will be
+
+    []ColumnOperation{
+    {
+    Operation: COL_COMP,
+    ColumnName: "x",
+    TableName: "table",
+    Condition: 0, // Equal
+    Alias: "",
+    Value: ColumnOperationValue{
+    IsOtherColumn true
+    IsOtherTable  true
+    ColumnName    x
+    TableHash     "123456789"
+    Value         nil
+    }
+    Transformation: nil,
+    TransformationParams: nil
+    },
+    {
+    Operation: COL_COMP,
+    ColumnName: "x",
+    TableName: "table",
+    Condition: 1, // Greater than
+    Alias: "",
+    Value: ColumnOperationValue{
+    IsOtherColumn false
+    IsOtherTable  false
+    ColumnName    nil
+    TableHash     nil
+    Value         10
+    }
+    Transformation: nil,
+    TransformationParams: nil
+    }
+    }
+
+For the second table (t2):
+
+	[]ColumnOperation{{
+	    Operation: COL_COMP,
+	    ColumnName: "x",
+	    TableName: "table2",
+	    Condition: 1, // Greater than
+	    Alias: "",
+	    Value: ColumnOperationValue{
+	    IsOtherColumn true
+	    IsOtherTable  true
+	    ColumnName    x
+	    TableHash     98765412
+	    Value         nil
+	    }
+	    Transformation: nil,
+	    TransformationParams: nil
+	}}
+
+When the inputs field for table is given to the Range query, it will evaluate and fetch only
+necessary columns, in this case, it will create a RangeOptions struct optimized for the demand
+and return the result.
+*/
+func (t *Table) Range(input []ColumnComparsion, limit int, order int) []RawRow {
+	// create temporary variable for holding values of RangeOptions
+	rangeOperation := MergeOperationsBasedOnIndexedColumnsAndReturnRangeOptions(t, input)
+	rangeOperation.Limit = limit
+	rangeOperation.Order = order
+
+	// Invert the order of from and to
+	if order == DESC {
+		reverseAscToDesc(&rangeOperation)
+	}
+
+	// Get the range
+	rows, err := Range(t, rangeOperation)
+
+	if err != nil {
+		return nil
+	}
+
+	return rows
 }
 
 func (t *Table) getLastItem() RawRow {
@@ -267,4 +363,27 @@ func (t *Table) GetColumnByName(colName string) *Column {
 		}
 	}
 	return nil
+}
+
+func (t *Table) isColumnIndexed(colName string) bool {
+
+	if t.IsComposedKeyTable() {
+		return false
+	}
+
+	if t.PrimaryKey.Name == colName {
+		return true
+	}
+
+	for _, index := range t.Indexes {
+		if index.Column == colName {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (t *Table) IsComposedKeyTable() bool {
+	return len(t.CompositeKey) > 0
 }

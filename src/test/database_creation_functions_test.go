@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/nicolasvancan/monvandb/src/database"
@@ -101,6 +102,7 @@ func TestCreateIndex(t *testing.T) {
 	}
 
 	table, err := db.GetTable("table_teste")
+	fmt.Printf("table: %v\n", table)
 
 	if err != nil {
 		t.Errorf("error getting table: %v", err)

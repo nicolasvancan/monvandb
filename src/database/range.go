@@ -6,7 +6,70 @@ import (
 
 	btree "github.com/nicolasvancan/monvandb/src/btree"
 	file "github.com/nicolasvancan/monvandb/src/files"
+	"github.com/nicolasvancan/monvandb/src/utils"
 )
+
+type RangeOptimizerOptions struct {
+	// Range Options
+	RangeOptions RangeOptions
+	// Original Conditions
+	Comparsion ColumnComparsion
+}
+
+// New range options
+func NewRangeOptions() RangeOptions {
+	return RangeOptions{
+		From:        nil,
+		To:          nil,
+		Order:       ASC,
+		Limit:       -1,
+		FComparator: GTE,
+		TComparator: GTE,
+	}
+}
+
+func mergeAnd(r *RangeOptions, other RangeOptions) {
+	// Create a new RangeOptions
+	if (bytes.Compare(other.From, r.From) < 0 && other.From != nil) || r.From == nil {
+		r.From = other.From
+	}
+
+	if (bytes.Compare(other.To, r.To) > 0 && other.To != nil) || r.To == nil {
+		r.To = other.To
+	}
+}
+
+func mergeOr(r *RangeOptions, other RangeOptions) {
+	// Create a new RangeOptions
+	if r.Order == DESC {
+		if bytes.Compare(other.From, r.From) < 0 || r.From == nil {
+			r.From = other.From
+		}
+
+		if bytes.Compare(other.To, r.To) > 0 || r.To == nil {
+			r.To = other.To
+		}
+
+	} else {
+		if bytes.Compare(other.From, r.From) > 0 || r.From == nil {
+			r.From = other.From
+		}
+
+		if bytes.Compare(other.To, r.To) < 0 || r.To == nil {
+			r.To = other.To
+		}
+	}
+}
+
+func (r *RangeOptions) Merge(other RangeOptions, op int) {
+	// For end operation we restrict the range based on the lower and maximum values
+	if op == AND {
+		// Case it is ASC
+		mergeAnd(r, other)
+	} else {
+		mergeOr(r, other)
+	}
+}
 
 /*
 The Range function requires an options for the range. But why is that so? Acctually it's implemented so,] thinking of
@@ -202,4 +265,256 @@ func scan(pDataFile *file.DataFile) ([]btree.BTreeKeyValue, error) {
 	}
 
 	return keyValues, nil
+}
+
+/*
+Converts []ColumnComparsion to RangeOption fir single comparsion based on simple rules.
+
+The only case that it is possible to infer the exact range of a Range operation is in comparsions where the column is indexed.
+
+Tha happens only for >=, >, <, <= operations. All other cases, even the comparsion with transformation functions, it is hard to infer the range.
+One possibility to work also for transformation in to create a inverse function for every function available in the transformation functions.
+
+For instance, if we have a sum function, we can create a inverse function that will be used to infer the range of the comparsion.
+But that would cost to much development effort, and that is not the goal right now.
+
+
+*/
+
+func getRangeOptionsBasedOnColumnComparsion(table *Table, ops ColumnComparsion) RangeOptions {
+	// Loop through the operations
+	rangeOptions := NewRangeOptions()
+
+	// Consider that there is no indexed column
+	rangeOptions.PDataFile = table.PDataFile
+	// Check if the column name is indexed
+	if table.isColumnIndexed(ops.ColumnName) {
+		// If the column name is not the primary key
+		if ops.ColumnName != table.PrimaryKey.Name {
+			// pointer of DataFile will be passed to rangeOptions pointer
+			index := table.Indexes[ops.ColumnName]
+			rangeOptions.PDataFile = index.PDataFile
+		}
+	}
+
+	// Case there is a real value
+	if ops.Value.Value != nil {
+		// case transformation function is nil
+		if ops.Value.Transformation == nil {
+			valueBytes, _ := utils.Serialize(ops.Value.Value)
+
+			// Greater
+			if ops.Condition == GT {
+				// We copy the value to avoid any change in the original value
+				rangeOptions.From = valueBytes
+				rangeOptions.FComparator = GT
+			} else if ops.Condition == GTE {
+				rangeOptions.From = valueBytes
+				rangeOptions.FComparator = GTE
+			} else if ops.Condition == LT {
+				rangeOptions.To = valueBytes
+				rangeOptions.TComparator = GTE
+			} else if ops.Condition == LTE {
+				rangeOptions.To = valueBytes
+				rangeOptions.TComparator = GT
+			}
+		}
+	}
+
+	return rangeOptions
+}
+
+/*
+Group operations by indexed columns
+*/
+func getGroupedOperationsByIndexedColumn(table *Table, ops []ColumnComparsion) map[string][]RangeOptimizerOptions {
+	// Loop through the operations
+	columnsRangeOptions := make(map[string][]RangeOptimizerOptions)
+	// group by columns
+	for _, op := range ops {
+		// check if the column is indexed
+		if table.isColumnIndexed(op.ColumnName) {
+			colName := op.ColumnName
+			// Case is the first for column, create an empty slice
+			if _, ok := columnsRangeOptions[colName]; !ok {
+				columnsRangeOptions[colName] = make([]RangeOptimizerOptions, 0)
+			}
+
+			columnsRangeOptions[colName] = append(columnsRangeOptions[colName],
+				RangeOptimizerOptions{
+					RangeOptions: getRangeOptionsBasedOnColumnComparsion(table, op),
+					Comparsion:   op,
+				})
+
+			continue
+		}
+
+		// Bind initial value to pkCol
+		pkColName := table.PrimaryKey.Name
+
+		// Verify if it is composed key table
+		if table.IsComposedKeyTable() {
+			pkColName = table.CompositeKey[0].Name
+		}
+
+		// Insert everything in the common pk data file
+		if _, ok := columnsRangeOptions[pkColName]; !ok {
+			columnsRangeOptions[pkColName] = make([]RangeOptimizerOptions, 0)
+		}
+
+		columnsRangeOptions[pkColName] = append(columnsRangeOptions[pkColName],
+			RangeOptimizerOptions{
+				RangeOptions: getRangeOptionsBasedOnColumnComparsion(table, op),
+				Comparsion:   op,
+			})
+	}
+
+	return columnsRangeOptions
+}
+
+func MergeOperationsBasedOnIndexedColumnsAndReturnRangeOptions(table *Table, ops []ColumnComparsion) RangeOptions {
+	// Group operations by indexed columns
+	groupedOps := getGroupedOperationsByIndexedColumn(table, ops)
+	mergedOps := make([]RangeOptimizerOptions, 0)
+	for _, ops := range groupedOps {
+
+		lowestLayerOp := findLowestLayerOp(ops)
+		mergedOps = append(mergedOps, ops[lowestLayerOp])
+	}
+	fmt.Printf("MergedOps len %d\n", len(mergedOps))
+
+	preferedRange := 0
+	if len(mergedOps) > 1 {
+		preferedRange = choosePreferedRange(mergedOps)
+	}
+
+	// Returns a full table scan
+	if preferedRange == -1 {
+		return NewRangeOptions()
+	}
+
+	return mergedOps[preferedRange].RangeOptions
+}
+
+func findLowestLayerOp(ops []RangeOptimizerOptions) int {
+	lowestLayerOp := -1
+	for i := 0; i < len(ops)-1; i++ {
+		evaluated := i
+		if lowestLayerOp == -1 {
+			cur := ops[i].Comparsion.LayerLogicalOp
+			next := ops[i+1].Comparsion.LayerLogicalOp
+			if cur < next {
+				lowestLayerOp = i
+			} else {
+				lowestLayerOp = i + 1
+			}
+		}
+
+		if lowestLayerOp == i {
+			evaluated = i + 1
+		}
+
+		op := ops[lowestLayerOp].Comparsion.LayerLogicalOp + ops[evaluated].Comparsion.LayerLogicalOp
+		ops[lowestLayerOp].RangeOptions.Merge(ops[evaluated].RangeOptions, op)
+	}
+
+	if lowestLayerOp == -1 {
+		lowestLayerOp = 0
+
+	}
+
+	return lowestLayerOp
+}
+
+func choosePreferedRange(mergedOps []RangeOptimizerOptions) int {
+	preferedRange := 0
+	fromToNotNullRangesCount := 0 // indicates how many ranges have both from and to values when there is an OR operation
+
+	// Loop through the mergedOps
+	for i := 0; i < len(mergedOps)-1; i++ {
+		firstCount := countNilValues(mergedOps[i].RangeOptions)
+		secondCount := countNilValues(mergedOps[i+1].RangeOptions)
+
+		if mergedOps[i].Comparsion.ParentLogicalOp == OR || mergedOps[i+1].Comparsion.ParentLogicalOp == OR {
+			preferedRange = chooseWiderRange(i, i+1, firstCount, secondCount)
+			// Count not nil
+			fromToNotNullRangesCount += countNotNilRangeBoundaries([]RangeOptions{
+				mergedOps[i].RangeOptions,
+				mergedOps[i+1].RangeOptions,
+			},
+			)
+		} else {
+			preferedRange = chooseNarrowestRange(i, i+1, firstCount, secondCount)
+		}
+	}
+
+	if fromToNotNullRangesCount > 1 {
+		// There is no prefered range, we will return a full table scan
+		preferedRange = -1
+	}
+
+	return preferedRange
+}
+
+func countNilValues(options RangeOptions) int {
+	count := 0
+	if options.From == nil {
+		count++
+	}
+	if options.To == nil {
+		count++
+	}
+	return count
+}
+
+func chooseWiderRange(idx1 int, idx2 int, count1 int, count2 int) int {
+
+	if count1 <= count2 {
+		return idx1
+	}
+	return idx2
+}
+
+func chooseNarrowestRange(idx1 int, idx2 int, count1 int, count2 int) int {
+	if count1 >= count2 {
+		return idx1
+	}
+	return idx2
+}
+
+func countNotNilRangeBoundaries(options []RangeOptions) int {
+	count := 0
+	for _, opt := range options {
+		if opt.From != nil {
+			count++
+		}
+		if opt.To != nil {
+			count++
+		}
+	}
+	return count
+}
+
+func reverseComparator(comparator int) int {
+	switch comparator {
+	case GTE:
+		return LTE
+	case GT:
+		return LT
+	case LT:
+		return GT
+	case LTE:
+		return GTE
+	}
+
+	return comparator
+}
+
+func reverseAscToDesc(op *RangeOptions) {
+	// Reverse the order
+	op.From, op.To = op.To, op.From
+	// Reverse the comparators
+	op.FComparator = reverseComparator(op.FComparator)
+	op.TComparator = reverseComparator(op.TComparator)
+
 }
