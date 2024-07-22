@@ -1,10 +1,10 @@
 # Objects Serialization
 
-Today I want to validate the concept of objects (Structs) serialization and it's possibilities, regarding data structure and how it would work if I had a complex data structure with columns definitions. The problem is that I don't kwnow how it might work. Therefore, I want to research a little bit of this subject and combine the research results with some small code testing.
+Today I want to validate the concept of objects (Structs) serialization and it's possibilities regarding data structure and how it would work if I had a complex data structure with columns definitions. The problem is that I don't kwnow how it might work. Therefore, I want to research a little bit of this subject and combine the research results with some small code testing.
 
 ## Why am I researching serialization?
 
-The answer to this question is simple. Since I can store an array of bytes in the binary tree, I want to test if I can serialize a complex structure, whose fields would be analog to a table, containing different columns. One of the problems is the serialization itself, the other one is the structure that will hold values regarding some specific table structure.
+The answer to this question is simple. Since I can store an array of bytes in the binary tree, I want to test if I can serialize a complex structure, whose fields would be analog to a table, containing different columns, and insert those bytes into the file. One of the problems is the serialization itself, the other one is the structure that will hold values regarding some specific table structure.
 
 When an user writes a create table SQL Statement, he/she uses normally the following:
 

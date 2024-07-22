@@ -245,7 +245,7 @@ func TestSerializationWithDataFile(t *testing.T) {
 }
 ```
 
-Look how cool is this. I create a bTree for storing the row. I serialize the row and insert the key value into the binary tree for the key = '1'. After that, I close the binary Tree file and reopen it, read the stored value for key = '1', and deserialize it, and check whether or not I could store and retrieve the value and maintain its integrity. It worked.
+Look how cool is this. I create a bTree for storing the row. I serialize the row and insert the key value into the binary tree for key = '1'. After that, I close the binary Tree file and reopen it, read the stored value for key = '1', deserialize it and check whether or not I could store and retrieve the value maintaining its integrity. It worked.
 
 # Conclusion
 

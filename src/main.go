@@ -33,4 +33,9 @@ func TestBasicScan(t *testing.T) {
 
 func main() {
 	TestBasicScan(&testing.T{})
+	a := 2
+	b := 3
+
+	a, b = b, a
+	fmt.Println(a, b)
 }

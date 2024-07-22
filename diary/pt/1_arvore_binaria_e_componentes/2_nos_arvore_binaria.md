@@ -8,11 +8,9 @@ Preparar uma estrutura de bytes para ser salva em uma página de arquivo é algo
 - Eles vão compartilhar algum tipo de informação?
 - Que tipo de informação eu preciso?
 
-Respondendo a primeira pergunta: **Sim!** como temos nós e folhas, temos que criar ambas as estruturas. Compartilhar informações seria bom, ambos armazenam algo, seja endereços de nós ou valores reais, então basicamente podemos armazenar informações relacionadas aos itens armazenados, talvez a quantidade de itens na página? Ou melhor ainda, podemos armazenar quanto espaço resta em uma página, ou mesmo qual endereço pertence ao nó pai.
+Respondendo a primeira pergunta: **Sim!** como temos nós e folhas, temos que criar ambas as estruturas. Compartilhar campos da estrutura seria bom, ambos armazenam algum tipo de informação, seja endereços de nós ou valores, então basicamente podemos armazenar informações relacionadas aos itens armazenados. Mas o que seria estritamente necessário? talvez a quantidade de itens na página? Ou melhor ainda, podemos armazenar quanto espaço resta em uma página, ou mesmo qual endereço pertence ao nó pai? Para mim parecem informações pertinentes.
 
-Acho que começar com essas informações básicas para ambos é o suficiente.
-
-A estrutura básica (funcional) de bytes não é uma tarefa difícil, trabalhar com IoT me deu uma boa ideia de como construir protocolos de dados para comunicação sem fio, construindo estruturas de dados a partir de matrizes de bytes ou **estruturas**. A má notícia para mim agora é que tudo foi escrito em C naquela época, não em Golang.
+A estrutura básica (funcional) de bytes não é uma tarefa difícil, trabalhar com IoT me deu uma boa ideia de como construir protocolos de dados para comunicação sem fio, construindo estruturas de dados a partir de arrays de bytes ou **estruturas**. A má notícia para mim agora é que tudo foi escrito em C naquela época, não em Golang.
 
 Para quem tem experiência em codificação em C, o que desejo construir para a estrutura básica de dados é algo semelhante ao seguinte código C:
 
@@ -41,11 +39,11 @@ Golang também fornece tipos de struct, com algumas diferenças. Em C, a seriali
 
 Em Golang também é possível serializar uma struct, mas não é tão direto como em C. Sabendo disso, e considerando que converter bytes para outro tipo de dados para convertê-los novamente e, depois, fazer algumas operações, ficaria lento para grandes operações de dados, decidi construir meu próprio processo de serialização para meus nós e folhas.
 
-Pesquisei e vi que Golang possui duas bibliotecas utilizadas para lidar com arrays de bytes, Binary e Bytes, contendo funções para trabalhar diretamente com bytes e informações binárias.
+Pesquisei e vi que Golang possui duas bibliotecas utilizadas para lidar com arrays de bytes, *Binary* e *Bytes*, contendo funções para trabalhar diretamente com bytes e informações binárias.
 
 ## Golang Struct
 
-Cada nó é uma página e uma página corresponde a uma matriz de bytes. Portanto, para construir nossa estrutura, precisamos preencher um array de bytes. Achei que seria uma boa ideia ter uma estrutura como esta:
+Cada nó é uma página que corresponde a um array de bytes de tamanho fixo. Portanto, para construir nossa estrutura, precisamos preencher este array com as informações dos nós. Achei que seria uma boa ideia ter uma estrutura como esta, chamando-a de TreeNode:
 
 ```go
 type TreeNode struct {
@@ -53,29 +51,21 @@ type TreeNode struct {
 }
 ```
 
-Isso significa que, quando serializo dados, apenas pego o campo de dados que contém todos os bytes do nó. Pessoalmente, não gosto de fazer assim, mas não tenho certeza se existe outra opção que seja tão rápida quanto esta.
+Essa estrutura contém apenas o array de bytes que carrega todas as informações de cabeçalho e itens da página, mas não tem outros campos justamente pelos motivos que citei sobre a serialização de estruturas em golang.
 
-A desvantagem desse tipo de implementação é que precisamos construir todos os getters e setters para todas as partes específicas da nossa página, o que traz mais complexidade à minha solução. Continuarei com esta solução de qualquer maneira, vamos ver o que consigo.
+Em outras palavras, todo trabalho com os campos da estrutura TreeNode, ocorrerá manipulando-se diretamente os bytes dentro deste array. Cada um em sua posição específica. Bem legal, não? 
+
+A desvantagem desse tipo de implementação é que precisamos construir todos os getters e setters para todas os campos específicos da nossa página, o que traz mais complexidade e verbosidade à minha solução. No entanto, prosseguirei com a solução desta forma.
 
 # O nó nó
 
-Não me inspirei hoje para criar algo fabuloso, então vamos tentar fazer o básico. O nó Node deve ter um cabeçalho e também uma estrutura para salvar dados de nós ou folhas. Btree normalmente requer chaves que são usadas como índices para pesquisas. Que tipo de chave o bTree terá?
+Não me inspirei hoje para criar algo fabuloso, então vamos tentar fazer o básico. O nó nó deve ter um cabeçalho e também uma estrutura para salvar dados de nós ou folhas. Btree normalmente requer chaves que são usadas como índices para pesquisas. Que tipo de chave o bTree terá?
 
 Normalmente o que vejo são colunas com números inteiros não negativos que aumentam automaticamente com o tempo, acho que a primeira abordagem seria usar um número inteiro como chave, não quero complexidade agora. A chave pode se tornar enorme, então presumo que seja o maior número disponível na linguagem: **uint64**.
 
-Para cada chave armazenamos valor, mas no caso do Node Node, armazenamos um endereço, não um endereço de memória, mas um endereço de página, que também pode ser enorme, então assumimos que o endereço da página também é **uint64**.
+Para cada chave armazenamos valor, mas no caso do nó nó, armazenamos um endereço, não um endereço de memória, mas um endereço de página, que também pode ser enorme, então assumimos que o endereço da página também é **uint64**.
 
-Então, o primeiro passo é criar a estrutura básica dos nossos nós:
-
-```go
-/* Base Node */
-type TreeNode struct {
-	// This holds bytes to be dumped to the disk
-	data []byte
-}
-```
-
-Também é necessário criar um tipo enum para diferenciar o tipo de nó, usando iota
+Tendo em vista que há mais de um tipo de TreeNode, é necessário criar um enumerate para diferenciar o tipo de nó que estamos lidando. Uma maneira fácil de fazê-lo é utilizando a função iota do Golang, que automaticamente cria macros enumeradas.
 
 ```go
 /* TreeNode implementation */
@@ -85,7 +75,9 @@ const (
 )
 ```
 
-É hora de pensar e construir a estrutura básica do nó. Achei que seria bom assim mostrado abaixo:
+Tendo nossa sctruct para o TreeNode e também os tipos de nós de árvore, chega a hora de pensar e construir o esquemático básico do nó e seus principais campos. Abaixo segue a lista da primeira versão dessa estrutura contendo informações dos do cabeçalho e estrutura do Nó:
+
+**Cabeçalho**
 
 - **type**: Tipo de Btree TREE_NODE ou TREE_LEAF **uint16**
 - **nItems**: Indica quantos itens o nó possui **uint16**
@@ -94,7 +86,17 @@ const (
 - **n * NodeStructure**: Esta é apenas uma representação para explicar que após os bytes pParent existem apenas dados relacionados a outros nós e endereços **Pode ter muitos bytes**
 - **Estrutura do Nó**:
 - - **key**: chave mais baixa da página referenciada **uint64**
+- - **keyLen**: tamanho do array de bytes **key**
 - - **addr**: Endereço da página **uint64**
+- **Estrutura Nó Folha**
+- - **leafHasSeq**: Indica que a folha tem sequencia de bytes em outra folha, utilizado para linhas que tem mais do que o limite da página em bytes uint16.
+- - **leafHasSeqPointer**: Ponteiro da página que contém as outras informações da folha uint64. 
+- - **n * Estrutura Folha**: Representa que após o campo leafHasSeqPointer, as informações da folha são adicionadas n vezes o número de itens.
+- - **Estrutura Folha**:
+- - **Key**: chave mais baixa da página referenciada byte[]
+- - **KeyLen**: Tamanho da chave da página uint16
+- - **value**: valores em bytes a serem adicionados ao índice key em byte[]
+- - **valueLen**: tamanho em bytes do campo value
 
 Criei uma imagem para mostrar um exemplo de como o endereço chave **NodeStructure** funcionaria de forma prática:
 
@@ -106,9 +108,9 @@ A mesma ideia se aplicaria aos pares de valores-chave, diferindo apenas pelo fat
 
 ## Primeira implementação
 
-Começando pelos cabeçalhos tive que transformar aquele cabeçalho planejado em algo útil. Como queremos construir nossa própria serialização por meio das informações da estrutura, devemos começar escrevendo getters e setters (quem programa em Java adora isso).
+Para dar vida às estruturas, devemos começar escrevendo getters e setters.
 
-Para esta tarefa utilizarei o pacote **binary**, que nos permite trabalhar com bytes e escrever informações seja em little endian ou big endian. Usarei little endian, mas nada impede que alguém use big endian.
+Nesta esta tarefa utilizarei o pacote **binary**, que nos permite trabalhar com bytes e escrever informações seja em little endian ou big endian. Usarei little endian, mas nada impede que alguém use big endian.
 
 Antes de começar a escrever qualquer getter ou setter, decidi criar algumas variáveis de macros, que são escritas com a instrução **const**, especificando o comprimento de cada informação em bytes, e também a posição em que essas informações começam nas matrizes de bytes.
 
@@ -136,9 +138,9 @@ Eu sei que os nomes possivelmente não são tão fáceis de entender nem muito b
 
 **Escrevendo getters e setters**
 
-Nunca escrevi alguns getters e setters em golang antes. Já fiz isso em diferentes linguagens, C, Java, JS, Python, mas em Golang é algo realmente novo. Eu li que é possível escrevê-los vinculados a alguma estrutura, ou seja, métodos de classe, ou escrever passando algum endereço de estrutura como parâmetro de função, e modificar o que você deseja dentro da função.
+Nunca havia escrito getters e setters em golang antes. Já fiz isso em diferentes linguagens, C, Java, JS, Python, porém em Golang é algo novo. Li que é possível escrevê-los vinculados a alguma estrutura, ou seja, métodos de classe; ou escrever passando algum endereço de estrutura como parâmetro de função e modificar o que você deseja ali dentro.
 
-Eu vou ser honesto. Eu misturei os dois tentando diferir algumas características da folha do nó e do nó, mas isso acabou sendo uma confusão e uma forma não padronizada de escrever código. Consertar isso é uma tarefa para a posteridade. Mas vamos codar agora
+Para ser sincero, eu misturei os dois tentando diferir algumas características da folha do nó e do nó, mas isso acabou sendo uma confusão e uma forma não padronizada de escrever código. Mas não é minha prioridade concertar isso agora, será uma tarefa para o futuro.
 
 ```go
 func (n *TreeNode) GetType() uint16 {

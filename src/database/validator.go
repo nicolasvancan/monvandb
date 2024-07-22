@@ -41,7 +41,7 @@ func (t *Table) ValidateColumns(row *RawRow) error {
 		if err != nil {
 			return err
 		}
-		err = validadeNull(column, (*row)[column.Name])
+		err = validateNull(column, (*row)[column.Name])
 
 		if err != nil {
 			return err
@@ -89,7 +89,7 @@ func fillupMissingFields(t *Table, row *RawRow, column Column) {
 	}
 }
 
-func validadeNull(column Column, value interface{}) error {
+func validateNull(column Column, value interface{}) error {
 	if !column.Nullable && value == nil {
 		return fmt.Errorf("column %s cannot be null", column.Name)
 	}

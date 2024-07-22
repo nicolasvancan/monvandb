@@ -59,10 +59,7 @@ the function uses one *PDataFile to access the data.
 When running for indexed columns,
 */
 func (t *Table) Get(column string, value any) ([]RawRow, error) {
-	/*
-		Reserved for further implementation, evaluate if the column is indexed or not, and then load the appropriate
-		binary tree to get the data. Otherwise, use the default which is the datafile.
-	*/
+
 	row := make([]RawRow, 0)
 	// Get the pk column
 	pk := t.PrimaryKey
