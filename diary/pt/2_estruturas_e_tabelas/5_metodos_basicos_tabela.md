@@ -241,7 +241,7 @@ func fillupMissingFields(t *Table, row *RawRow, column Column) {
 
 ```
 
-Olhem que interessante, na primeira parte da função eu verifico se a linha que vai ser inserida tem a coluna que estou verificando. Caso ela não exista, o sistema insere o valor da coluna **Default**, que por definição é *nil*.
+Olhem que interessante, na primeira parte da função eu verifico se a linha que vai ser inserida tem a coluna que estou validando. Caso ela não exista, o sistema insere o valor da coluna **Default**, que por definição é *nil*.
 
 Na segunda parte tratamos os casos das colunas que não existem e são chaves primárias auto incrementais. Neste caso, buscamos o último item adicionado à tabela e recuperamos sua respectiva chave, fazemos um cast nesse valor para **int64** e adicionamos um ao número. Se a tabela for vazia significa que o campo de auto increment deve ser um.
 
@@ -310,6 +310,7 @@ func validateUnique(table *Table, row RawRow) error {
 	return nil
 }
 ```
+
 Nada muito complicado. Existem duas possibilidades, quando a chave é única ou a chave é composta, indicando que a restrição é baseada nessa chave e no arquivo principal da tabela. Após conseguirmos o valor da chave serializado, utilizamos diretamente a interface do ponteiro do arquivo **DataFile** para ver se essa chave existe ou não. Caso exista, o sistema emite um erro indicando que uma chave desse valor já fora adicionado.
 
 **Função Única**

@@ -25,7 +25,7 @@ func TestBasicScan(t *testing.T) {
 		PDataFile:   table.PDataFile,
 	}
 
-	rangeData, err := database.Range(table, rangeOf)
+	rangeData, err := database.RangeFromOptions(table, rangeOf)
 
 	if err != nil {
 		t.Errorf("error getting range: %v", err)
@@ -49,7 +49,7 @@ func TestBasicScanWholeData(t *testing.T) {
 		PDataFile:   table.PDataFile,
 	}
 
-	rangeData, err := database.Range(table, rangeOf)
+	rangeData, err := database.RangeFromOptions(table, rangeOf)
 
 	if err != nil {
 		t.Errorf("error getting range: %v", err)
@@ -75,7 +75,7 @@ func TestFullScanForNilFromField(t *testing.T) {
 		PDataFile:   table.PDataFile,
 	}
 
-	rangeData, err := database.Range(table, rangeOf)
+	rangeData, err := database.RangeFromOptions(table, rangeOf)
 
 	if err != nil {
 		t.Errorf("error getting range: %v", err)
@@ -101,7 +101,7 @@ func TestFullScanForNilToField(t *testing.T) {
 		PDataFile:   table.PDataFile,
 	}
 
-	rangeData, err := database.Range(table, rangeOf)
+	rangeData, err := database.RangeFromOptions(table, rangeOf)
 
 	if err != nil {
 		t.Errorf("error getting range: %v", err)
@@ -125,7 +125,7 @@ func TestScanForLimit(t *testing.T) {
 		PDataFile:   table.PDataFile,
 	}
 
-	rangeData, err := database.Range(table, rangeOf)
+	rangeData, err := database.RangeFromOptions(table, rangeOf)
 
 	if err != nil {
 		t.Errorf("error getting range: %v", err)

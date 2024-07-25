@@ -106,7 +106,7 @@ The range query is going to be used in the following queries:
  retrieve needed information.
 */
 
-func Range(t *Table, options RangeOptions) ([]RawRow, error) {
+func RangeFromOptions(t *Table, options RangeOptions) ([]RawRow, error) {
 	// If from and to are not set, we return all the rows
 	if options.From == nil && options.To == nil && options.Limit < 0 {
 		// Scan the whole file

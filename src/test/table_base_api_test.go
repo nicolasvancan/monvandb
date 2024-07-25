@@ -51,7 +51,7 @@ func TestTableAndIndexInsertion(t *testing.T) {
 
 	fmt.Printf("Indexes: %v\n", table.Indexes)
 
-	mainResults, err := database.Range(table, database.RangeOptions{
+	mainResults, err := database.RangeFromOptions(table, database.RangeOptions{
 		From:      nil,
 		To:        nil,
 		Limit:     -1,
@@ -67,7 +67,7 @@ func TestTableAndIndexInsertion(t *testing.T) {
 		t.Errorf("expected 2 items, got %v", len(mainResults))
 	}
 
-	indexResults, err := database.Range(table, database.RangeOptions{
+	indexResults, err := database.RangeFromOptions(table, database.RangeOptions{
 		From:      nil,
 		To:        nil,
 		Limit:     -1,

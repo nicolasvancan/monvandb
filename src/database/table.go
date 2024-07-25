@@ -332,7 +332,7 @@ func (t *Table) Range(input []ColumnComparsion, limit int, order int) []RawRow {
 	}
 
 	// Get the range
-	rows, err := Range(t, rangeOperation)
+	rows, err := RangeFromOptions(t, rangeOperation)
 
 	if err != nil {
 		return nil
