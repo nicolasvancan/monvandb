@@ -2,7 +2,7 @@
 
 Essa função tomou muito tempo e criatividade minhas, principalmente por ainda não ter várias outras camadas do software decididas. Antes de entrar em qualquer detalhe técnico, eu devo contextualizar as premissas e possibilidades dessa função, e o que me tomou tanto tempo para refletir.
 
-Vamos lá! Por definição o método **Range** é uma busca por alcance. Em uma árvore binária indexada, o alcance é ditado pela faixa de índices que se deseja buscar. Vou exemplificar: Uma tabela que possui índices inteiros, tem valores de chave que variam de 1 a um número muito grande. Portanto, pode-se efetuar buscas entre qualquer combinação de condição desses valores, por exemplo: maior igual a um; menor que cinco maior que zero, diferente de dois. Todas essas condicionais de verificação geram alcances de busca distintos na tabela.
+Vamos lá! Por definição o método **Range** é uma busca por alcance. Em uma árvore binária indexada, o alcance é ditado pela faixa de índices que se deseja buscar. Vou exemplificar: Uma tabela que possui índices inteiros, tem valores de chave que variam de 1 a um número muito grande. Portanto, pode-se efetuar buscas entre qualquer combinação de condição desses valores, por exemplo: maior igual a um; menor que cinco maior que zero; diferente de dois. Todas essas condicionais de verificação geram alcances de busca distintos na tabela.
 
 **Porque não usar scan para todas as buscas?**
 
@@ -14,7 +14,7 @@ Dada uma query de sql, deve-se ter um sistema capaz de analisar todas condiçõe
 
 # A ideia por trás dessa implementação
 
-Agora criarei diversas queries fictícias para demonstrar a ideia e o motivo por trás dessa implementação. Vão notar que provavelmente algumas coisas, principalmente da estrutura de dados mudará com o tempo, tendo em vista que eu fiz várias suposições e pensei que o sistema funcionaria de uma certa forma.
+Agora criarei diversas queries fictícias para demonstrar a ideia e o motivo por trás dessa implementação. Vão notar que provavelmente algumas coisas, principalmente da estrutura de dados, mudarão com o tempo, tendo em vista que eu fiz várias suposições e pensei que o sistema funcionaria de uma certa forma.
 
 Vamos lá, nosso cenário de testes contem as seguintes tabelas e suas definições nessas estruturas
 

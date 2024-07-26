@@ -1,6 +1,6 @@
 # Métodos tabela
 
-Somente estruturas definidas não garantem o sucesso na leitura de informaçõẽs. Precisa-se implementar funções para utilizar os campos que defini no capítulo anterior. Como havia comentado, a tabela é a interface mais próxima do dado cru. Ou seja, é ela que acessa os arquivos *DataFile* e recupera tanto as chaves quanto os valores lá salvos; e é ela que tem a informação salva em sua estrutura usada para decodificar as informações recuperadas. E quais são os tipos de métodos da tabela então?
+Somente estruturas definidas não garantem o sucesso na leitura de informações. Precisa-se implementar funções para utilizar os campos que defini no capítulo anterior. Como havia comentado, a tabela é a interface mais próxima do dado cru. Ou seja, é ela que acessa os arquivos *DataFile* e recupera tanto as chaves quanto os valores lá salvos; e é ela que tem a informação salva em sua estrutura usada para decodificar as informações recuperadas. E quais são os tipos de métodos da tabela então?
 
 Resolvi dividí-los em três partes distintas por enquanto:
 
@@ -38,7 +38,7 @@ A serialização vista no começo desta "temporada" será bem utilizada neste po
 2. Quando obtemos os bytes dos arquivos, transformamo-os em outro tipo de dados intermediário, um tipo que relaciona um valor a um tipo de dados e a uma coluna.
 3. De posse deste tipo de dados intermediário, podemos criar, então, nosso conversor final para **RawRow** e o inverso também.
 
-O que é esse tipo intermediário e por que resolvi desenvolvê-lo e não guardar diretamente os tipos **RawRow** como valor no arquivo? Bem, essa é uma pergunta que fiquei refletindo muitos dias até chega em uma conclusão aceitável.
+O que é esse tipo intermediário e por que resolvi desenvolvê-lo e não guardar diretamente os tipos **RawRow** como valor no arquivo? Bem, essa é uma pergunta que fiquei refletindo muitos dias até chegar a uma conclusão aceitável.
 
 Mas o grande ponto é que dentro dos arquivos, trabalhamos e armazenamos bytes, tornando esse manuseio mais complicado devido às possíveis implementações e limitações de golang em relação à serialização. O paco te *gob*, utilizado para este processo, serializa a estrutura inteira e muito rápido. Contudo, imaginem o seguinte cenário:
 
@@ -48,6 +48,7 @@ Decido realizar a seguinte query de uma tabela fictícia chamada **table_test**,
 SELECT id, some_string
 FROM table_test
 ```
+
 Caso nosso valor da linha tenha sido serializado como um todo, o sistema tem que recuperar todas as linhas com todas as colunas e somente depois elimitar a coluna **some_bytes**, levando a um possível uso excessivo de memória sem a necessidade. E se fosse possível selecionar dentro do próprio arquivo da árvore binária as colunas que você ou o sistema quer sem ter que trazer todas elas para a memória? É o intuito da estrutura **ColumnValue**.
 
 ```go
@@ -84,7 +85,7 @@ table := Table{
 
 ```
 
-Note que o aray de colunas definido é ordenado sendo a primeira coluna na posição zero, a segunda na posição um e assim sucessivamente. Essas posições representam o campo *Col* da estrutura de dados **ColumnValue**, não é fácil? Mas e como fica então a conversão em bytes de uma linha inteira?
+Note que o array de colunas definido é ordenado sendo a primeira coluna na posição zero, a segunda na posição um e assim sucessivamente. Essas posições representam o campo *Col* da estrutura de dados **ColumnValue**, não é fácil? Mas e como fica então a conversão em bytes de uma linha inteira?
 
 Segue o exemplo ilustrativo dessa conversão, usando-se o tipo de tabela definido anteriormente:
 

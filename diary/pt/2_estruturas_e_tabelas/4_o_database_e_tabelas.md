@@ -2,12 +2,12 @@
 
 A escrita dos diários tem sido algo um pouco caótico no meu dia a dia. Há vezes que eu escrevo como um relatório de experimentos. Outros dias, eu anoto em folhas de papel os tópicos e coisas que pensei para reescrever quando tiver tempo. Mas o que mais tem me tomado tempo não é nem o fato de escrever, mas sim o de tornar a escrita mais compreensível pro leitor.
 
-É interessante notar que quando estou pensando em algo, seja uma solução, ou alguma ideia de desenvolvimento, aquilo está muito nítido na minha cabeça. Porém, quando eu escrevo toda a lógica que estou bolando, não fica tão claro quanto o que tinha imaginado, e isso me faz pensar em algumas hipóteses:
+É interessante notar que quando estou pensando em algo, seja uma solução ou alguma ideia de desenvolvimento, aquilo está muito nítido na minha cabeça. Porém, quando eu coloco em texto toda a lógica que estou bolando, não fica tão claro quanto o que tinha imaginado, e isso me faz pensar em algumas hipóteses:
 
 1. Minha falta de experiência na escrita influencia em como eu me expresso em textos (me expresso mal)
 2. A falta de tempo para escrever me faz tentar ser muito rápido e direto nos pontos, faltando detalhes
 
-Acredito que há um pouco de ambos casos acima. Realmente não tenho tanta experiência de escrita, mesmo embora eu sinto que eu tenha melhorado após alguns capítulos deste projeto. A falta de tempo é algo normal, trabalho, paternidade, familia; todas essas coisas demandam meu tempo, mas as faço com muito gosto.
+Acredito que há um pouco de ambos casos acima. Realmente não tenho tanta experiência de escrita, mesmo embora eu sinto que eu tenha melhorado após alguns capítulos deste projeto. A falta de tempo é algo normal, trabalho, paternidade, familia; todas essas coisas demandam meu disso, mas as faço com muito carinho.
 
 Faltou um último ponto acima que é o do perfeccionismo. Não é algo que sou, mas sou muito crítico comigo mesmo. Sempre que revejo coisas que eu fiz, me critico e tento melhorar. Acho que por isso que vivo reescrevendo textos e ideias. Talvez se eu relaxar um pouco a cobrança em mim isso melhore.
 

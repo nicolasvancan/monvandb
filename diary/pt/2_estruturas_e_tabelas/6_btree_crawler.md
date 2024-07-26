@@ -18,13 +18,13 @@ Imaginemos que tenhamos uma árvore binária com algumas linhas de uma tabela sa
 
 Para recuperar as informações, temos que acessar cada folha existente nesse arquivo. Mas como saber quais são as páginas para fazermos isso?
 
-Fiquei refletindo nessa questão por um longo período de tempo. Uma solução que implementei dentro das árvores binárias era de mapear todas as folhas e nós da árvore para, então, obter todas as folhas e suas respectivas páginas. Desvantagens dessa implementação: Acesso de todas as páginas do arquivo farão com que o sistema fique muito lento quanto maior a base de dados. (Inclusive tenho que refatorar a árvore binária para melhorar essa questão de acesso).
+Fiquei refletindo nessa questão por um longo período de tempo. Uma solução que implementei dentro das árvores binárias era de mapear todas as pãginas da árvore para, então, obter todas as respectivas folhas e número das páginas. Desvantagens dessa implementação: Acesso de todas as páginas do arquivo farão com que o sistema fique muito lento quanto maior a base de dados. (Inclusive tenho que refatorar a árvore binária para melhorar essa questão de acesso).
 
-Como sabemos, para cada folha existe um caminho de acesso, passando por todos os nós. Esses nós podem ficar salvos em algum local para posteriormente servirem como guia de onde eu me encontro na árvore, não?
+Como sabemos, para cada folha existe um caminho de acesso passando por todos os nós. Esses nós podem ficar salvos em algum local para posteriormente servirem como guia de onde eu me encontro na árvore, não?
 
 Resolvi seguir essa premissa. Usando a figura acima, sabemos que, para chegar na folha onde encontro o valor da chave 2, preciso passar pelas páginas 7 e 3. Para armazenar esse histórico de nós pelos quais passei, decidi criar uma variável chamada *Net*, representando uma rede de ligações, sendo ela um array de **TreeNode**.
 
-Ou seja, cada posição neste array *Net* representa uma camada da minha árvore binária. Legal, mas para iterar todas as folhas da árvore, preciso também salvar o índice atual de cada folha que a árvore se encontra não? Claro, e para isso temos uma outra variável chamda *Cursor*, que é um array de números inteiros para os índices.
+Ou seja, cada posição neste array *Net* representa uma camada da minha árvore binária. Legal! mas para iterar todas as folhas da árvore, preciso também salvar o índice atual de cada folha que a árvore se encontra não? Claro, e para isso temos uma outra variável chamda *Cursor*, que é um array de números inteiros para os índices.
 
 Parece que a ideia está ficando mais clara. Cada Crawler poderá buscar informações em arquivos de árvores binárias diferentes, portanto, essa estrutura também deve possuir um ponteiro para a árvore binária na qual ele busca informações. Disto isto, temos a primeira versão da nossa estrutura:
 

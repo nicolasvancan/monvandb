@@ -15,9 +15,8 @@ type DataFile struct {
 
 ```
 
-Com esta estrutura, posso facilmente criar ou carregar um DataFile, que é um arquivo que contém Dados, no nosso caso atualmente a árvore binária. Para possibilitar a criação de árvores binárias e seus arquivos com facilidade, resolvi criar uma função **OpenDataFile**, cujas responsabilidades são: criar um arquivo de árvore binária caso ele não exista; carregue a árvore binária que existe; carregue todas as funções de retorno de chamada para o arquivo (este pode ser um sistema complexo posteriormente) e carregue o ponteiro do arquivo em fp.
+Com esta estrutura posso facilmente criar ou carregar um DataFile, que é um arquivo que contém Dados, no nosso caso atualmente a árvore binária. Para possibilitar a criação de árvores binárias e seus arquivos com facilidade, resolvi escrever uma função **OpenDataFile**, cujas responsabilidades são: criar um arquivo de árvore binária caso ele não exista; carregar a árvore binária que existe; carregar todas as funções de retorno de chamada para o arquivo (este pode ser um sistema complexo posteriormente) e carregar o ponteiro do arquivo em fp.
 
-Embora seja possível utilizar separadamente todos os métodos para a função da árvore binária carregando seu módulo, quero utilizar a interface DataFile para todas as operações possíveis com um DataFile específico, desta forma também implementarei todas as funções CRUD nesta struct, como segue:
 
 ```go
 func OpenDataFile(path string) (*DataFile, error) {
