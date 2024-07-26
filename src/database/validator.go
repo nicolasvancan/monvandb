@@ -81,7 +81,7 @@ func fillupMissingFields(t *Table, row *RawRow, column Column) {
 	// SMALL_INT, BIG_INT, INT, etc
 	if column.AutoIncrement && column.Primary {
 		lastValue := t.getLastItem()
-		if lastValue == nil {
+		if lastValue != nil {
 			(*row)[column.Name] = lastValue[column.Name].(int64) + 1
 		} else {
 			(*row)[column.Name] = 1
@@ -133,7 +133,6 @@ func validateUnique(table *Table, row RawRow) error {
 			key = append(key, serialized...)
 		}
 	}
-
 	if len(table.PDataFile.Get(key)) > 0 {
 		return fmt.Errorf("row already exists in table")
 	}

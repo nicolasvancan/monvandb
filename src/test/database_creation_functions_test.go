@@ -41,8 +41,9 @@ func TestCreateTable(t *testing.T) {
 	// Create a new table
 	err = db.CreateTable("table_teste", []database.Column{
 		{
-			Name: "id",
-			Type: database.COL_TYPE_INT,
+			Name:    "id",
+			Type:    database.COL_TYPE_INT,
+			Primary: true,
 		},
 		{
 			Name: "name",

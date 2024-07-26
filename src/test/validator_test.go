@@ -5,6 +5,7 @@ Tests validator from database package
 */
 
 import (
+	"fmt"
 	"testing"
 
 	database "github.com/nicolasvancan/monvandb/src/database"
@@ -35,8 +36,9 @@ func TestValidatorForNullValues(t *testing.T) {
 		}, table)
 
 	row := database.RawRow{
-		"name": nil,
-		"id":   int32(490),
+		"name":  nil,
+		"id":    int32(490),
+		"email": "somemail@mail.com",
 	}
 
 	err := table.ValidateColumns(&row)
@@ -79,8 +81,9 @@ func TestValidatorForAutoIncrement(t *testing.T) {
 		}, table)
 
 	row := database.RawRow{
-		"name": "test",
-		"id":   nil,
+		"name":  "test",
+		"id":    nil,
+		"email": "somemail",
 	}
 
 	err := table.ValidateColumns(&row)
@@ -153,11 +156,12 @@ func TestDefaultInsertion(t *testing.T) {
 		}, table)
 
 	row := database.RawRow{
-		"id": nil,
+		"id":    nil,
+		"email": "somemail",
 	}
 
 	err := table.ValidateColumns(&row)
-
+	fmt.Println(err)
 	if err != nil {
 		t.Errorf("should have returned an error. To be considered autoincrement, it must also have the primary enabled")
 	}
