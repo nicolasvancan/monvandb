@@ -6,40 +6,11 @@ BTree node Test cases
 
 import (
 	"bytes"
-	"strconv"
 	"testing"
 
 	bTree "github.com/nicolasvancan/monvandb/src/btree"
+	helper "github.com/nicolasvancan/monvandb/src/test/helper"
 )
-
-func fillUpNode(t string) *bTree.TreeNode {
-	// Fill up Node until it reaches max Limit
-	var newNode *bTree.TreeNode
-
-	if t == "node" {
-		newNode = bTree.NewNodeNode()
-		for i := 0; i < 322; i++ {
-			newNode.PutNodeNewChild([]byte(strconv.Itoa(i)), uint64(i))
-		}
-
-	} else {
-		newNode = bTree.NewNodeLeaf()
-		for i := 0; i < 280; i++ {
-			newNode.PutLeafNewKeyValue([]byte(strconv.Itoa(i)), []byte(string(strconv.Itoa(i)+"teste")))
-		}
-	}
-
-	return newNode
-}
-
-func createValueOf16kLen() []byte {
-	r := make([]byte, 0)
-
-	for i := 0; i < 16450; i++ {
-		r = append(r, byte(i%255))
-	}
-	return r
-}
 
 /*
 Teste if node creation returns correct data
@@ -121,7 +92,7 @@ func TestInternalNodeInsertion(t *testing.T) {
 	}
 
 	// Fill up Node until it reaches max Limit
-	newNode = fillUpNode("node")
+	newNode = helper.FillUpNode("node")
 
 	t.Logf("Free bytes %d\n", bTree.GetFreeBytes(newNode))
 	// Try to Put new Log, should return an error
@@ -172,7 +143,7 @@ func TestInternalLeafInsertion(t *testing.T) {
 	}
 
 	// Fill up Node until it reaches max Limit
-	newNode = fillUpNode("leaf")
+	newNode = helper.FillUpNode("leaf")
 
 	t.Logf("Free bytes %d\n", bTree.GetFreeBytes(newNode))
 	// Try to Put new Log, should return an error
@@ -184,7 +155,7 @@ func TestInternalLeafInsertion(t *testing.T) {
 
 func TestNodeSplit(t *testing.T) {
 	// We fill up the node firstly
-	node := fillUpNode("node")
+	node := helper.FillUpNode("node")
 	// It has only 4 free bytes. We should try to split it into two new Nodes
 	// We do that first with a sequence key, such as 400 greater than all the previous keys
 	key1 := []byte("991")
@@ -285,7 +256,7 @@ func TestNodeDeletionByAddress(t *testing.T) {
 
 func TestCreateLeafSequence(t *testing.T) {
 	// Create leaf sequence
-	initialBytes := createValueOf16kLen()
+	initialBytes := helper.CreateValueOf16kLen()
 	leaf, sequences := bTree.CreateLeafWithSequence([]byte("10"), initialBytes)
 	keyVal := leaf.GetLeafKeyValueByIndex(0)
 
@@ -307,7 +278,7 @@ func TestCreateLeafSequence(t *testing.T) {
 
 func TestLeafDeletionByKey(t *testing.T) {
 	// Create Node
-	node := fillUpNode("leaf")
+	node := helper.FillUpNode("leaf")
 	firstItem := node.GetLeafKeyValueByIndex(0)
 	if !bytes.Equal(firstItem.GetKey(), []byte("0")) {
 		t.Logf("Should be 0")

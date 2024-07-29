@@ -2,43 +2,40 @@ package main
 
 import (
 	"fmt"
-	"os"
+	"testing"
+
+	helper "github.com/nicolasvancan/monvandb/src/test/helper"
+	utils "github.com/nicolasvancan/monvandb/src/utils"
 )
 
-func generateByteArray() []byte {
-	header := []byte("Hello From Nicolas")
-	// Create new empty 4096 byte array
-	mArray := make([]byte, 4096)
-	// Copy header to mArray
-	copy(mArray[:len(header)], header)
+func TestBasicScan(t *testing.T) {
+	table := helper.GetMocktableReadyForTesting(t)
 
-	// fill out the rest with hashtag
-	for i := len(header); i < len(mArray); i++ {
-		mArray[i] = byte('#')
+	key, err := utils.Serialize(int64(1))
+
+	if err != nil {
+		t.Errorf("error serializing key: %v", err)
 	}
 
-	return mArray
+	value := table.PDataFile.Get(key)
+	var k int64
+	err = utils.Deserialize(value[0].Key, &k)
+	if err != nil {
+		t.Errorf("error deserializing key: %v", err)
+	}
+
+	fmt.Printf("value: %d\n", k)
+	if value == nil {
+		t.Errorf("error getting value from datafile")
+	}
+
 }
 
 func main() {
-	// I'll implement the code here
-	fileName := "/home/nicolas/Desktop/nicolas/projetos/monvandb/test.txt"
-	fp, err := os.OpenFile(fileName, os.O_CREATE|os.O_RDWR, 0666)
+	TestBasicScan(&testing.T{})
+	a := 2
+	b := 3
 
-	if err != nil {
-		panic("Could not create file")
-	}
-
-	// Output with the size that we want to read
-	output := make([]byte, 18)
-	_, err = fp.ReadAt(output, 0)
-
-	if err != nil {
-		panic("Could not read file")
-	}
-
-	// print readData
-	fmt.Printf("First 100 characteres = %s\n", output)
-
-	defer fp.Close()
+	a, b = b, a
+	fmt.Println(a, b)
 }

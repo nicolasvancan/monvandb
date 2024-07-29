@@ -6,7 +6,7 @@ I think I really like this feeling of RPG in development, and that is something 
 
 Among the problems I have to face at the end of 2023, there is my boredom in my free time. I'm a very active guy; I go to the gym, I watch anime, but I also like to involve myself in programming or engineering projects, and I was feeling too lazy to do any of those things. I had to change it.
 
-You know, I need money for me and my family. My wife is pregnant, and I have a lot of bills to pay; we are renovating our apartment to welcome the baby. I am investing a lot of my free time in building a SaaS platform (which is still in development) for accounting services. The project itself is interesting from the perspective of software and cloud architecture and also in terms of money, but it is leaving me tired, and in the sense of reasoning, the challenge was not satisfying.
+You know, I need money for me and my family. My wife is pregnant, and I have a lot of bills to pay; we are renovating our apartment to welcome the baby. I am investing a lot of my free time in building a SaaS platform (which is still in development) for accounting services. The project itself is interesting from the perspective of software and cloud architecture and also in terms of money, but it is letting me tired, and in the sense of reasoning, the challenge was not satisfying.
 
 Some people just say to me to focus on what gives you money directly, but doing that, with all the situations in my life right now, I started becoming really stressed and upset. I have to recover my energy.
 
