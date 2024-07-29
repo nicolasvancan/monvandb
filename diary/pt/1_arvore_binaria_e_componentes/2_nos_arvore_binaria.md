@@ -1,16 +1,84 @@
+# A ideia
+
+Antes de começar a implementar ou mostrar qualquer coisa sobre este assunto, é interessante visualizar o que quero construir e como isso se encaixa numa solução de banco de dados.
+
+Como o intuito é salvar e trabalhar com dados tabulares, essas linhas de tabela devem ser salvas em algum arquivo em algum lugar no computador, normalmente com a extensão .db, ou algo do tipo.
+
+Se tentarmos abrí-los com um editor de texto não conseguimos entender quase nada visualmente. Isto se dá pois os dados são, na verdade, informações binárias estruturadas de alguma forma que os desenvolvedores dos databases planejaram.
+
+Pra quem já teve experiência com pandas, os dataframes (tabelas) podem ser salvos em diferentes formatos. No entanto, quando se deseja ler uma informação específica desse arquivo, o documento todo é lido e trazido para a memória e, assim, buscas em memória são feitas para, então, a informação ser efetivamente trazida.
+
+Em arquivos de bancos de dados essa busca é transparente, a informação específica é trazida diretamente do arquivo sem ter que carregá-lo todo para a memória. Mas esta característica específica me leva à seguinte pergunta: "Como fazer isso?".
+
+**O arquivo**
+
+Já pararam para pensar em por que as tabelas de um banco de dados relacional precisam de índices? A resposta está diretamente ligada na estrutura de dados usada para montar o arquivo.
+
+As árvores binárias ou B+Tree no nosso caso, utilizam algum tipo de informação como índice, seja um número, um texto, uma data; algo que identifique um registro dentro da estrutura de dados. Vamos imaginar o exemplo fictício da minha tabela de usuários abaixo:
+
+![alt text](../../assets/s1_c2_f1.png)
+
+A tabela contém três colunas: id; nome; idade, sendo o id a coluna índice. Digamos que seja do tipo int (inteiro). Quando inserimos esses dados, o que ocorre nos arquivos?
+
+Eu gosto de fazer analogias com as coisas que trabalho para que fique mais fácil de visualizar as soluções. Um arquivo de banco de dados torna a busca rápida porque funciona basicamente como um livro, contendo índice, que mostra onde encontrar as páginas de cada capítulo, e as páginas, que armazenam informações diversas, podendo ser outros índices ou informações de textos.
+
+O arquivo em disco também é separado por páginas, e cada uma possui um tamaho específico, podendo ir de 512 bytes até muito mais, alcançando algumas vezes alguns GB. 
+
+Vejam que interessante, cada página do arquivo corresponde a uma estrutura da árvore binária, sendo um nó ou uma folha.
+
+**Mas o que difere um nó e folha? Quais são suas funcionalidades?**
+
+Os Nós são páginas de disco que contém informações sobre outros nós ou folhas, enquanto que as folhas são páginas de disco que contém efetivamente as informações que devem ser salvas, no caso de tabelas, as linhas.
+
+Vamos usar a tabela da figura 1 para ilustrar a nossa árvore binária incrementando conforme as linhas da tabela são inseridas. Iniciamos com um arquivo vazio, e a primeira linha da tabela com id = 1 é adicionada no arquivo. 
+
+Como o arquivo está vazio, ao inserir a primeira linha, uma folha surge e a chave 1 com as informações é adicionada.
+
+![alt text](../../assets/s1_c2_f2.png)
+
+Neste exemplo o número máximo que uma folha consegue comportar é de três linhas. No entanto, na prática ocorre que o limite de dados para a folha está relacionado ao tanto de bytes livres que ela possui. O mesmo ocorre para os nós que ao invés de armazenarem informações de linhas, armazenam endereços de outras páginas.
+
+Dando continuidade, ao adicionar à folha a chave 2 e 3, resulta na seguinte forma:
+
+![alt text](../../assets/s1_c2_f3.png)
+
+Quando a quarta linha é inserida, a árvore necessita crescer, portanto, uma nova folha deve surgir para comportar novos dados. Este processo é chamado de quebra (split).
+
+Além da nova folha, uma página contendo a estrutura de nó também deve surgir, pois à partir de agora, nossa base de dados possui duas páginas de informação, portanto, é necessario uma página índice para indicar onde encontrar as linhas com os respectivos índices.
+
+![alt text](../../assets/s1_c2_f4.png)
+
+A entrada do nó como página raíz faz com que a busca por chaves específicas torne-se mais rápida. Por exemplo, se quisessemos buscar a chave dois, a primeira página acessada seria o nó da página 3, tendo sua primeira informação como chave igual a 1 na página 1. 
+
+Neste caso e nesta implementação, como a chave 1 é menor ou igual à chave que estou buscando, o sistema supõe que a chave dois esteja nesta folha. Caso não estivesse, o sistema tentaria encontrá-la em alguma outra folha disponível, até que não tivesse mais opções.
+
+Esta mesma ideia se propaga para um universo infinito de páginas. Conforme a base de dados e a tabela vão crescendo, o número de páginas também e, consequentemente, o tamanho do arquivo.
+
+Vale lembrar que neste exemplo ilustrativo utilizei informações concretas e com tipos de dados concretos, mas na verdade os valores salvos são representações binárias de tipos de dados. O índice pode ser um inteiro, texto, ponto flutuante, etc, enquanto que o valor também pode ser qualquer tipo de bytes sequenciais.
+
+Para finalizar a ideia, todo arquivo de B+Tree corresponde a um índice de uma tabelae por isso que quando se cria uma tabela em um banco de dados SQL, é obrigatório o uso da chave primária.
+
+Além disso, a página zero desses arquivos são descritos como página de cabeçalho, nas quais informações sobre qual a página raíz da árvore, tamanho das páginas, entre outras informações importantes, lá encontram-se.
+
+Agora que temos um entendimento básico do que quero montar, bora fazer acontecer? Para isso se tornar realidade, precisamos estruturar nossos Nós e Folhas da árvore em Golang. Segue comigo que explico como fiz.
+
 # Nós de árvore
 
 O primeiro dia de implementação foi um dia comum. Meu trabalho diário não foi cansativo e resolvi começar a moldar o início do BTree. O conceito de árvore binária é uma estrutura de dados baseada em nós e folhas. Sei que existem vários tipos de árvores mas vou implementar a B+Tree, cujos nós são responsáveis por armazenar outros nós ou posições de folhas, enquanto as folhas armazenam Key-Values (Bytes).
 
-Preparar uma estrutura de bytes para ser salva em uma página de arquivo é algo em que tive que pensar. Normalmente me faço algumas perguntas antes de escrever algo, e as perguntas foram:
+Preparar uma estrutura de bytes para ser salva em uma página de arquivo é algo em que tive que pensar bem em como fazer. Normalmente me faço algumas perguntas antes de escrever algum código, e as perguntas foram as seguintes:
 
 - A estrutura necessitará de mais de um tipo de disposição de bytes?
 - Eles vão compartilhar algum tipo de informação?
 - Que tipo de informação eu preciso?
 
-Respondendo a primeira pergunta: **Sim!** como temos nós e folhas, temos que criar ambas as estruturas. Compartilhar campos da estrutura seria bom, ambos armazenam algum tipo de informação, seja endereços de nós ou valores, então basicamente podemos armazenar informações relacionadas aos itens armazenados. Mas o que seria estritamente necessário? talvez a quantidade de itens na página? Ou melhor ainda, podemos armazenar quanto espaço resta em uma página, ou mesmo qual endereço pertence ao nó pai? Para mim parecem informações pertinentes.
+Respondendo a primeira pergunta: **Sim**! como temos nós e folhas, temos que criar ambas as estruturas. Compartilhar informações entre elas seria bom, ambas devem armazenar informações sobre a página, seja endereços de nós, quantidade de itens, bytes livres ou até valores reais de dados. 
 
-A estrutura básica (funcional) de bytes não é uma tarefa difícil, trabalhar com IoT me deu uma boa ideia de como construir protocolos de dados para comunicação sem fio, construindo estruturas de dados a partir de arrays de bytes ou **estruturas**. A má notícia para mim agora é que tudo foi escrito em C naquela época, não em Golang.
+Acho que começar com essas informações básicas citadas acima para ambos é o suficiente. Creio que com a evolução da estrutura de árvore binária -- isso eu digo a longo prazo -- novas composições destas estruturas surgirão e haverão modificações. Mas não adianta tentar prever tudo antes de se vivenciar as dificuldades. Comecemos pelo básico
+
+**Como criar e definir as estruturas**
+
+A estrutura básica (funcional) de bytes não é uma tarefa difícil, mas deve ser feita com cautela. Trabalhar com IoT me deu uma boa ideia de como construir protocolos de dados para comunicação sem fio, construindo estruturas de dados a partir de arrays de bytes ou structs. A má notícia para mim agora é que tudo foi escrito em C naquela época, não em Golang.
 
 Para quem tem experiência em codificação em C, o que desejo construir para a estrutura básica de dados é algo semelhante ao seguinte código C:
 
@@ -59,9 +127,9 @@ A desvantagem desse tipo de implementação é que precisamos construir todos os
 
 # O nó nó
 
-Não me inspirei hoje para criar algo fabuloso, então vamos tentar fazer o básico. O nó nó deve ter um cabeçalho e também uma estrutura para salvar dados de nós ou folhas. Btree normalmente requer chaves que são usadas como índices para pesquisas. Que tipo de chave o bTree terá?
+Não me inspirei hoje para criar algo fabuloso, então vou tentar fazer o básico. O nó nó deve ter um cabeçalho e também uma estrutura para salvar dados de nós ou folhas. Btrees normalmente requerem chaves que são usadas como índices para pesquisas. Que tipo de chave o bTree terá?
 
-Normalmente o que vejo são colunas com números inteiros não negativos que aumentam automaticamente com o tempo, acho que a primeira abordagem seria usar um número inteiro como chave, não quero complexidade agora. A chave pode se tornar enorme, então presumo que seja o maior número disponível na linguagem: **uint64**.
+Normalmente o que vejo são colunas com números inteiros não negativos que aumentam automaticamente com o tempo, acho que a primeira abordagem seria usar um número inteiro. A chave pode se tornar enorme, então presumo que seja o maior tipo sem sinal disponível na linguagem: **uint64**.
 
 Para cada chave armazenamos valor, mas no caso do nó nó, armazenamos um endereço, não um endereço de memória, mas um endereço de página, que também pode ser enorme, então assumimos que o endereço da página também é **uint64**.
 
@@ -98,21 +166,27 @@ Tendo nossa sctruct para o TreeNode e também os tipos de nós de árvore, chega
 - - **value**: valores em bytes a serem adicionados ao índice key em byte[]
 - - **valueLen**: tamanho em bytes do campo value
 
-Criei uma imagem para mostrar um exemplo de como o endereço chave **NodeStructure** funcionaria de forma prática:
+## Inserindo Informações no Nó
+
+A ideia destes campos é armazenar variáveis para que o trabalho e manuseio dos dados dentro das páginas de nós e folhas fique mais fácil.
+
+De forma ilustrativa, criei uma imagem para que mostra, de forma muito abrangente, como a estrutura de TreeNode se comportaria para adições de informações em seus bytes. O exemplo abaixo ilustra um Nó nó que inicialmente encontra-se vazio, mas depois recebe alguns dados referentes à outros nós:
 
 ![Node Diagram](../../assets/node_diagram.png)
 
-Existe o cabeçalho, ele é composto pelos campos: tipo, nItems, etc; seguido por espaço livre usado para armazenar informações relacionadas aos principais endereços. Sempre que uma nova estrutura de endereço de chave é adicionada à página, o valor é concatenado à página após os cabeçalhos, a contagem de nItems é aumentada em um e o número de bytes livres diminui.
+O cabeçalho é fixo, composto pelos campos: tipo, nItems, entre outros; seguido por espaço livre usado para armazenar informações relacionadas aos principais endereços. 
 
-A mesma ideia se aplicaria aos pares de valores-chave, diferindo apenas pelo fato de que o número de bytes armazenados no valor é variável, portanto, precisamos de informações sobre quantos bytes o valor consiste.
+Sempre que uma nova estrutura de endereço de chave é adicionada à página, o valor é concatenado à página após os cabeçalhos, a contagem de nItems é aumentada em um e o número de bytes livres diminui.
+
+A mesma ideia se aplicaria aos pares de Key-Value do Nó folha, diferindo apenas pelo fato de que o número de bytes armazenados no campo valor é variável, portanto, para o caso das folhas, é necessário também armazenar a informação de qual o tamanho dos bytes dos valores.
 
 ## Primeira implementação
 
-Para dar vida às estruturas, devemos começar escrevendo getters e setters.
+Como queremos construir nossa própria serialização por meio das informações da estrutura, devemos começar escrevendo getters e setters.
 
-Nesta esta tarefa utilizarei o pacote **binary**, que nos permite trabalhar com bytes e escrever informações seja em little endian ou big endian. Usarei little endian, mas nada impede que alguém use big endian.
+Para esta tarefa utilizarei o pacote binary, que nos permite trabalhar com bytes e escrever informações seja em little endian ou big endian. Usarei little endian, mas nada impede que alguém use big endian.
 
-Antes de começar a escrever qualquer getter ou setter, decidi criar algumas variáveis de macros, que são escritas com a instrução **const**, especificando o comprimento de cada informação em bytes, e também a posição em que essas informações começam nas matrizes de bytes.
+Antes de começar a escreve-los, decidi criar algumas variáveis de macros, que são escritas com a instrução const especificando o comprimento de cada informação em bytes, e também a posição em que essas informações começam nos arrays de bytes.
 
 ```go
 // Example of const declaration
@@ -134,11 +208,13 @@ const (
 )
 ```
 
-Eu sei que os nomes possivelmente não são tão fáceis de entender nem muito bonitos, mas foi assim que os escrevi (se você quiser ver todos eles, basta encontrar o arquivo bTreeNode.go no módulo btree)
+As contantes acima são utilizadas para definir a localização de cada campo dentro do array de bytes, ao invés de usarmos números puros e deixarmos o código menos legível (Embora eu não tenha sido muito criativo com os nomes das constantes).
 
 **Escrevendo getters e setters**
 
-Nunca havia escrito getters e setters em golang antes. Já fiz isso em diferentes linguagens, C, Java, JS, Python, porém em Golang é algo novo. Li que é possível escrevê-los vinculados a alguma estrutura, ou seja, métodos de classe; ou escrever passando algum endereço de estrutura como parâmetro de função e modificar o que você deseja ali dentro.
+Eu ainda não havia escrito getters e setters em golang, mas já havia feito isso em diferentes linguagens, como: C, Java, JS, Python.
+
+Li que é possível escrevê-los vinculados a alguma estrutura, ou seja, métodos de classe; ou escrever passando algum endereço de estrutura como parâmetro de função e modificar o que você deseja ali dentro.
 
 Para ser sincero, eu misturei os dois tentando diferir algumas características da folha do nó e do nó, mas isso acabou sendo uma confusão e uma forma não padronizada de escrever código. Mas não é minha prioridade concertar isso agora, será uma tarefa para o futuro.
 
@@ -160,9 +236,17 @@ setType(&node, 1)
 
 Aqui estão dois exemplos de como você pode usar métodos com estruturas. Tentei diferenciá-las, coloquei as funções públicas com os métodos struct e as funções privadas separadas, embora nem tudo siga esse padrão.
 
-**A função NewNode**
+Para inserir números como uint16, uint32, uint64, foi utilizada a biblioteca binary.LittleEndian. Para a escrita de bytes genéricos, usa-se o método nativo copy.
 
-Queria ter também uma função que me retornasse um Node Node vazio para ser usado na minha aplicação, seria o mesmo que um Construtor para minha estrutura. Portanto, a criação de uma função para isso me pareceu uma boa ideia, o problema é que eu não sabia como inicializar uma struct contendo array de bytes como propriedade. Depois de alguns testes, descobri que existem algumas funções integradas que ajudam você a criar facilmente um objeto a partir de um tipo, são elas: funções **make** e **new**. Make é útil ao criar arrays de tipos, no meu caso, um array de bytes. Considerando que a nova função é usada para criar estruturas vazias para um determinado tipo. Além disso, você pode criar manualmente a estrutura, como em C, como mostrado em meu exemplo, onde combinei a criação de estrutura make e formulário C para criar uma nova estrutura TreeNode.
+**Obs: Os demais códigos foram omitidos, pois eram replicações muito similares aos exemplos apresentados na figura exemplo, no entanto, todos os campos da lista de informações da página foram implementados.**
+
+**A função NewNode e NewLeaf**
+
+Queria ter também uma função que me retornasse um TreeNode Nó e Folha vazio para serem usados na minha aplicação. Para quem está acostumado com orientação a objeto, seriam minha funções construtoras. 
+
+Portanto, a criação de uma função para isso me pareceu uma boa ideia. O problema é que eu não sabia como inicializar uma struct contendo array de bytes como propriedade. 
+
+Depois de alguns testes, descobri que existem algumas funções integradas que ajudam você a criar facilmente um objeto a partir de um tipo, são elas: funções make e new. Make é útil ao criar arrays de tipos, no meu caso, um array de bytes. 
 
 
 ```go
@@ -178,13 +262,15 @@ func NewNodeNode() *TreeNode {
 
 ```
 
-## Avanço - Tipos de nós e métodos de exclusão de inserção
+## Tipos de nós e métodos de exclusão de inserção
 
-Getters e Setters foram implementados usando métodos *binary.LittleEndian* para trabalhar com array de bytes. Agora é hora de implementar funções que nos permitam inserir, excluir, atualizar e obter valores-chave e endereços de nossas páginas Node. Devo confessar que estou com muita preguiça e não quero perder tanto tempo nessa tarefa nem desenvolver uma lógica complexa para isso.
+Após finalizar a implementação de todos os getters e setters das estruturas, é hora de criar as funções que nos permitam inserir, excluir, atualizar e obter valores-chave e endereços de nossas páginas Nó e folhas.
 
-Acho que a única restrição que tenho é manter todos os valores das páginas ordenados, ou seja, armazená-los ordenados (Desired), mas recuperá-los ordenados é suficiente.
+A única restrição que existe dentro dos nós é manter todos os itens das páginas ordenados. Lembrando que quando menciono os itens das páginas significa os pares chave e valor para folhas e chave e endereço para os nós.
 
-Antes de avançar mais no assunto, tive que criar alguns tipos de struct concretos para demonstrar quais são os tipos e informações armazenadas dentro das páginas, que são: **NodeKeyAddr**, **LeafKeyValue**, conforme mostrado abaixo:
+Manipular bytes em um array me pareceu uma operação exaustiva, por isso decidi simplificar a inserção deles, apenas adicionando os valores de bytes logo após offset do array sempre que uma nova informação era inserida dentro da folha. A parte da ordenação ficou totalmente a cargo da função de retornar os valores das folhas e nós.
+
+De modo a facilitar a diferenciação dos itens salvos em nós e folhas, criei duas estruturas utilizadas respectivamente, que são: NodeKeyAddr, LeafKeyValue.
 
 
 ```go
@@ -203,9 +289,9 @@ type NodeKeyAddr struct {
 
 ```
 
-Resolvi mudar a chave de uint64 para array de bytes, considerando qualquer possibilidade de utilização de chaves indexadas, como string, bytes diferentes, objetos, entre outros, mudar o campo para array de bytes foi a melhor opção que pude escolher.
+O LeafKeyValue são os valores adicionados a uma folha, enquanto que os NodeKeyAddr são as informações adicionadas em nós.
 
-Para cada tipo de nó é criada uma função para inserir, excluir e atualizar valores. Na verdade, o método de atualização não será implementado, atualizar é o mesmo que excluir e inserir a mesma chave.
+Para os nós, precisamos apenas da chave key que é um array de bytes e também do KeyLen que é o comprimento do array de bytes da chave. Como o campo addr é um tamanho fixo, não é necessário especificar seu tamanho. Para o caso da folha, a única alteração é a adição do campo valuesLength e values que indica os valores (Linhas de tabela em array de bytes) e seu comprimento.
 
 **Insert**
 
