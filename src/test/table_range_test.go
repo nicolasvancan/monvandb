@@ -104,15 +104,20 @@ func TestMergeOperationsCaseFour(t *testing.T) {
 	var from int64
 	var to int64
 
-	utils.Deserialize(rangeOptions.From, &from)
-	utils.Deserialize(rangeOptions.To, &to)
-
-	if from != 10 {
-		t.Errorf("expected nil as result, got %v", rangeOptions.From)
+	if rangeOptions.From != nil {
+		utils.Deserialize(rangeOptions.From, &from)
 	}
 
 	if rangeOptions.To != nil {
-		t.Errorf("expected nil as result, got %v", rangeOptions.To)
+		utils.Deserialize(rangeOptions.To, &to)
+	}
+
+	if from != 10 {
+		t.Errorf("expected 10 as result, got %d", from)
+	}
+
+	if rangeOptions.To != nil {
+		t.Errorf("expected value != than nil as result, got nil")
 	}
 
 }
