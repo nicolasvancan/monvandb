@@ -256,3 +256,44 @@ func BTreeGet(bTree *BTree, key []byte) []BTreeKeyValue {
 	}
 	return keyValues
 }
+
+/*
+This function works just like findLeaf, but it finds the leaf comming from the least value to the greatest, namelly
+comming from left to find sorted values in leaf. The difference is that It returns a Crawling object that will be used
+to traverse the binary tree in the direction we want.
+
+This function will be usefull when dealing with range queries, for example, when we want to get all values between two keys
+in the bTree. In this case, we will use this function to get the first leaf and then we will use the Next() function to get
+the next leaf in the bTree.
+
+For a given key []byte, this function will return the leaf that contains the key or the leaf that contains the next key in the
+bTree. If the key is not found, it will return the leaf that contains the next key in the bTree.
+*/
+
+func (tree *BTree) FindLeafForCrawling(key []byte) *BTreeCrawler {
+	crawler := newBTreeCrawler(tree)
+	rootAddr := tree.GetRoot()
+	page := tree.Get(rootAddr)
+	// While loop to find the leaf
+	for {
+		if page.GetType() == TREE_NODE {
+			cur := -1
+			// In case all keys are smaller than our key we assume that the lask key may be within the last child
+			if cur = lookupKey(page, key, true); cur == -1 {
+				cur = int(page.GetNItens() - 1)
+			}
+
+			crawler.Net = append(crawler.Net, page)
+			crawler.Cursor = append(crawler.Cursor, cur)
+			// Get the next page
+			page = tree.Get(page.GetNodeChildByIndex(cur).GetAddr())
+
+		} else {
+			crawler = findLeafInPage(page, key, crawler)
+			crawler.CurrentKeyValues = getAllLeafKeyValues(&page)
+			break
+		}
+	}
+
+	return crawler
+}

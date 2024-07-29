@@ -1,20 +1,88 @@
+# The idea
+
+Before I start implementing or showing anything about this subject, it is interesting to visualize what I want to build and how it fits into a database solution.
+
+Since the goal is to save and work with tabular data, these table rows must be saved in a file somewhere on the computer, usually with the extension .db, or something similar.
+
+If we try to open them with a text editor, we can barely understand anything visually. This is because the data is, in fact, binary information structured in some way that the database developers planned.
+
+For those who have had experience with pandas, dataframes (tables) can be saved in different formats. However, when you want to read specific information from this file, the entire document is read and brought into memory and, thus, searches in memory are made so that the information is effectively brought.
+
+In database files, this search is transparent, the specific information is brought directly from the file without having to load it all into memory. But this specific feature leads me to the following question: "How to do this?".
+
+**The file**
+
+Have you ever stopped to think about why tables in a relational database need indexes? The answer is directly linked to the data structure used to assemble the file.
+
+Binary trees, or B+Trees in our case, use some type of information as an index, be it a number, a text, a date; something that identifies a record within the data structure. Let's imagine the fictitious example of my user table below:
+
+![alt text](../../assets/s1_c2_f1.png)
+
+The table contains three columns: id; name; age, with id being the index column. Let's say it is of type int (integer). When we insert this data, what happens in the files?
+
+I like to make analogies with the things I work on so that it is easier to visualize the solutions. A database file makes searching fast because it basically works like a book, containing an index, which shows where to find the pages of each chapter, and the pages, which store various information, which can be other indexes or text information.
+
+The file on disk is also separated by pages, and each one has a specific size, which can range from 512 bytes to much more, sometimes reaching a few GB.
+
+See how interesting, each page of the file corresponds to a structure of the binary tree, being a node or a leaf.
+
+**But what is the difference between a node and a leaf? What are their functions?**
+
+Nodes are disk pages that contain information about other nodes or leaves, while leaves are disk pages that actually contain the information that should be saved, in the case of tables, the rows.
+
+Let's use the table in Figure 1 to illustrate our binary tree incrementing as the table rows are inserted. We start with an empty file, and the first row of the table with id = 1 is added to the file.
+
+Since the file is empty, when the first row is inserted, a leaf appears and the key 1 with the information is added.
+
+![alt text](../../assets/s1_c2_f2.png)
+
+In this example, the maximum number that a leaf can hold is three rows. However, in practice, the data limit for the leaf is related to the number of free bytes it has. The same occurs for nodes that, instead of storing row information, store addresses of other pages.
+
+Continuing, when adding keys 2 and 3 to the leaf, the result is the following:
+
+![alt text](../../assets/s1_c2_f3.png)
+
+When the fourth row is inserted, the tree needs to grow, so a new leaf must appear to accommodate the new data. This process is called a split.
+
+In addition to the new leaf, a page containing the node structure must also appear, since from now on, our database has two pages of information, so an index page is needed to indicate where to find the rows with their respective indexes.
+
+![alt text](../../assets/s1_c2_f4.png)
+
+A entrada do nó como página raíz faz com que a busca por chaves específicas torne-se mais rápida. Por exemplo, se quisessemos buscar a chave dois, a primeira página acessada seria o nó da página 3, tendo sua primeira informação como chave igual a 1 na página 1. 
+
+Neste caso e nesta implementação, como a chave 1 é menor ou igual à chave que estou buscando, o sistema supõe que a chave dois esteja nesta folha. Caso não estivesse, o sistema tentaria encontrá-la em alguma outra folha disponível, até que não tivesse mais opções.
+
+Esta mesma ideia se propaga para um universo infinito de páginas. Conforme a base de dados e a tabela vão crescendo, o número de páginas também e, consequentemente, o tamanho do arquivo.
+
+Vale lembrar que neste exemplo ilustrativo utilizei informações concretas e com tipos de dados concretos, mas na verdade os valores salvos são representações binárias de tipos de dados. O índice pode ser um inteiro, texto, ponto flutuante, etc, enquanto que o valor também pode ser qualquer tipo de bytes sequenciais.
+
+Para finalizar a ideia, todo arquivo de B+Tree corresponde a um índice de uma tabelae por isso que quando se cria uma tabela em um banco de dados SQL, é obrigatório o uso da chave primária.
+
+Além disso, a página zero desses arquivos são descritos como página de cabeçalho, nas quais informações sobre qual a página raíz da árvore, tamanho das páginas, entre outras informações importantes, lá encontram-se.
+
+Agora que temos um entendimento básico do que quero montar, bora fazer acontecer? Para isso se tornar realidade, precisamos estruturar nossos Nós e Folhas da árvore em Golang. Segue comigo que explico como fiz.
+
 # Tree Nodes
 
-The first day of implementation was a common day. My daily job was not tiring, and I decided to start shaping the beginning of the B-tree. The concept of the binary tree is a data structure based on nodes and leaves. I know that there are several types of trees, but I'll implement the B+Tree, whose nodes are responsible for storing other nodes or leaves positions, whereas leaves store key values (bytes).
+The first day of implementation was a normal day. My daily work was not tiring and I decided to start shaping the beginning of BTree. The concept of a binary tree is a data structure based on nodes and leaves. I know that there are several types of trees but I will implement the B+Tree, whose nodes are responsible for storing other nodes or leaf positions, while the leaves store Key-Values ​​(Bytes).
 
-Preparing a byte structure to be saved within a file page is something that I had to think about. I normally ask myself some questions before I write something, and the questions were:
+Preparing a byte structure to be saved in a file page is something I had to think carefully about how to do. I usually ask myself some questions before writing any code, and the questions were the following:
 
 - Will the structure need more than one type of byte arrangement?
-- Are they going to share any type of information?
-- What kind of information do I need?
 
-Answering the first question: **Yes!** Since we have nodes and leaves, we have to create both structures. Sharing information would be good; both of them store something, either addresses to nodes or real values, so basically, we can store information related to stored items, maybe the number of items on the page? Or even better, we can store how much space we have left on a page, or even what address belongs to the parent node.
+- Will they share some type of information?
 
-I think that starting with those basic information for both is enough.
+- What type of information do I need?
 
-The basic (functional) byte structure is not a hard task; working with IoT gave me a good idea of how to build data protocols for wireless communication, building data structures out of byte arrays or **structs**. The bad news for me now is that everything was written in C at that time, not Golang.
+Answering the first question: **Yes**! Since we have nodes and leaves, we have to create both structures. Sharing information between them would be good, both should store information about the page, be it node addresses, number of items, free bytes or even real data values.
 
-For those who have experience coding in C, what I want to build for basic data structure is something similar to the following C code:
+I think that starting with the basic information mentioned above for both is enough. I believe that with the evolution of the binary tree structure -- and this I say in the long term -- new compositions of these structures will emerge and there will be modifications. But there is no point in trying to predict everything before experiencing the difficulties. Let's start with the basics
+
+**How ​​to create and define structures**
+
+The basic (functional) byte structure is not a difficult task, but it should be done with caution. Working with IoT gave me a good idea of ​​how to build data protocols for wireless communication, by building data structures from byte arrays or structs. The bad news for me now is that everything was written in C back then, not Golang.
+
+For those of you with experience coding in C, what I want to build for the basic data structure is something like the following C code:
 
 ```C
 #include <stdint.h>

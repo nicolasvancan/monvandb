@@ -218,13 +218,13 @@ func MmapPage(f *os.File, page uint64, pageSize uint64) (int, []byte, error) {
 
 ```
 
-Esta função faz uma chamada de sistema para mapear na memória meus arquivos bTree. Para fazer isso, é necessário um ponteiro para a estrutura os.File, que é usada para obter um descritor de arquivo do arquivo a ser usado para a função de chamada do sistema. Observe que existe uma validação para o tamanho do arquivo em bytes, onde deve ser um múltiplo da variável pageSize, caso contrário o arquivo será corrompido.
+Esta função faz uma chamada de sistema para mapear na memória meus arquivos bTree. Para fazer isso, é necessário um ponteiro para a estrutura **os.File**, que é usada para obter um descritor de arquivo do arquivo a ser usado para a função de chamada do sistema. Observe que existe uma validação para o tamanho do arquivo em bytes, onde deve ser um múltiplo da variável pageSize, caso contrário o arquivo será corrompido.
 
 Existem três flags usadas para acessar o arquivo, leitura e gravação protegidas, e que o mapa pode ser compartilhado entre os acessos (foi o que descobri sobre essas flags)
 
 A função retorna o tamanho do arquivo, os dados da página necessários como []byte e se houve um erro ao ler o arquivo.
 
-O uso do mmap não é obrigatório, embora utilize chamada de sistema, pode ser bem mais lento que a função normal file.readAt, mas para esse propósito ainda usarei essas funções desta forma. Talvez no futuro eu avalie outra opção.
+O uso do mmap não é obrigatório, embora utilize chamada de sistema, pode ser bem mais lento que a função normal **file.readAt**, mas para esse propósito ainda usarei essas funções desta forma. Talvez no futuro eu avalie outra opção.
 
 Não tenho certeza se a implementação exigirá ou não uma solução de mapeamento de memória, isso só seria verdade se a modificação de uma página ocorresse diretamente na página, pois o mapeamento atua como um proxy para modificação do arquivo. Esta solução seria relativamente boa apenas se todas as minhas funções de nó fossem atômicas, o que não é o caso. Como comentei no último capítulo, não implementei todas as funções de nó atomicamente, getters e setters são, mas funções de inserção, exclusão e atualização de nó não.
 
@@ -318,11 +318,11 @@ func LoadBTreeFromPath(t *testing.T, filepath string) *bTree.BTree {
 
 ### Implementação
 
-Na verdade, vamos trabalhar duro, porque não estou prestes a escrever o melhor código limpo de todos os tempos, nem será o código mais eficiente. Quero que primeiro funcione bem.
+Eu realmente vou trabalhar firme, porque não estou prestes a escrever o melhor código limpo de todos os tempos, nem será o código mais eficiente. Quero que primeiro funcione bem.
 
 Com base na minha primeira ideia de inserção de chaves, onde tenho que me preocupar, inserir os bytes do valor da chave, verificar se a folha que vai receber esses bytes ainda tem espaço suficiente. Caso contrário, tenho que dividir a folha, salvar duas novas folhas geradas na camada acima delas, se não houver devo criar uma, fazer isso recursivamente, sabendo que uma árvore pode ter muitas camadas, e não só isso! Existe outra possibilidade que contempla a mudança do valor da chave ao inserir uma chave duplicada.
 
-Em outras palavras, acho que esse código não será fácil de entender. E devo confessar que depois de escrever as funções e voltar a elas para explicá-las neste texto, às vezes fiquei confuso, por causa dos nomes das variáveis, ou confundi os fluxos que criei. Ou seja, o código funciona, mas ainda não está bem escrito, e essa é uma tarefa que já está agendada na minha agenda.
+Em outras palavras, acho que esse código não será fácil de entender. E devo confessar que depois de escrever as funções e voltar a elas para explicá-las neste texto, às vezes fiquei confuso, por causa dos nomes das variáveis, ou confundi os fluxos que criei. Ou seja, o código funciona, mas ainda não está bem escrito. Uma refatoração enorme precisa ser realizada
 
 Mesmo assim, o objetivo principal aqui não é discutir qual a melhor forma de codificar esse problema, mas como fiz isso, como pensei que a solução funcionaria, e aqui está.
 
