@@ -24,7 +24,7 @@ jobs:
             - /home/circleci/go/pkg/mod
       - run:
           name: Run tests
-          command: go test -timeout 30s -v ./... > coverage.txt
+          command: go test -timeout 30s -v ./src/test/... > coverage.txt
       - store_artifacts:
           path: coverage.txt
           destination: coverage
