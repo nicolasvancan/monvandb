@@ -617,6 +617,7 @@ func (df Dataframe) Limit(n int) (Dataframe, error) {
 	for _, serie := range df.Series {
 		newSerie := serie.Limit(n)
 		newDf.Series = append(newDf.Series, newSerie)
+		newDf.nRows = newSerie.Len()
 	}
 
 	return newDf, nil

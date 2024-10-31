@@ -309,3 +309,24 @@ func TestSort(t *testing.T) {
 
 	fmt.Printf("%v\n", df3)
 }
+
+func TestLimit(t *testing.T) {
+	// Test limit
+	rawRows := []database.RawRow{
+		{"name": "Nicolas", "age": 25, "height": 1.75},
+		{"name": "John", "age": 30, "height": nil},
+		{"name": "Jane", "age": 35, "height": 1.70},
+		{"name": "Peter", "age": 35, "height": 1.78},
+	}
+
+	df := NewDataframe(rawRows)
+	df2, err := df.Limit(2)
+
+	if err != nil {
+		t.Errorf("Error limiting")
+	}
+
+	if df2.Len() != 2 {
+		t.Errorf("Expected 2 rows, got %d", df2.Len())
+	}
+}
