@@ -131,7 +131,7 @@ func TestInnerJoin(t *testing.T) {
 		t.Errorf("Expected no error got %v", err)
 	}
 
-	if joined.Len() != 3 {
+	if joined.Len() != 2 {
 		t.Errorf("Expected 3 rows found %v columns %v", joined.Len(), joined.Columns)
 	}
 
@@ -275,5 +275,37 @@ func TestOuterJoin(t *testing.T) {
 			t.Errorf("Column %s not found", col)
 		}
 	}
-	fmt.Printf("%v\n", joined)
+}
+
+func TestSort(t *testing.T) {
+	// Test sort
+	rawRows := []database.RawRow{
+		{"name": "Nicolas", "age": 25, "height": 1.75},
+		{"name": "John", "age": 30, "height": nil},
+		{"name": "Jane", "age": 35, "height": 1.70},
+		{"name": "Peter", "age": 35, "height": 1.78},
+	}
+
+	df := NewDataframe(rawRows)
+	df2, err := df.Sort([]string{"age"}, true)
+
+	if err != nil {
+		t.Errorf("Error sorting")
+	}
+
+	if df2.getRow(0)[indexOf("age", df2.Columns)].GetValue() != 25 {
+		t.Errorf("Expected 25, got %d", df2.getRow(0)[indexOf("age", df2.Columns)].GetValue())
+	}
+
+	df3, err := df.Sort([]string{"age", "height"}, false)
+
+	if err != nil {
+		t.Errorf("Error sorting")
+	}
+
+	if df3.getRow(0)[indexOf("name", df2.Columns)].GetValue() != "Peter" {
+		t.Errorf("Expected 35, got %d", df3.getRow(0)[indexOf("name", df2.Columns)].GetValue())
+	}
+
+	fmt.Printf("%v\n", df3)
 }

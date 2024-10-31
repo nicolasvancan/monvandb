@@ -3,6 +3,7 @@ package dataframe
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -82,6 +83,18 @@ func (df Dataframe) getRow(index int) []Element {
 	}
 
 	return row
+}
+
+func (df Dataframe) setRow(index int, row []Element) error {
+	if len(row) != len(df.Series) {
+		return fmt.Errorf("row length is different from dataframe columns")
+	}
+
+	for i, value := range row {
+		df.Series[i].Elements[index] = value
+	}
+
+	return nil
 }
 
 func (df Dataframe) AddRow(row []Element) {
@@ -549,8 +562,48 @@ func (df Dataframe) GroupBy(columns []string) (Dataframe, error) {
 	return Dataframe{}, nil
 }
 
+// ByColumn implements sort.Interface for [][]Element based on a specific column.
+type ByColumn struct {
+	Dataframe *Dataframe
+	ColIndex  int
+	Ascending bool
+}
+
+func (a ByColumn) Len() int {
+	return a.Dataframe.Len()
+}
+
+func (a ByColumn) Swap(i, j int) {
+	tmp := a.Dataframe.getRow(i)
+	a.Dataframe.setRow(i, a.Dataframe.getRow(j))
+	a.Dataframe.setRow(j, tmp)
+}
+
+func (a ByColumn) Less(i, j int) bool {
+	if a.Ascending {
+		return a.Dataframe.getRow(i)[a.ColIndex].Less(a.Dataframe.getRow(j)[a.ColIndex])
+	}
+	return a.Dataframe.getRow(i)[a.ColIndex].Greater(a.Dataframe.getRow(j)[a.ColIndex])
+}
+
 func (df Dataframe) Sort(columns []string, ascending bool) (Dataframe, error) {
-	return Dataframe{}, nil
+	if len(columns) == 0 {
+		return df, fmt.Errorf("no columns specified for sorting")
+	}
+
+	// Find the index of the first column to sort by
+	for _, column := range columns {
+		colIndex := indexOf(column, df.Columns)
+		if colIndex == -1 {
+			return df, fmt.Errorf("column not found: %s", column)
+		}
+
+		// Sort the dataframe by the specified column
+		sorter := ByColumn{Dataframe: &df, ColIndex: colIndex, Ascending: ascending}
+		sort.Sort(sorter)
+	}
+
+	return df, nil
 }
 
 func (df Dataframe) Limit(n int) (Dataframe, error) {

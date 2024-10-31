@@ -283,7 +283,14 @@ func outerJoin(df1 Dataframe, df2 Dataframe, on []string) (Dataframe, error) {
 
 			for i := range df1Elements {
 				if inIndex(i, indexesDf1) {
-					indexLocation := indexOf(df1.Columns[i], df2.Columns)
+					indexColumnLocation := indexOf(df1.Columns[i], df2.Columns)
+					indexLocation := 0
+					for j, colIdx := range indexes {
+						if colIdx == indexColumnLocation {
+							indexLocation = j
+							break
+						}
+					}
 					df1Elements[i] = elements[indexes[indexLocation]]
 				}
 			}
@@ -299,6 +306,5 @@ func outerJoin(df1 Dataframe, df2 Dataframe, on []string) (Dataframe, error) {
 
 	}
 
-	// Create a new Dataframe
 	return finalDf, nil
 }
