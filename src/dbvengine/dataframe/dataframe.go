@@ -2,6 +2,7 @@ package dataframe
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -11,16 +12,12 @@ import (
 type AggType int
 type Aggregation int
 
-const (
-	Or = iota
-	And
-)
-
 type Dataframe struct {
 	Columns []string
 	Series  []Series // Map of column series
 	DTypes  []int
 	nRows   int
+	Alias   string
 }
 
 func (df Dataframe) String() string {
@@ -78,7 +75,126 @@ func (df Dataframe) IsEmpty() bool {
 	return df.Len() == 0
 }
 
-func NewDataframe(rawRows []db.RawRow) Dataframe {
+func (df Dataframe) getRow(index int) []Element {
+	row := make([]Element, 0)
+	for _, serie := range df.Series {
+		row = append(row, serie.Elements[index])
+	}
+
+	return row
+}
+
+func (df Dataframe) AddRow(row []Element) {
+	for i, value := range row {
+		df.Series[i].AddValue(value)
+	}
+}
+
+// Since Dataframe will be in memory, we can use a simple iterator
+// to iterate over the rows and avoid copying the data again to complete
+// joins operations
+type RowsIterator struct {
+	pDf *Dataframe
+	i   int
+}
+
+func NewRowsIterator(df *Dataframe) *RowsIterator {
+	return &RowsIterator{
+		pDf: df,
+		i:   0,
+	}
+}
+
+func (ri *RowsIterator) Next() []Element {
+	df := *ri.pDf
+	row := df.getRow(ri.i)
+	ri.i += 1
+
+	return row
+}
+
+func (ri *RowsIterator) HasNext() bool {
+	df := *ri.pDf
+	return ri.i < df.Len()
+}
+
+func NewDataframe(rawRows interface{}) Dataframe {
+	switch v := rawRows.(type) {
+	case []db.RawRow:
+		return newDataframeRawRow(v)
+	case [][]Element:
+		return newDataFrameFromMatrixElements(v)
+	case []string:
+		return newDataFrameFromColumnsList(v)
+	default:
+		return Dataframe{}
+	}
+}
+
+func (df *Dataframe) setDtypes(dTypes []int) {
+	df.DTypes = dTypes
+
+	for i, _ := range df.Series {
+		df.Series[i].Type = dTypes[i]
+	}
+}
+
+func newDataFrameFromColumnsList(cols []string) Dataframe {
+	columns := make([]string, 0)
+	series := make([]Series, 0)
+	dTypes := make([]int, 0)
+	nRows := 0
+
+	for _, col := range cols {
+		columns = append(columns, col)
+		series = append(series, NewSeries(nil))
+		dTypes = append(dTypes, STRING)
+	}
+
+	return Dataframe{
+		Columns: columns,
+		Series:  series,
+		DTypes:  dTypes,
+		nRows:   nRows,
+		Alias:   "",
+	}
+}
+
+func newDataFrameFromMatrixElements(rows [][]Element) Dataframe {
+	series := make([]Series, 0)
+	columns := make([]string, 0)
+	dTypes := make([]int, 0)
+	nRows := len(rows)
+
+	// Iterate over each row or rawRows
+	for _, row := range rows {
+		// Iterate over each column in the roww
+		for i, value := range row {
+			// Fill columns
+			if len(columns) < len(row) {
+				columns = append(columns, fmt.Sprintf("column_%d", i))
+				series = append(series, NewSeries(nil))
+			}
+			// Fill dTypes
+			if len(dTypes) < len(row) {
+				dTypes = append(dTypes, value.GetType())
+				series[i].Type = value.GetType()
+			}
+
+			series[i].AddValue(value)
+		}
+	}
+
+	return Dataframe{
+		Columns: columns,
+		Series:  series,
+		DTypes:  dTypes,
+		nRows:   nRows,
+		Alias:   "",
+	}
+}
+
+func newDataframeRawRow(rawRows []db.RawRow) Dataframe {
 	columns := make([]string, 0)
 	series := make([]Series, 0)
 	dTypes := make([]int, 0)
@@ -121,7 +237,12 @@ func NewDataframe(rawRows []db.RawRow) Dataframe {
 		Series:  series,
 		DTypes:  dTypes,
 		nRows:   nRows,
+		Alias:   "",
 	}
+}
+
+func (df Dataframe) SetAlias(alias string) {
+	df.Alias = alias
 }
 
 func (df Dataframe) GetColumn(column string) (Series, error) {
@@ -134,6 +255,20 @@ func (df Dataframe) GetColumn(column string) (Series, error) {
 	newSeries := NewSeries(df.Series[index])
 
 	return newSeries, nil
+}
+
+func (df Dataframe) SetColumn(column string, series Series) error {
+	index := indexOf(strings.ToLower(column), df.Columns)
+	if index == -1 {
+		return fmt.Errorf("column %s not found", column)
+	}
+
+	if series.Len() != df.Len() {
+		return fmt.Errorf("series length is different from dataframe length")
+	}
+
+	df.Series[index] = series
+	return nil
 }
 
 func inferSchema(value interface{}) int {
@@ -198,17 +333,195 @@ func (df Dataframe) Select(columns []string) (Dataframe, error) {
 	}, nil
 }
 
-type Filters struct {
-	Column     string
-	Comparator ComparatorType
-	Value      interface{}
+// Filter DataFrame based on given filters
+func (df Dataframe) Filter(filters Filters) (Dataframe, error) {
+	resolvedFilters := filters.Resolve()
+	tmpDf := df
+
+	for _, filter := range resolvedFilters {
+		filterType := filter.Type
+		res, err := filterColumn(tmpDf, filter)
+		if err != nil {
+			return Dataframe{}, err
+		}
+
+		// If the dataframe is empty, we return it
+		if tmpDf.IsEmpty() {
+			return tmpDf, nil
+		}
+
+		// Treat filter type when case is OR
+		if filterType == FilterTypeOr {
+			tmpDf, err = tmpDf.Concat(res)
+			if err != nil {
+				return Dataframe{}, err
+			}
+			continue
+		}
+
+		tmpDf = res
+	}
+
+	return tmpDf, nil
 }
 
-func (df Dataframe) Filter(agg Aggregation, filters ...Filters) (Dataframe, error) {
+func isSlice(value interface{}) bool {
+	return reflect.TypeOf(value).Kind() == reflect.Slice
+}
+
+func (df Dataframe) indexes(indexes []int) Dataframe {
+	newSeries := make([]Series, 0)
+	for _, serie := range df.Series {
+		newSeries = append(newSeries, serie.Subset(indexes))
+	}
+
+	return Dataframe{
+		Columns: df.Columns,
+		Series:  newSeries,
+		DTypes:  df.DTypes,
+		nRows:   len(indexes),
+	}
+}
+
+func sliceToElementSlice(slice interface{}) ([]Element, error) {
+	t := make([]Element, 0)
+
+	switch v := slice.(type) {
+	case []Element:
+		return v, nil
+	case []int:
+		for _, value := range v {
+			t = append(t, Elem(value))
+		}
+	case []float64:
+		for _, value := range v {
+			t = append(t, Elem(value))
+		}
+	case []string:
+		for _, value := range v {
+			t = append(t, Elem(value))
+		}
+	case []time.Time:
+		for _, value := range v {
+			t = append(t, Elem(value))
+		}
+	case []bool:
+		for _, value := range v {
+			t = append(t, Elem(value))
+		}
+
+	default:
+		return nil, fmt.Errorf("slice type not supported")
+	}
+
+	return t, nil
+}
+
+func filterColumn(df Dataframe, filter ResolvedFilters) (Dataframe, error) {
+	res := df
+	allIndexes := make([]int, 0)
+	for _, value := range filter.Values {
+		columnSeries, err := df.GetColumn(value.Column.Name)
+
+		if err != nil {
+			return Dataframe{}, err
+		}
+
+		// Apply filter to the column
+		if value.Column.Function != "" {
+			// Apply function to the Series
+		} else {
+			// Verify if it is a slice type
+			isSl := isSlice(value.Comparando)
+			// If it is a slice type, convert it to Element
+			if isSl {
+				fmt.Printf("Value: %v\n", value)
+				fmt.Printf("Comparando: %v\n", value.Comparando)
+
+				value.Comparando, err = sliceToElementSlice(value.Comparando)
+				if err != nil {
+					return Dataframe{}, err
+				}
+
+			} else {
+				// Convert any value into element
+				switch v := value.Comparando.(type) {
+				case ColumnFilter:
+					serie, err := res.GetColumn(v.Name)
+					if err != nil {
+						return Dataframe{}, err
+					}
+
+					value.Comparando = serie
+				default:
+					value.Comparando = Elem(v)
+				}
+			}
+
+			indexes, err := columnSeries.Filter(value.Comparator, value.Comparando)
+
+			if err != nil {
+				return Dataframe{}, err
+			}
+			// Filter the dataframe
+			allIndexes = append(allIndexes, indexes...)
+		}
+	}
+
+	if len(allIndexes) == 0 {
+		return Dataframe{}, nil
+	}
+
+	res = res.indexes(allIndexes)
+
+	return res, nil
+}
+
+func (df Dataframe) Apply(column string, fn AppliableFunction) (Dataframe, error) {
+	col, err := df.GetColumn(column)
+
+	if err != nil {
+		return Dataframe{}, err
+	}
+
+	newCol, err := col.Apply(fn)
+
+	if err != nil {
+		return Dataframe{}, err
+	}
+
+	err = df.SetColumn(column, newCol)
+
+	if err != nil {
+		return Dataframe{}, err
+	}
+
 	return Dataframe{}, nil
 }
 
-func (df Dataframe) Apply(column string, fn func(interface{}) interface{}) (Dataframe, error) {
+func (df Dataframe) Concat(dataframe Dataframe) (Dataframe, error) {
+	newSeriesSize := 0
+	for _, column := range dataframe.Columns {
+		serieToBeConcatenated, err := dataframe.GetColumn(column) // Copy the Series
+		if err != nil {
+			return Dataframe{}, err
+		}
+
+		serie, err := df.GetColumn(column)
+
+		if err != nil {
+			return Dataframe{}, err
+		}
+
+		serie.Concat(serieToBeConcatenated)
+		df.nRows = serie.Len()
+		df.SetColumn(column, serie)
+
+		if newSeriesSize > 0 && newSeriesSize != serie.Len() {
+			return Dataframe{}, fmt.Errorf("series have different lengths")
+		}
+	}
+
 	return Dataframe{}, nil
 }
 
@@ -218,7 +531,18 @@ func (df Dataframe) Drop(columns []string) (Dataframe, error) {
 }
 
 func (df Dataframe) Join(df2 Dataframe, on []string, how string) (Dataframe, error) {
-	return Dataframe{}, nil
+	switch how {
+	case "inner":
+		return innerJoin(df, df2, on)
+	case "left":
+		return leftJoin(df, df2, on)
+	case "right":
+		return rightJoin(df, df2, on)
+	case "outer":
+		return outerJoin(df, df2, on)
+	default:
+		return Dataframe{}, fmt.Errorf("join type not supported")
+	}
 }
 
 func (df Dataframe) GroupBy(columns []string) (Dataframe, error) {

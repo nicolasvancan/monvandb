@@ -1,6 +1,7 @@
 package dataframe
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/nicolasvancan/monvandb/src/database"
@@ -55,4 +56,224 @@ func TestGetColumn(t *testing.T) {
 	if col.Elements[0].GetValue() != "Nicolas" {
 		t.Errorf("Expected Nicolas, got %s", col.Elements[0].GetValue())
 	}
+}
+
+func TestDataframeFilter(t *testing.T) {
+	// Test dataframe filter
+	rawRows := []database.RawRow{
+		{"name": "Nicolas", "age": 25, "height": 1.75},
+		{"name": "John", "age": 30, "height": nil},
+		{"name": "Jane", "age": 35, "height": 1.70},
+	}
+
+	df := NewDataframe(rawRows)
+	filters := NewFilter()
+	filters.InsertValue(0, FilterValue{Type: FilterTypeAnd, Column: ColumnFilter{Name: "age"}, Comparator: GT, Comparando: 50})
+	filters.InsertValue(0, FilterValue{Type: FilterTypeOr, Column: ColumnFilter{Name: "age"}, Comparator: EQ, Comparando: 25})
+	df2, err := df.Filter(filters)
+
+	if err != nil {
+		t.Errorf("Error filtering dataframe")
+	}
+
+	if df2.Len() != 1 {
+		t.Errorf("Expected 3 rows, got %d", df2.Len())
+	}
+
+	df3 := NewDataframe(rawRows)
+
+	filters = NewFilter()
+	filters.InsertValue(0, FilterValue{Type: FilterTypeAnd, Column: ColumnFilter{Name: "name"}, Comparator: IN, Comparando: []string{"Nicolas", "John"}})
+	df4, err := df3.Filter(filters)
+
+	if err != nil {
+		t.Error("Expected no error")
+	}
+
+	if df4.Len() != 2 {
+		t.Error("Expected two values")
+	}
+
+	filters = NewFilter()
+	filters.InsertValue(0, FilterValue{Type: FilterTypeAnd, Column: ColumnFilter{Name: "age"}, Comparator: BETWEEN, Comparando: []int{1, 26}})
+
+	df5, err := df3.Filter(filters)
+
+	if err != nil {
+		t.Error("Expected no error")
+	}
+
+	if df5.Len() != 1 {
+		t.Error("Expected one value")
+	}
+}
+
+func TestInnerJoin(t *testing.T) {
+	// Test inner join
+	rawRows1 := []database.RawRow{
+		{"name": "Nicolas", "age": 25, "height": 1.75},
+		{"name": "John", "age": 30, "height": nil},
+		{"name": "Jane", "age": 35, "height": 1.70},
+	}
+
+	rawRows2 := []database.RawRow{
+		{"name": "Nicolas", "age": 21, "height1": 1.75},
+		{"name": "John", "age": 30, "height1": nil},
+		{"name": "Jane", "age": 35, "height1": 1.70},
+	}
+
+	df1 := NewDataframe(rawRows1)
+	df2 := NewDataframe(rawRows2)
+	df2.Alias = "t"
+	joined, err := df1.Join(df2, []string{"name", "age"}, "inner")
+
+	if err != nil {
+		t.Errorf("Expected no error got %v", err)
+	}
+
+	if joined.Len() != 3 {
+		t.Errorf("Expected 3 rows found %v columns %v", joined.Len(), joined.Columns)
+	}
+
+	// If all columns are in
+	for _, col := range joined.Columns {
+		isIn := false
+		for _, col2 := range []string{"name", "age", "height", "height1"} {
+			if col2 == col {
+				isIn = true
+				break
+			}
+		}
+		if !isIn {
+			t.Errorf("Column %s not found", col)
+		}
+	}
+	fmt.Printf("%v\n", joined)
+}
+
+func TestLeftJoin(t *testing.T) {
+	// Test inner join
+	rawRows1 := []database.RawRow{
+		{"name": "Nicolas", "age": 25, "height": 1.75},
+		{"name": "John", "age": 30, "height": nil},
+		{"name": "Jane", "age": 35, "height": 1.70},
+	}
+
+	rawRows2 := []database.RawRow{
+		{"name": "Nicolas", "age": 25, "height1": 1.75},
+		{"name": "John", "age": 30, "height1": nil},
+		{"name": "Peter", "age": 35, "height1": 1.70},
+	}
+
+	df1 := NewDataframe(rawRows1)
+	df2 := NewDataframe(rawRows2)
+	df2.Alias = "t"
+	joined, err := df1.Join(df2, []string{"name", "age"}, "left")
+
+	if err != nil {
+		t.Errorf("Expected no error got %v", err)
+	}
+
+	if joined.Len() != 3 {
+		t.Errorf("Expected 3 rows found %v columns %v", joined.Len(), joined.Columns)
+	}
+
+	// If all columns are in
+	for _, col := range joined.Columns {
+		isIn := false
+		for _, col2 := range []string{"name", "age", "height", "height1"} {
+			if col2 == col {
+				isIn = true
+				break
+			}
+		}
+		if !isIn {
+			t.Errorf("Column %s not found", col)
+		}
+	}
+}
+
+func TestRightJoin(t *testing.T) {
+	// Test inner join
+	rawRows1 := []database.RawRow{
+		{"name": "Nicolas", "age": 25, "height": 1.75},
+		{"name": "John", "age": 30, "height": nil},
+		{"name": "Jane", "age": 35, "height": 1.70},
+	}
+
+	rawRows2 := []database.RawRow{
+		{"name": "Nicolas", "age": 25, "height1": 1.75},
+		{"name": "John", "age": 30, "height1": nil},
+		{"name": "Peter", "age": 35, "height1": 1.70},
+	}
+
+	df1 := NewDataframe(rawRows1)
+	df2 := NewDataframe(rawRows2)
+	df2.Alias = "t"
+	joined, err := df1.Join(df2, []string{"name", "age"}, "right")
+
+	if err != nil {
+		t.Errorf("Expected no error got %v", err)
+	}
+
+	if joined.Len() != 3 {
+		t.Errorf("Expected 3 rows found %v columns %v", joined.Len(), joined.Columns)
+	}
+
+	// If all columns are in
+	for _, col := range joined.Columns {
+		isIn := false
+		for _, col2 := range []string{"name", "age", "height", "height1"} {
+			if col2 == col {
+				isIn = true
+				break
+			}
+		}
+		if !isIn {
+			t.Errorf("Column %s not found", col)
+		}
+	}
+}
+
+func TestOuterJoin(t *testing.T) {
+	// Test inner join
+	rawRows1 := []database.RawRow{
+		{"name": "Nicolas", "age": 25, "height": 1.75},
+		{"name": "John", "age": 30, "height": nil},
+		{"name": "Jane", "age": 35, "height": 1.70},
+	}
+
+	rawRows2 := []database.RawRow{
+		{"name": "Nicolas", "age": 25, "height1": 1.75},
+		{"name": "John", "age": 30, "height1": nil},
+		{"name": "Peter", "age": 35, "height1": 1.70},
+	}
+
+	df1 := NewDataframe(rawRows1)
+	df2 := NewDataframe(rawRows2)
+	df2.Alias = "t"
+	joined, err := df1.Join(df2, []string{"name", "age"}, "outer")
+
+	if err != nil {
+		t.Errorf("Expected no error got %v", err)
+	}
+
+	if joined.Len() != 4 {
+		t.Errorf("Expected 3 rows found %v and columns %v", joined.Len(), joined.Columns)
+	}
+
+	// If all columns are in
+	for _, col := range joined.Columns {
+		isIn := false
+		for _, col2 := range []string{"name", "age", "height", "height1"} {
+			if col2 == col {
+				isIn = true
+				break
+			}
+		}
+		if !isIn {
+			t.Errorf("Column %s not found", col)
+		}
+	}
+	fmt.Printf("%v\n", joined)
 }

@@ -22,15 +22,16 @@ type AppliableFunction func(elem Element, inputs ...interface{}) (Element, error
 
 // Comparator types
 const (
-	EQ   ComparatorType = "=="
-	NE   ComparatorType = "!="
-	GT   ComparatorType = ">"
-	GE   ComparatorType = ">="
-	LT   ComparatorType = "<"
-	LE   ComparatorType = "<="
-	IN   ComparatorType = "in"
-	LIKE ComparatorType = "like"
-	NIN  ComparatorType = "not in"
+	EQ      ComparatorType = "=="
+	NE      ComparatorType = "!="
+	GT      ComparatorType = ">"
+	GE      ComparatorType = ">="
+	LT      ComparatorType = "<"
+	LE      ComparatorType = "<="
+	IN      ComparatorType = "in"
+	LIKE    ComparatorType = "like"
+	NIN     ComparatorType = "not in"
+	BETWEEN ComparatorType = "between"
 )
 
 type Series struct {
@@ -86,6 +87,12 @@ func (s Series) Copy() Series {
 	}
 }
 
+func (s Series) Concat(series Series) Series {
+	newSeries := NewSeries(s)
+	newSeries.Elements = append(newSeries.Elements, series.Elements...)
+	return newSeries
+}
+
 func (s Series) GetType() int {
 	return s.Type
 }
@@ -131,6 +138,45 @@ func (s Series) Subset(indexes Indexes) Series {
 // It returns the indexes of the elements that satisfy the condition
 func (s Series) Filter(comparator ComparatorType, value interface{}) (Indexes, error) {
 	indexes := make(Indexes, 0)
+
+	switch v := value.(type) {
+	case Series:
+		if len(v.Elements) != len(s.Elements) {
+			return Indexes{}, fmt.Errorf("series length not equal")
+		}
+
+		for i, elem := range s.Elements {
+			switch comparator {
+			case EQ:
+				if elem.Equal(v.Elements[i]) {
+					indexes = append(indexes, i)
+				}
+			case NE:
+				if elem.NotEqual(v.Elements[i]) {
+					indexes = append(indexes, i)
+				}
+			case GT:
+				if elem.Greater(v.Elements[i]) {
+					indexes = append(indexes, i)
+				}
+			case GE:
+				if elem.GreaterEqual(v.Elements[i]) {
+					indexes = append(indexes, i)
+				}
+			case LT:
+				if elem.Less(v.Elements[i]) {
+					indexes = append(indexes, i)
+				}
+			case LE:
+				if elem.LessEqual(v.Elements[i]) {
+					indexes = append(indexes, i)
+				}
+			default:
+				return Indexes{}, fmt.Errorf("comparator not found for series")
+			}
+		}
+	}
+
 	for i, elem := range s.Elements {
 		switch v := value.(type) {
 		case Element:
@@ -172,9 +218,14 @@ func (s Series) Filter(comparator ComparatorType, value interface{}) (Indexes, e
 				if !elem.IsIn(v) {
 					indexes = append(indexes, i)
 				}
+			case BETWEEN:
+				if elem.GreaterEqual(v[0]) && elem.LessEqual(v[1]) {
+					indexes = append(indexes, i)
+				}
 			default:
 				return Indexes{}, fmt.Errorf("comparator not found for slice")
 			}
+
 		default:
 			return Indexes{}, fmt.Errorf("value type not accepted in comparator")
 		}
@@ -287,6 +338,9 @@ type Element interface {
 func Elem(value interface{}) Element {
 	var elem Element
 	switch v := value.(type) {
+	case Element:
+		// Copy it
+		return v.Copy()
 	case string:
 		elem = &StringElement{}
 		elem.SetValue(v)

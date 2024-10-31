@@ -29,9 +29,9 @@ func (e *StringElement) SetValue(value interface{}) {
 		e.value = strconv.FormatFloat(v, 'f', -1, 64)
 	case bool:
 		if v {
-			e.value = "TRUE"
+			e.value = "true"
 		} else {
-			e.value = "FALSE"
+			e.value = "false"
 		}
 	case time.Time:
 		e.value = v.Format("2006-01-02 15:04:05")
