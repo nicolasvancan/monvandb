@@ -554,5 +554,17 @@ func (df Dataframe) Sort(columns []string, ascending bool) (Dataframe, error) {
 }
 
 func (df Dataframe) Limit(n int) (Dataframe, error) {
-	return Dataframe{}, nil
+
+	newDf := Dataframe{}
+	newDf.Columns = df.Columns
+	newDf.DTypes = df.DTypes
+	newDf.Alias = df.Alias
+	newDf.Series = make([]Series, 0)
+
+	for _, serie := range df.Series {
+		newSerie := serie.Limit(n)
+		newDf.Series = append(newDf.Series, newSerie)
+	}
+
+	return newDf, nil
 }

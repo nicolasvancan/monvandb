@@ -257,6 +257,16 @@ func (s Series) DeleteRow(index interface{}) (Series, error) {
 	}
 }
 
+func (s Series) Limit(n int) Series {
+	newSeries := NewSeries(n)
+	newSeries.Type = s.GetType()
+	for i := 0; i < n; i++ {
+		newSeries.Set(i, s.Elements[i].GetValue())
+	}
+
+	return newSeries
+}
+
 // Apply is a method that applies a function to the elements of the series
 func (s Series) Apply(f AppliableFunction, args ...interface{}) (Series, error) {
 	newSeries := NewSeries(s)
