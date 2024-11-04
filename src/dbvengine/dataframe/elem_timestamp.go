@@ -65,7 +65,7 @@ func (e *TimestampElement) GetType() int {
 }
 
 func (e *TimestampElement) Copy() Element {
-	return &TimestampElement{value: e.value, null: false}
+	return &TimestampElement{value: e.value, null: e.null}
 }
 
 func (e *TimestampElement) IsNull() bool {
@@ -145,25 +145,28 @@ func (e *TimestampElement) ToInt() Element {
 
 	ie := &IntElement{}
 	ie.SetValue(e.value)
+	ie.null = e.null
 	return ie
 }
 
 func (e *TimestampElement) ToFloat() Element {
 	fe := &FloatElement{}
 	fe.SetValue(e.value)
+	fe.null = e.null
 	return fe
 }
 
 func (e *TimestampElement) ToString() Element {
 	te := &TimestampElement{}
 	te.SetValue(e.value)
+	te.null = e.null
 	return te
 }
 
 func (e *TimestampElement) ToBool() Element {
 	be := &BoolElement{}
 	be.SetValue(e.value)
-
+	be.null = e.null
 	return be
 }
 func (e *TimestampElement) ToTimestamp() Element {

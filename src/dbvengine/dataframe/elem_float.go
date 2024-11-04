@@ -67,7 +67,7 @@ func (e *FloatElement) GetType() int {
 }
 
 func (e *FloatElement) Copy() Element {
-	return &FloatElement{value: e.value, null: false}
+	return &FloatElement{value: e.value, null: e.null}
 }
 
 func (e *FloatElement) IsNull() bool {
@@ -181,6 +181,7 @@ func (e *FloatElement) IsIn(elem []Element) bool {
 func (e *FloatElement) ToInt() Element {
 	ie := &IntElement{}
 	ie.SetValue(e.value)
+	ie.null = e.null
 	return ie
 }
 
@@ -191,17 +192,19 @@ func (e *FloatElement) ToFloat() Element {
 func (e *FloatElement) ToString() Element {
 	se := &StringElement{}
 	se.SetValue(e.value)
+	se.null = e.null
 	return se
 }
 
 func (e *FloatElement) ToBool() Element {
 	be := &BoolElement{}
 	be.SetValue(e.value)
-
+	be.null = e.null
 	return be
 }
 func (e *FloatElement) ToTimestamp() Element {
 	te := &TimestampElement{}
 	te.SetValue(e.value)
+	te.null = e.null
 	return te
 }

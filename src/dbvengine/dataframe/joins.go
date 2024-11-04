@@ -2,6 +2,9 @@ package dataframe
 
 import "fmt"
 
+type HashedElementSlice []Element
+type ElementHashTable map[string][]HashedElementSlice
+
 func isColumnInList(column string, list []string) bool {
 	for _, col := range list {
 		if col == column {
@@ -34,8 +37,8 @@ func getIndexes(df Dataframe, on []string) ([]int, error) {
 	return indexes, nil
 }
 
-func createHashTableForDf(dataframe Dataframe, on []string) (map[string][]Element, error) {
-	hashTable := make(map[string][]Element)
+func createHashTableForDf(dataframe Dataframe, on []string) (ElementHashTable, error) {
+	hashTable := make(ElementHashTable)
 	indexes, err := getIndexes(dataframe, on)
 
 	if err != nil {
@@ -46,11 +49,20 @@ func createHashTableForDf(dataframe Dataframe, on []string) (map[string][]Elemen
 
 	for iterator.HasNext() {
 		row := iterator.Next()
-		hash := createHashForColumns(row, indexes)
-		hashTable[hash] = row
+		addRowToHash(row, &hashTable, indexes)
 	}
 
 	return hashTable, nil
+}
+
+func addRowToHash(row HashedElementSlice, hashTable *ElementHashTable, indexes []int) {
+	hash := createHashForColumns(row, indexes)
+
+	if _, ok := (*hashTable)[hash]; !ok {
+		(*hashTable)[hash] = make([]HashedElementSlice, 0)
+	}
+
+	(*hashTable)[hash] = append((*hashTable)[hash], row)
 }
 
 func resolveColumnsAndDTypesForJoin(df1 Dataframe, df2 Dataframe, on []string) ([]string, []int, error) {
@@ -121,17 +133,22 @@ func innerJoin(df1 Dataframe, df2 Dataframe, on []string) (Dataframe, error) {
 	for iterator.HasNext() {
 		row := iterator.Next()
 		hash := createHashForColumns(row, indexes)
-		if _, ok := hashTable[hash]; ok {
-			colsToAppend := make([]Element, 0)
 
-			for i, el := range row {
-				if !inIndex(i, indexes) {
-					colsToAppend = append(colsToAppend, el)
+		hashedValues, ok := hashTable[hash]
+		// If the hash exists in the hash table
+		if ok {
+
+			for _, hashedValue := range hashedValues {
+				colsToAppend := make([]Element, 0)
+
+				for i, el := range row {
+					if !inIndex(i, indexes) {
+						colsToAppend = append(colsToAppend, el)
+					}
 				}
-			}
 
-			finalDf.AddRow(append(hashTable[hash], colsToAppend...))
-			finalDf.nRows++
+				finalDf.AddRow(append(hashedValue, colsToAppend...))
+			}
 		}
 	}
 
@@ -171,23 +188,34 @@ func leftJoin(df1 Dataframe, df2 Dataframe, on []string) (Dataframe, error) {
 	}
 
 	// Iterate over the first hashtable
-	for hash, elements := range hashTableDf1 {
+	for hash, hashedValues1 := range hashTableDf1 {
 
-		if _, ok := hasTableDf2[hash]; ok {
-			hashValue := hasTableDf2[hash]
-			for i, el := range hashValue {
-				if !inIndex(i, indexes) {
-					elements = append(elements, el)
+		// Iterate over all hashed elements for the given hash
+		for _, elements := range hashedValues1 {
+
+			// Get hash value []Elements
+			hashedValues, ok := hasTableDf2[hash]
+
+			// If the hash exists in the right hash table
+			if ok {
+				for _, hashedValue := range hashedValues {
+					for i, el := range hashedValue {
+						if !inIndex(i, indexes) {
+							elements = append(elements, el)
+						}
+					}
+					finalDf.AddRow(elements)
 				}
-			}
-		} else {
-			for len(resolvedColumns)-len(elements) > 0 {
-				elements = append(elements, Elem(nil))
-			}
-		}
 
-		finalDf.AddRow(elements)
-		finalDf.nRows++
+			} else {
+
+				for len(resolvedColumns)-len(elements) > 0 {
+					elements = append(elements, Elem(nil))
+				}
+				finalDf.AddRow(elements)
+			}
+
+		}
 	}
 
 	// Create a new Dataframe
@@ -232,25 +260,34 @@ func outerJoin(df1 Dataframe, df2 Dataframe, on []string) (Dataframe, error) {
 	}
 
 	// Iterate over the first hashtable
-	for hash, elements := range hashTableDf1 {
+	for hash, hashedValues1 := range hashTableDf1 {
 
-		if _, ok := hasTableDf2[hash]; ok {
+		// Iterate over all hashed elements for the given hash
+		for _, elements := range hashedValues1 {
+
 			// Get hash value []Elements
-			hashValue := hasTableDf2[hash]
+			hashedValues, ok := hasTableDf2[hash]
 
-			for i, el := range hashValue {
-				if !inIndex(i, indexes) {
-					elements = append(elements, el)
+			// If the hash exists in the right hash table
+			if ok {
+				for _, hashedValue := range hashedValues {
+					for i, el := range hashedValue {
+						if !inIndex(i, indexes) {
+							elements = append(elements, el)
+						}
+					}
+					finalDf.AddRow(elements)
 				}
-			}
-		} else {
-			for len(resolvedColumns)-len(elements) > 0 {
-				elements = append(elements, Elem(nil))
-			}
-		}
 
-		finalDf.AddRow(elements)
-		finalDf.nRows++
+			} else {
+
+				for len(resolvedColumns)-len(elements) > 0 {
+					elements = append(elements, Elem(nil))
+				}
+				finalDf.AddRow(elements)
+			}
+
+		}
 	}
 
 	indexesDf1, err := getIndexes(df1, on)
@@ -260,7 +297,7 @@ func outerJoin(df1 Dataframe, df2 Dataframe, on []string) (Dataframe, error) {
 	}
 
 	// Iterate over the second hashtable
-	for hash, elements := range hasTableDf2 {
+	for hash, hashedValues2 := range hasTableDf2 {
 		// Set all elements of the hash table that are not in index to nil
 		// To get that we need to know what are those elements
 		//
@@ -270,40 +307,41 @@ func outerJoin(df1 Dataframe, df2 Dataframe, on []string) (Dataframe, error) {
 		// Therefore, we create a slice of the length of the df1 dataframe
 
 		df1Elements := make([]Element, 0)
+		for _, elements := range hashedValues2 {
 
-		if _, ok := hashTableDf1[hash]; !ok {
+			if _, ok := hashTableDf1[hash]; !ok {
 
-			// Fill it up with nulls
-			for len(df1Elements) < len(df1.Columns) {
-				df1Elements = append(df1Elements, Elem(nil))
-			}
+				// Fill it up with nulls
+				for len(df1Elements) < len(df1.Columns) {
+					df1Elements = append(df1Elements, Elem(nil))
+				}
 
-			// The second part is to find which columns of df1 are join columns and also in df2
-			// Knowing that, we can set the values of those columns to the values of the hash table
+				// The second part is to find which columns of df1 are join columns and also in df2
+				// Knowing that, we can set the values of those columns to the values of the hash table
 
-			for i := range df1Elements {
-				if inIndex(i, indexesDf1) {
-					indexColumnLocation := indexOf(df1.Columns[i], df2.Columns)
-					indexLocation := 0
-					for j, colIdx := range indexes {
-						if colIdx == indexColumnLocation {
-							indexLocation = j
-							break
+				for i := range df1Elements {
+					if inIndex(i, indexesDf1) {
+						indexColumnLocation := indexOf(df1.Columns[i], df2.Columns)
+						indexLocation := 0
+						for j, colIdx := range indexes {
+							if colIdx == indexColumnLocation {
+								indexLocation = j
+								break
+							}
 						}
+						df1Elements[i] = elements[indexes[indexLocation]]
 					}
-					df1Elements[i] = elements[indexes[indexLocation]]
 				}
+
+				for i, el := range elements {
+					if !inIndex(i, indexes) {
+						df1Elements = append(df1Elements, el)
+					}
+				}
+				finalDf.AddRow(df1Elements)
 			}
 
-			for i, el := range elements {
-				if !inIndex(i, indexes) {
-					df1Elements = append(df1Elements, el)
-				}
-			}
-			finalDf.AddRow(df1Elements)
-			finalDf.nRows++
 		}
-
 	}
 
 	return finalDf, nil

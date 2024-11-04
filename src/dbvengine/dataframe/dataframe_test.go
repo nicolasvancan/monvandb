@@ -330,3 +330,24 @@ func TestLimit(t *testing.T) {
 		t.Errorf("Expected 2 rows, got %d", df2.Len())
 	}
 }
+
+func TestGroupBy(t *testing.T) {
+	// Test groupby
+	rawRows := []database.RawRow{
+		{"name": "Nicolas", "age": 25, "height": 1.75},
+		{"name": "John", "age": 30, "height": nil},
+		{"name": "Jane", "age": 35, "height": 1.70},
+		{"name": "Peter", "age": 35, "height": 1.78},
+	}
+
+	df := NewDataframe(rawRows)
+	grouped, err := df.GroupBy([]string{"age"}, []GroupByAgg{{Column: "height", Agg: "max", As: "max"}, {Column: "height", Agg: "min", As: "min"}})
+	fmt.Printf("%v\n", grouped)
+	if err != nil {
+		t.Errorf("Error grouping")
+	}
+
+	if grouped.Len() != 3 {
+		t.Errorf("Expected 3 rows, got %d", grouped.Len())
+	}
+}

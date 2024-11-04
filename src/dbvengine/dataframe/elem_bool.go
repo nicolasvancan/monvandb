@@ -69,7 +69,7 @@ func (e *BoolElement) GetType() int {
 }
 
 func (e *BoolElement) Copy() Element {
-	return &BoolElement{value: e.value, null: false}
+	return &BoolElement{value: e.value, null: e.null}
 }
 
 func (e *BoolElement) IsNull() bool {
@@ -174,28 +174,21 @@ func (e *BoolElement) ToInt() Element {
 	ie := &IntElement{}
 	ie.SetValue(e.value)
 
-	if e.IsNull() {
-		ie.setNull()
-	}
-
+	ie.null = e.null
 	return ie
 }
 
 func (e *BoolElement) ToFloat() Element {
 	fe := &FloatElement{}
 	fe.SetValue(e.value)
-	if e.IsNull() {
-		fe.setNull()
-	}
+	fe.null = e.null
 	return fe
 }
 
 func (e *BoolElement) ToString() Element {
 	se := &StringElement{}
 	se.SetValue(e.value)
-	if e.IsNull() {
-		se.setNull()
-	}
+	se.null = e.null
 	return se
 }
 
@@ -206,9 +199,6 @@ func (e *BoolElement) ToTimestamp() Element {
 	te := &TimestampElement{}
 	te.SetValue(e.value)
 
-	if e.IsNull() {
-		te.setNull()
-	}
-
+	te.null = e.null
 	return te
 }

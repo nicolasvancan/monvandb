@@ -21,6 +21,27 @@ type Dataframe struct {
 	Alias   string
 }
 
+func DataframeFromElementsSlice(rows []HashedElementSlice, columns []string, Dtypes []int) Dataframe {
+	dataframe := Dataframe{}
+	dataframe.Columns = columns
+	dataframe.DTypes = Dtypes
+	dataframe.Series = make([]Series, len(columns))
+	dataframe.nRows = len(rows)
+
+	for i := range columns {
+		dataframe.Series[i] = NewSeries(nil)
+		dataframe.Series[i].Type = Dtypes[i]
+	}
+
+	for _, row := range rows {
+		for i, value := range row {
+			dataframe.Series[i].AddValue(value)
+		}
+	}
+
+	return dataframe
+}
+
 func (df Dataframe) String() string {
 	finalString := "\n"
 
@@ -68,6 +89,18 @@ func (df Dataframe) String() string {
 	return finalString
 }
 
+func (df Dataframe) Values() [][]Element {
+	values := make([][]Element, 0)
+
+	for _, serie := range df.Series {
+		tmp := make([]Element, 0)
+		tmp = append(tmp, serie.Elements...)
+		values = append(values, tmp)
+	}
+
+	return values
+}
+
 func (df Dataframe) Len() int {
 	return df.nRows
 }
@@ -97,10 +130,11 @@ func (df Dataframe) setRow(index int, row []Element) error {
 	return nil
 }
 
-func (df Dataframe) AddRow(row []Element) {
+func (df *Dataframe) AddRow(row []Element) {
 	for i, value := range row {
 		df.Series[i].AddValue(value)
 	}
+	df.nRows = df.nRows + 1
 }
 
 // Since Dataframe will be in memory, we can use a simple iterator
@@ -558,8 +592,147 @@ func (df Dataframe) Join(df2 Dataframe, on []string, how string) (Dataframe, err
 	}
 }
 
-func (df Dataframe) GroupBy(columns []string) (Dataframe, error) {
-	return Dataframe{}, nil
+func (df Dataframe) GroupBy(columns []string, aggregators []GroupByAgg) (Dataframe, error) {
+	// Create a hashed table containing rows of columns in columns field and add the columns values and aggregator values
+	// when there are some
+	//
+	// Example:
+	//
+	// columns = ["name", "age"]
+	// aggregators = [{"column": "height", "agg": "max"}, {"column": "height", "agg": "min"}]
+	// the columns within he Dataframe will be only three, name, age and height
+	finalDf := Dataframe{}
+	hashedTable := createHashTableForColumnsAndAggregators(df, columns, aggregators)
+
+	// Now its time to convert all the hashed values into a new Dataframe and aggregate values
+	// based on the aggregators
+	// If there is no aggregator, we get only the first row of the dataframe
+	allColumns := columns
+	DTypes := make([]int, 0)
+	for _, agg := range aggregators {
+		allColumns = append(allColumns, agg.Column)
+	}
+
+	for _, col := range allColumns {
+		index := indexOf(col, df.Columns)
+		if index == -1 {
+			return Dataframe{}, fmt.Errorf("column %s not found in df1", col)
+		}
+
+		DTypes = append(DTypes, df.DTypes[index])
+	}
+
+	// Bind output dataframe informations
+	aggregate := len(aggregators) > 0
+
+	if !aggregate {
+		finalDf.Columns = allColumns
+		finalDf.DTypes = DTypes
+		finalDf.Series = make([]Series, len(allColumns))
+	} else {
+		// Create new columns for the aggregators
+		// The types are copied from the original column
+		// The column names are eiher the one in AS field or
+		// the function name with column within parenthesis, such as
+		// sum(height)
+
+		tmpColumns := make([]string, 0)
+		tmpDtypes := make([]int, 0)
+		tmpSeries := make([]Series, 0)
+
+		// Get columns Dtypes and columns names, without aggregation
+		for _, col := range columns {
+			index := indexOf(col, df.Columns)
+			if index == -1 {
+				return Dataframe{}, fmt.Errorf("column %s not found in df1", col)
+			}
+			tmpColumns = append(tmpColumns, col)
+			tmpDtypes = append(tmpDtypes, df.DTypes[index])
+			tmpSeries = append(tmpSeries, NewSeries(nil))
+		}
+
+		// Get aggergations infos for new DataFrame
+		for _, agg := range aggregators {
+			if agg.As == "" {
+				tmpColumns = append(tmpColumns, fmt.Sprintf("%s(%s)", agg.Agg, agg.Column))
+			} else {
+				tmpColumns = append(tmpColumns, agg.As)
+			}
+
+			// Get index in order to get type
+			indexOf := indexOf(agg.Column, df.Columns)
+			if indexOf == -1 {
+				return Dataframe{}, fmt.Errorf("column %s not found in df1", agg.Column)
+			}
+
+			tmpDtypes = append(tmpDtypes, df.DTypes[indexOf])
+			tmpSeries = append(tmpSeries, NewSeries(nil))
+		}
+
+		finalDf.Columns = tmpColumns
+		finalDf.DTypes = tmpDtypes
+		finalDf.Series = tmpSeries
+		fmt.Printf("Final df Table: %v\n", finalDf)
+
+	}
+
+	for _, elementsSlice := range hashedTable {
+		elementsDf := DataframeFromElementsSlice(elementsSlice, allColumns, DTypes)
+
+		// Do not aggregate, just returns the first row of dataframe
+		firstRow, err := elementsDf.Limit(1)
+
+		if err != nil {
+			return Dataframe{}, err
+		}
+
+		if !aggregate {
+			finalDf, err := finalDf.Concat(firstRow)
+
+			if err != nil {
+				return Dataframe{}, err
+			}
+
+			return finalDf, nil
+		}
+
+		// Get columns values
+		firstRowColumns, err := firstRow.Select(columns)
+		if err != nil {
+			return Dataframe{}, err
+		}
+
+		firstRowValues := firstRowColumns.Values()[0]
+
+		newRow := make([]Element, 0)
+		newRow = append(newRow, firstRowValues...)
+
+		fmt.Printf("Final df Table: %v\n", finalDf)
+		// Otherwise, we need to aggregate the values and add the new aggregated columns
+		// to the final dataframe
+
+		for i := len(columns); i < len(columns)+len(aggregators); i++ {
+			agg := aggregators[i-len(columns)]
+			// function
+			function, ok := Aggregators[strings.ToLower(agg.Agg)]
+
+			if !ok {
+				return Dataframe{}, fmt.Errorf("aggregator %s not found", agg.Agg)
+			}
+
+			res, err := function(elementsDf.Series[i])
+
+			if err != nil {
+				return Dataframe{}, err
+			}
+
+			newRow = append(newRow, res.Copy())
+		}
+
+		finalDf.AddRow(newRow)
+
+	}
+	return finalDf, nil
 }
 
 // ByColumn implements sort.Interface for [][]Element based on a specific column.

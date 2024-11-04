@@ -64,7 +64,7 @@ func (e *StringElement) GetType() int {
 }
 
 func (e *StringElement) Copy() Element {
-	return &StringElement{value: e.value, null: false}
+	return &StringElement{value: e.value, null: e.null}
 }
 
 func (e *StringElement) IsNull() bool {
@@ -138,12 +138,14 @@ func (e *StringElement) ToInt() Element {
 
 	ie := &IntElement{}
 	ie.SetValue(e.value)
+	ie.null = e.null
 	return ie
 }
 
 func (e *StringElement) ToFloat() Element {
 	fe := &FloatElement{}
 	fe.SetValue(e.value)
+	fe.null = e.null
 	return fe
 }
 
@@ -154,11 +156,12 @@ func (e *StringElement) ToString() Element {
 func (e *StringElement) ToBool() Element {
 	be := &BoolElement{}
 	be.SetValue(e.value)
-
+	be.null = e.null
 	return be
 }
 func (e *StringElement) ToTimestamp() Element {
 	te := &TimestampElement{}
 	te.SetValue(e.value)
+	te.null = e.null
 	return te
 }
