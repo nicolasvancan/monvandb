@@ -173,7 +173,7 @@ Existem três tabelas que devem ter seus arquivos de dados acessados. O sistema 
 
 **Camadas**
 
-A camada raíz, ou camada zero é a camada direta a partir da cláusula *Where* e também dos *Joins* e suas condições. Qualquer outras condições compostas que fiquem dentro de parênteses, são consideradas condições de outras camadas, e quanto mais camadas aninhadas existem, maior é o nível lógico das comparações. Abaixo segue a figura da mesma query acima com as camadas especificadas:
+A camada raíz, ou camada zero é a camada direta a partir da cláusula *Where* e também dos *Joins* e suas condições. Qualquer outras condições compostas que fiquem dentro de parênteses são consideradas condições de outras camadas, e quanto mais camadas aninhadas existem, maior é o nível lógico das comparações. Abaixo segue a figura da mesma query acima com as camadas especificadas:
 
 ![alt text](../../assets/range_query_1.png)
 

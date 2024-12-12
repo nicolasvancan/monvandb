@@ -63,12 +63,31 @@ type Filter struct {
 	maxID       int
 }
 
+func (f Filter) String() string {
+	finalString := "Filter\nNodes:\n"
+
+	return finalString
+}
+
 type FilterNode struct {
 	ID       int
 	Type     FilterNodeType
 	Value    []FilterValue
 	Children []*FilterNode
-	Parent   *FilterNode
+}
+
+func (fn FilterNode) String() string {
+	finalString := "FilterNode\n"
+	finalString += "ID: " + fmt.Sprintf("%v\n", fn.ID)
+	finalString += "Type: " + fmt.Sprintf("%v\n", fn.Type)
+	for _, values := range fn.Value {
+		finalString += fmt.Sprintf("%v\n", values)
+	}
+	finalString += "Children:\n"
+	for _, node := range fn.Children {
+		finalString += fmt.Sprintf("%v\n", *node)
+	}
+	return finalString
 }
 
 type ResolvedFilters struct {
@@ -81,6 +100,7 @@ func (rf *ResolvedFilters) Append(value FilterValue) {
 }
 
 type ColumnFilter struct {
+	Alias      string
 	Name       string
 	Function   string // Name for the function to be applied
 	Parameters []interface{}
@@ -173,7 +193,6 @@ func (f *Filter) AddNode(nodeId int, node interface{}, nodeType FilterNodeType) 
 		Type:     nodeType,
 		Value:    make([]FilterValue, 0),
 		Children: make([]*FilterNode, 0),
-		Parent:   f.CurrentNode,
 	}
 
 	f.CurrentNode.Children = append(f.CurrentNode.Children, newNode)

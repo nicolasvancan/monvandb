@@ -134,7 +134,7 @@ func TestFromAnalyzis(t *testing.T) {
 
 	CreateMockTable(t)
 
-	query := "SELECT name as name, id as IDZAO FROM table_teste as t INNER JOIN table_teste2 t2 ON t.id = t2.id WHERE t.id = 1"
+	query := "SELECT name as name, id as IDZAO FROM table_teste as t INNER JOIN table_teste2 t2 ON t.id = t2.id AND t.id > 20 WHERE t.id = 1"
 	stmt, err := sqlparser.Parse(query)
 
 	if err != nil {
@@ -153,9 +153,42 @@ func TestFromAnalyzis(t *testing.T) {
 			t.Errorf("expected mock, got %v", analyzed.DatabaseName)
 		}
 
+		// analyze From
+		from := analyzed.From
+		if from.Alias != "t" && from.Table != "table_teste" {
+			t.Errorf("expected t, got %v", from.Alias)
+		}
+
+		// analyze joins
+		joins := analyzed.Joins
+		if len(joins) != 2 {
+			t.Errorf("expected 1, got %v", len(joins))
+		}
+
+		if joins["t-t2"].LeftAlias != "t" &&
+			joins["t-t2"].RightAlias != "t2" &&
+			joins["t-t2"].On.LeftType != "column" &&
+			joins["t-t2"].On.RightType != "column" &&
+			joins["t-t2"].On.LeftValue.(string) != "id" &&
+			joins["t-t2"].On.RightValue.(string) != "id" {
+			t.Error("Wrong join")
+		}
+
+		// analyze filters
+		tableFilters := analyzed.TablesFilters
+		if len(tableFilters) != 1 {
+			t.Errorf("expected 1, got %v", len(tableFilters))
+		}
+
+		filterT := tableFilters["t"]
+		for _, resolvedFilter := range filterT.Resolve() {
+			if resolvedFilter.Values[2].Comparando != 20 {
+				t.Errorf("expected 1, got %v", resolvedFilter.Values[0].Comparando)
+			}
+		}
+
 		fmt.Printf("Analyzed: %v\n", analyzed)
 	default:
 		t.Errorf("expected AnalyzedQuerySelect, got %v", analyzed)
 	}
-	t.Error("ASD")
 }

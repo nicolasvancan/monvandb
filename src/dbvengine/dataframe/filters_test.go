@@ -41,7 +41,6 @@ func TestFiltersGoToNode(t *testing.T) {
 		Type:     FilterTypeAnd,
 		Value:    []FilterValue{{Column: ColumnFilter{Name: "name"}, Comparator: "eq", Comparando: "John"}},
 		Children: make([]*FilterNode, 0),
-		Parent:   f.CurrentNode,
 	})
 
 	err := f.GoToNode(1)
@@ -65,7 +64,6 @@ func TestFiltersGoToNode(t *testing.T) {
 		Type:     FilterTypeAnd,
 		Value:    []FilterValue{{Column: ColumnFilter{Name: "name"}, Comparator: "eq", Comparando: "John"}},
 		Children: make([]*FilterNode, 0),
-		Parent:   f.CurrentNode,
 	})
 
 	err = f.GoToNode(2)
@@ -84,7 +82,6 @@ func TestResolve(t *testing.T) {
 		Type:     FilterTypeAnd,
 		Value:    []FilterValue{{Type: FilterTypeAnd, Column: ColumnFilter{Name: "name"}, Comparator: "eq", Comparando: "John"}},
 		Children: make([]*FilterNode, 0),
-		Parent:   f.CurrentNode,
 	}, FilterTypeAnd)
 
 	f.AddNode(1, &FilterNode{
@@ -92,7 +89,6 @@ func TestResolve(t *testing.T) {
 		Type:     FilterTypeAnd,
 		Value:    []FilterValue{{Type: FilterTypeAnd, Column: ColumnFilter{Name: "name"}, Comparator: "eq", Comparando: "John"}},
 		Children: make([]*FilterNode, 0),
-		Parent:   f.CurrentNode,
 	}, FilterTypeOr)
 
 	resolvedFilters := f.Resolve()
@@ -119,7 +115,6 @@ func TestResolve(t *testing.T) {
 		Type:     FilterTypeAnd,
 		Value:    []FilterValue{{Type: FilterTypeAnd, Column: ColumnFilter{Name: "name"}, Comparator: "eq", Comparando: "Peter"}},
 		Children: make([]*FilterNode, 0),
-		Parent:   f.CurrentNode,
 	}, FilterTypeOr)
 
 	if err != nil {
