@@ -64,7 +64,16 @@ type Filter struct {
 }
 
 func (f Filter) String() string {
-	finalString := "Filter\nNodes:\n"
+	finalString := "\nFilter\nChildren:\n"
+	for _, node := range f.Root.Children {
+		finalString += fmt.Sprintf("%v\n", *node)
+	}
+
+	finalString += "Nodes\n"
+
+	for _, val := range f.Root.Value {
+		finalString += fmt.Sprintf("%v\n", val)
+	}
 
 	return finalString
 }

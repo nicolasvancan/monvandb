@@ -139,7 +139,6 @@ func analyzeJoinExpression(
 			-1, // No parent,
 			database.AND,
 			database.AND,
-			true,
 		)
 	case *sqlparser.AndExpr:
 		joinOn, err = analyzeAndExpr(
@@ -151,7 +150,6 @@ func analyzeJoinExpression(
 			-1, // No parent,
 			database.AND,
 			database.AND,
-			true,
 		)
 	case *sqlparser.OrExpr:
 		joinOn, err = analyzeOrExpr(
@@ -163,7 +161,6 @@ func analyzeJoinExpression(
 			-1, // No parent,
 			database.OR,
 			database.AND,
-			true,
 		)
 	case *sqlparser.ParenExpr:
 		joinOn, err = analyzeParenExpr(
@@ -175,7 +172,6 @@ func analyzeJoinExpression(
 			-1, // No parent,
 			database.AND,
 			database.AND,
-			true,
 		)
 	}
 

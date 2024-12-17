@@ -28,7 +28,6 @@ func analyzeWhere(
 			-1, // No parent,
 			database.AND,
 			database.AND,
-			false,
 		)
 	case *sqlparser.AndExpr:
 		_, err = analyzeAndExpr(
@@ -40,7 +39,6 @@ func analyzeWhere(
 			-1, // No parent,
 			database.AND,
 			database.AND,
-			false,
 		)
 	case *sqlparser.OrExpr:
 		_, err = analyzeOrExpr(
@@ -52,7 +50,6 @@ func analyzeWhere(
 			-1, // No parent,
 			database.OR,
 			database.AND,
-			false,
 		)
 	case *sqlparser.ParenExpr:
 		_, err = analyzeParenExpr(
@@ -64,7 +61,6 @@ func analyzeWhere(
 			-1, // No parent,
 			database.AND,
 			database.AND,
-			false,
 		)
 	case *sqlparser.IsExpr:
 		_, err = analyzeIsExpr(

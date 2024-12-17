@@ -288,10 +288,6 @@ func newDataframeRawRow(rawRows []db.RawRow) Dataframe {
 	}
 }
 
-func (df Dataframe) SetAlias(alias string) {
-	df.Alias = alias
-}
-
 func (df Dataframe) GetColumn(column string) (Series, error) {
 	index := indexOf(strings.ToLower(column), df.Columns)
 	if index == -1 {

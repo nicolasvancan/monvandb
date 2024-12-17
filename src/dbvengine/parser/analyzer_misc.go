@@ -10,6 +10,49 @@ import (
 	dataframe "github.com/nicolasvancan/monvandb/src/dbvengine/dataframe"
 )
 
+func analyzeAliasedExpr(
+	expr *sqlparser.AliasedExpr,
+	db *database.Database,
+	tablesAlias *map[string]string,
+	columnComparsions *map[string][]database.ColumnComparsion,
+	subqueries *map[string]*AnalyzedQuerySelect,
+) (ColFunction, error) {
+	aliasedExpr := ColFunction{}
+
+	switch exprr := expr.Expr.(type) {
+	case *sqlparser.ColName:
+		aliasedExpr.Column = exprr.Name.Lowered()
+		aliasedExpr.Alias = expr.As.Lowered()
+		aliasedExpr.Func = ""
+		aliasedExpr.Args = nil
+
+		// Verify if the column exists
+	case *sqlparser.FuncExpr:
+		function, err := analyzeFuncExpr(exprr, columnComparsions)
+
+		if err != nil {
+			return aliasedExpr, err
+		}
+
+		aliasedExpr = function
+	case *sqlparser.Subquery:
+		// Analyze subquery
+		analyzedSubquery := AnalyseSubSelect(
+			db.Name,
+			exprr.Select.(*sqlparser.Select),
+			columnComparsions,
+		)
+
+		if analyzedSubquery.Error() != nil {
+			return aliasedExpr, analyzedSubquery.Error()
+		}
+
+		(*subqueries)[expr.As.String()] = analyzedSubquery
+	}
+
+	return aliasedExpr, nil
+}
+
 func analyzeAliasedTableExpr(
 	db *database.Database,
 	expr *sqlparser.AliasedTableExpr,
@@ -92,7 +135,6 @@ func getValFromSQLVal(val *sqlparser.SQLVal) (interface{}, error) {
 func analyzeFuncExpr(
 	expr interface{},
 	tablesColumnComparsions *map[string][]database.ColumnComparsion,
-	tableFilters *map[string]dataframe.Filters,
 ) (ColFunction, error) {
 	function := ColFunction{}
 
@@ -119,7 +161,7 @@ func analyzeFuncExpr(
 
 					function.Args = append(function.Args, val)
 				case *sqlparser.FuncExpr:
-					anFun, err := analyzeFuncExpr(aliasedExpr, tablesColumnComparsions, tableFilters)
+					anFun, err := analyzeFuncExpr(aliasedExpr, tablesColumnComparsions)
 
 					if err != nil {
 						return function, err
@@ -147,9 +189,8 @@ func analyzeAndExpr(
 	tableFilters *map[string]dataframe.Filters,
 	id int,
 	parentId int,
-	logicalLayer int,
+	_ int,
 	parentLogicalLayer int,
-	on bool,
 ) (CompExpr, error) {
 	compExpr := CompExpr{}
 	left := expr.Left
@@ -166,7 +207,6 @@ func analyzeAndExpr(
 			parentId,
 			database.AND,
 			database.AND,
-			on,
 		)
 	case *sqlparser.ComparisonExpr:
 		compExpr, err = analyzeComparsionExpr(
@@ -178,7 +218,6 @@ func analyzeAndExpr(
 			parentId,
 			database.AND,
 			parentLogicalLayer,
-			on,
 		)
 	case *sqlparser.IsExpr:
 		compExpr, err = analyzeIsExpr(
@@ -205,7 +244,6 @@ func analyzeAndExpr(
 			parentId,
 			database.AND,
 			database.AND,
-			on,
 		)
 	case *sqlparser.ComparisonExpr:
 		_, err = analyzeComparsionExpr(
@@ -217,7 +255,6 @@ func analyzeAndExpr(
 			parentId,
 			database.AND,
 			parentLogicalLayer,
-			on,
 		)
 	case *sqlparser.AndExpr:
 		_, err = analyzeAndExpr(
@@ -229,7 +266,6 @@ func analyzeAndExpr(
 			parentId,
 			database.AND,
 			parentLogicalLayer,
-			on,
 		)
 	case *sqlparser.OrExpr:
 		_, err = analyzeOrExpr(
@@ -241,7 +277,6 @@ func analyzeAndExpr(
 			parentId,
 			database.AND,
 			parentLogicalLayer,
-			on,
 		)
 	case *sqlparser.IsExpr:
 		_, err = analyzeIsExpr(
@@ -269,9 +304,8 @@ func analyzeOrExpr(
 	tableFilters *map[string]dataframe.Filters,
 	id int,
 	parentId int,
-	logicalLayer int,
+	_ int,
 	parentLogicalLayer int,
-	on bool,
 ) (CompExpr, error) {
 	compExpr := CompExpr{}
 	left := expr.Left
@@ -289,7 +323,6 @@ func analyzeOrExpr(
 			parentId,
 			database.AND,
 			database.OR,
-			on,
 		)
 	case *sqlparser.ComparisonExpr:
 		compExpr, err = analyzeComparsionExpr(
@@ -301,7 +334,6 @@ func analyzeOrExpr(
 			parentId,
 			database.OR,
 			parentLogicalLayer,
-			on,
 		)
 	case *sqlparser.IsExpr:
 		compExpr, err = analyzeIsExpr(
@@ -328,7 +360,6 @@ func analyzeOrExpr(
 			parentId,
 			database.AND,
 			database.AND,
-			on,
 		)
 	case *sqlparser.ComparisonExpr:
 		_, err = analyzeComparsionExpr(
@@ -340,7 +371,6 @@ func analyzeOrExpr(
 			parentId,
 			database.AND,
 			parentLogicalLayer,
-			on,
 		)
 	case *sqlparser.AndExpr:
 		_, err = analyzeAndExpr(
@@ -352,7 +382,6 @@ func analyzeOrExpr(
 			parentId,
 			database.OR,
 			parentLogicalLayer,
-			on,
 		)
 	case *sqlparser.OrExpr:
 		_, err = analyzeOrExpr(
@@ -364,7 +393,6 @@ func analyzeOrExpr(
 			parentId,
 			database.OR,
 			parentLogicalLayer,
-			on,
 		)
 	case *sqlparser.IsExpr:
 		_, err = analyzeIsExpr(
@@ -394,7 +422,6 @@ func analyzeParenExpr(
 	parentId int,
 	logicalLayer int,
 	parentLogicalLayer int,
-	on bool,
 ) (CompExpr, error) {
 	compExpr := CompExpr{}
 	var err error
@@ -411,7 +438,6 @@ func analyzeParenExpr(
 			id,
 			database.AND,
 			parentLogicalLayer,
-			on,
 		)
 	case *sqlparser.OrExpr:
 		compExpr, err = analyzeOrExpr(
@@ -423,7 +449,6 @@ func analyzeParenExpr(
 			id,
 			database.AND,
 			parentLogicalLayer,
-			on,
 		)
 	case *sqlparser.ParenExpr:
 		compExpr, err = analyzeParenExpr(
@@ -435,7 +460,6 @@ func analyzeParenExpr(
 			id,
 			database.AND,
 			logicalLayer,
-			on,
 		)
 	case *sqlparser.ComparisonExpr:
 		compExpr, err = analyzeComparsionExpr(
@@ -447,7 +471,6 @@ func analyzeParenExpr(
 			id,
 			database.AND,
 			parentLogicalLayer,
-			on,
 		)
 	case *sqlparser.IsExpr:
 		compExpr, err = analyzeIsExpr(
@@ -520,6 +543,26 @@ func analyzeIsExpr(
 	}
 
 	// Add to the column comparsions
+	comparsions := createColumnComparsionFromComprExpr(
+		compExpr,
+		tablesAlias,
+		id,
+		parentId,
+		logicalLayer,
+		parentLogicalLayer,
+	)
+
+	(*tablesColumnComparsions)[comparsions[0].Alias] = append((*tablesColumnComparsions)[comparsions[0].Alias], comparsions[0])
+
+	// Create filter node based on expr
+	createOrUpdateFilterBasedOnCompExpr(
+		compExpr,
+		tableFilters,
+		id,
+		parentId,
+		logicalLayer,
+		parentLogicalLayer,
+	)
 
 	return compExpr, nil
 }
@@ -533,7 +576,6 @@ func analyzeComparsionExpr(
 	parentId int,
 	logicalLayer int,
 	parentLogicalLayer int,
-	on bool,
 ) (CompExpr, error) {
 	compExpr := CompExpr{}
 
@@ -558,10 +600,11 @@ func analyzeComparsionExpr(
 		compExpr.LeftValue = val
 	case *sqlparser.FuncExpr:
 		compExpr.LeftType = "function"
-		function := ColFunction{}
-		function.Func = l.Name.String()
-		function.Alias = l.Qualifier.String()
+		function, err := analyzeFuncExpr(l, tablesColumnComparsions)
 		compExpr.LeftValue = function
+		if err != nil {
+			return compExpr, err
+		}
 	}
 
 	switch r := right.(type) {
@@ -581,9 +624,12 @@ func analyzeComparsionExpr(
 		compExpr.RightValue = val
 	case *sqlparser.FuncExpr:
 		compExpr.RightType = "function"
-		function := ColFunction{}
-		function.Func = r.Name.String()
-		function.Alias = r.Qualifier.String()
+		function, err := analyzeFuncExpr(r, tablesColumnComparsions)
+
+		if err != nil {
+			return compExpr, err
+		}
+
 		compExpr.RightValue = function
 	case *sqlparser.AndExpr:
 		cmpExpr, err := analyzeAndExpr(
@@ -595,7 +641,6 @@ func analyzeComparsionExpr(
 			parentId,
 			logicalLayer,
 			parentLogicalLayer,
-			on,
 		)
 
 		if err != nil {
@@ -616,7 +661,6 @@ func analyzeComparsionExpr(
 			parentId,
 			logicalLayer,
 			parentLogicalLayer,
-			on,
 		)
 
 		if err != nil {
@@ -653,8 +697,25 @@ func analyzeComparsionExpr(
 		parentId,
 		logicalLayer,
 		parentLogicalLayer,
-		on,
 	)
 
 	return compExpr, nil
+}
+
+func analyzeGroupBy(stmt sqlparser.GroupBy) []ColFunction {
+
+	colFunctions := make([]ColFunction, 0)
+	// For every group by statement
+	for _, by := range stmt {
+		// They are all ColName pointer
+		colName := by.(*sqlparser.ColName)
+		colFunction := ColFunction{}
+		colFunction.Column = colName.Name.String()
+		colFunction.Alias = colName.Qualifier.Name.String()
+		colFunction.Func = ""
+		colFunction.Args = nil
+		colFunctions = append(colFunctions, colFunction)
+	}
+
+	return colFunctions
 }

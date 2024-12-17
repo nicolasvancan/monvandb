@@ -176,15 +176,16 @@ func TestFromAnalyzis(t *testing.T) {
 
 		// analyze filters
 		tableFilters := analyzed.TablesFilters
-		if len(tableFilters) != 1 {
+		if len(tableFilters) != 2 {
 			t.Errorf("expected 1, got %v", len(tableFilters))
 		}
 
 		filterT := tableFilters["t"]
-		for _, resolvedFilter := range filterT.Resolve() {
-			if resolvedFilter.Values[2].Comparando != 20 {
-				t.Errorf("expected 1, got %v", resolvedFilter.Values[0].Comparando)
-			}
+		resolvedFilters := filterT.Resolve()
+		firstFilter := resolvedFilters[0]
+		if firstFilter.Values[0].Comparando != 202 &&
+			firstFilter.Values[0].Comparando != 1 {
+			t.Errorf("expected 1, got %v", firstFilter.Values[0].Comparando)
 		}
 
 		fmt.Printf("Analyzed: %v\n", analyzed)

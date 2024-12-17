@@ -9,17 +9,10 @@ func createOrUpdateFilterBasedOnCompExpr(
 	parentId int,
 	logicalLayer int,
 	parentLogicalLayer int,
-	on bool, // If true, it means that the filter is being created based on a ON clause from a JOIN
 ) {
 	// Skip it if both columns are values
 	if expr.LeftType == "value" && expr.RightType == "value" {
 		return
-	}
-
-	// Add filter if not exists
-	_, ok := (*tableFilters)[expr.LeftAlias]
-	if !ok {
-		(*tableFilters)[expr.LeftAlias] = dataframe.NewFilter()
 	}
 
 	// Create filter node based on expr
@@ -75,13 +68,14 @@ func createOrUpdateFilterBasedOnCompExpr(
 	*/
 
 	finalAlias := expr.LeftAlias
-	if !on {
-		if expr.LeftAlias != expr.RightAlias {
-			finalAlias = expr.LeftAlias + "-" + expr.RightAlias
-		}
+
+	if expr.LeftType == "column" &&
+		expr.RightType == "column" &&
+		expr.LeftAlias != expr.RightAlias {
+		finalAlias = expr.LeftAlias + "-" + expr.RightAlias
 	}
 
-	_, ok = (*tableFilters)[finalAlias]
+	_, ok := (*tableFilters)[finalAlias]
 
 	if !ok {
 		(*tableFilters)[finalAlias] = dataframe.NewFilter()

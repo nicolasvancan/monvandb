@@ -52,6 +52,7 @@ type CompExpr struct {
 	Operator   string
 }
 
+// ColFunction represents a column
 type ColFunction struct {
 	Alias  string
 	Column string
@@ -66,6 +67,10 @@ type AnalyzedQueryData interface {
 
 type AnalyzedQuerySelect struct {
 	DatabaseName            string
+	Select                  []ColFunction
+	Distinct                bool
+	GroupBy                 []ColFunction
+	Having                  []CompExpr
 	TablesAlias             map[string]string
 	Subqueries              map[string]*AnalyzedQuerySelect
 	TablesColumnComparsions map[string][]database.ColumnComparsion
@@ -77,12 +82,15 @@ type AnalyzedQuerySelect struct {
 }
 
 func (a AnalyzedQuerySelect) String() string {
-	return fmt.Sprintf("AnalyzedQuerySelect{DatabaseName: %s\n From %v\n TablesAlias: %v\n Subqueries: %v\n TablesColumnComparsions: %v\n TablesFilters: %v\n Joins: %v\n JoinsFilters: %v\n Error: %v\n", a.DatabaseName, a.From, a.TablesAlias, a.Subqueries, a.TablesColumnComparsions, a.TablesFilters, a.Joins, a.JoinsFilters, a.Error())
+	return fmt.Sprintf("AnalyzedQuerySelect{DatabaseName: Select %v\n %s\n From %v\n TablesAlias: %v\n Subqueries: %v\n TablesColumnComparsions: %v\n TablesFilters: %v\n Joins: %v\n JoinsFilters: %v\n Error: %v\n", a.Select, a.DatabaseName, a.From, a.TablesAlias, a.Subqueries, a.TablesColumnComparsions, a.TablesFilters, a.Joins, a.JoinsFilters, a.Error())
 }
 
 func NewAnalyzedQuerySelect() *AnalyzedQuerySelect {
 	return &AnalyzedQuerySelect{
 		TablesAlias:             make(map[string]string),
+		Distinct:                false,
+		GroupBy:                 make([]ColFunction, 0),
+		Having:                  make([]CompExpr, 0),
 		Subqueries:              make(map[string]*AnalyzedQuerySelect),
 		TablesColumnComparsions: make(map[string][]database.ColumnComparsion),
 		TablesFilters:           make(map[string]dataframe.Filters),
@@ -165,6 +173,25 @@ func analyzeSelect(databaseName string, stmt *sqlparser.Select) *AnalyzedQuerySe
 		if err != nil {
 			analyzedQuerySelect.err = err
 		}
+	}
+
+	// Distinct
+	analyzedQuerySelect.Distinct = stmt.Distinct != ""
+
+	// Group by
+	analyzedQuerySelect.GroupBy = analyzeGroupBy(stmt.GroupBy)
+
+	// Select
+	analyzedQuerySelect.Select, err = analyzeSelectedColumns(
+		db,
+		stmt.SelectExprs,
+		&analyzedQuerySelect.TablesAlias,
+		&analyzedQuerySelect.Subqueries,
+		&analyzedQuerySelect.TablesColumnComparsions,
+	)
+
+	if err != nil {
+		analyzedQuerySelect.err = err
 	}
 
 	return analyzedQuerySelect
