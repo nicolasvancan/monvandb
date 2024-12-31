@@ -2,12 +2,10 @@ package parser
 
 import (
 	"fmt"
-	"strings"
 
 	sqlparser "github.com/blastrain/vitess-sqlparser/sqlparser"
 	database "github.com/nicolasvancan/monvandb/src/database"
 	dataframe "github.com/nicolasvancan/monvandb/src/dbvengine/dataframe"
-	utils "github.com/nicolasvancan/monvandb/src/utils"
 )
 
 type SqlStatementType int
@@ -78,6 +76,7 @@ type AnalyzedQuerySelect struct {
 	Joins                   map[string]JoinAnalysis
 	From                    FromAnalysis
 	JoinsFilters            map[string]dataframe.Filters
+	Order                   string
 	err                     error
 }
 
@@ -137,7 +136,7 @@ func analyzeSelect(databaseName string, stmt *sqlparser.Select) *AnalyzedQuerySe
 	analyzedQuerySelect.DatabaseName = databaseName
 
 	// Verify database
-	db, err := getDatabase(databaseName)
+	db, err := database.GetDatabase(databaseName)
 
 	if err != nil {
 		analyzedQuerySelect.err = err
@@ -195,13 +194,4 @@ func analyzeSelect(databaseName string, stmt *sqlparser.Select) *AnalyzedQuerySe
 	}
 
 	return analyzedQuerySelect
-}
-
-func getDatabase(databaseName string) (*database.Database, error) {
-	databasePath := utils.GetPath("databases")
-	db, err := database.LoadDatabase(databasePath + "/" + strings.ToLower(databaseName))
-	if err != nil {
-		return nil, fmt.Errorf("database %s does not exist", databaseName)
-	}
-	return db, nil
 }

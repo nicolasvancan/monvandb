@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	files "github.com/nicolasvancan/monvandb/src/files"
 	utils "github.com/nicolasvancan/monvandb/src/utils"
@@ -80,6 +81,15 @@ func LoadDatabase(path string) (*Database, error) {
 	}
 
 	return database, nil
+}
+
+func GetDatabase(databaseName string) (*Database, error) {
+	databasePath := utils.GetPath("databases")
+	db, err := LoadDatabase(databasePath + "/" + strings.ToLower(databaseName))
+	if err != nil {
+		return nil, fmt.Errorf("database %s does not exist", databaseName)
+	}
+	return db, nil
 }
 
 // Basic Database function Get Table
@@ -162,6 +172,7 @@ func (d *Database) CreateTable(tableName string, columns []Column) error {
 
 	// Get all Primary columns
 	primaryColumns := newTable.getPrimaryColumns()
+
 	if len(primaryColumns) == 0 {
 		return errors.New("table must have at least one primary column")
 	}

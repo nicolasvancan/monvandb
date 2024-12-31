@@ -183,7 +183,7 @@ func TestFromAnalyzis(t *testing.T) {
 		filterT := tableFilters["t"]
 		resolvedFilters := filterT.Resolve()
 		firstFilter := resolvedFilters[0]
-		if firstFilter.Values[0].Comparando != 202 &&
+		if firstFilter.Values[0].Comparando != 20 &&
 			firstFilter.Values[0].Comparando != 1 {
 			t.Errorf("expected 1, got %v", firstFilter.Values[0].Comparando)
 		}

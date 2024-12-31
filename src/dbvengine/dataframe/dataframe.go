@@ -791,3 +791,22 @@ func (df Dataframe) Limit(n int) (Dataframe, error) {
 
 	return newDf, nil
 }
+
+func (df Dataframe) ToRawRow() ([]db.RawRow, error) {
+	rawRows := make([]db.RawRow, 0)
+
+	for i := 0; i < df.Len(); i++ {
+		row := make(db.RawRow)
+		for _, column := range df.Columns {
+			serie, err := df.GetColumn(column)
+			if err != nil {
+				return nil, err
+			}
+
+			row[strings.ToLower(column)] = serie.Elements[i].GetValue()
+		}
+		rawRows = append(rawRows, row)
+	}
+
+	return rawRows, nil
+}

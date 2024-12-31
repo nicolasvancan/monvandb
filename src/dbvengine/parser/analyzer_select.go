@@ -26,7 +26,14 @@ func analyzeSelectedColumns(
 			}
 
 			analyzedQuerySelect = append(analyzedQuerySelect, colFunction)
-
+		case *sqlparser.StarExpr:
+			conFunction := ColFunction{
+				Alias:  expr.TableName.Name.String(),
+				Column: "*",
+				Func:   "",
+				Args:   nil,
+			}
+			analyzedQuerySelect = append(analyzedQuerySelect, conFunction)
 		}
 	}
 
