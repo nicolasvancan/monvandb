@@ -163,12 +163,6 @@ func (d *Database) CreateTable(tableName string, columns []Column) error {
 		Path:    tablePath,
 		Indexes: make(map[string]*Index),
 	}
-	// Create new table files
-	err := createNewTableFiles(*newTable, tablePath)
-
-	if err != nil {
-		return err
-	}
 
 	// Get all Primary columns
 	primaryColumns := newTable.getPrimaryColumns()
@@ -188,9 +182,15 @@ func (d *Database) CreateTable(tableName string, columns []Column) error {
 	// Add table to database
 	d.TablePaths[tableName] = tablePath
 
+	// Create new table files
+	err := createNewTableFiles(*newTable, tablePath)
+
+	if err != nil {
+		return err
+	}
 	// Update Database file
 	json, err := utils.ToJson(d)
-
+	fmt.Printf("json: %s\n", json)
 	if err != nil {
 		return err
 	}
