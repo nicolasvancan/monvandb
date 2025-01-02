@@ -64,6 +64,10 @@ func TestCreateTable(t *testing.T) {
 	if table.Name != "table_teste" {
 		t.Errorf("expected table_teste, got %v", table.Name)
 	}
+
+	if table.PrimaryKey == nil {
+		t.Errorf("expected primary key, got nil")
+	}
 }
 
 func TestCreateIndex(t *testing.T) {

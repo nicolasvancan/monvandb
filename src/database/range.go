@@ -116,6 +116,10 @@ func RangeFromOptions(t *Table, options RangeOptions) ([]RawRow, error) {
 
 	// Get crawler based on the options
 	crawler := getCrawlerBasedOnOptions(options)
+
+	if crawler == nil {
+		return []RawRow{}, nil
+	}
 	// Returns all data gathered from crawling the data file
 	return crawlDataFileBasedOnOptions(t, crawler, options)
 }
@@ -246,7 +250,12 @@ func compare(val1 []byte, val2 []byte, comparator int) (bool, error) {
 
 func scan(pDataFile *file.DataFile) ([]btree.BTreeKeyValue, error) {
 	// Create a crawler at the beginning of the file
-	crawler := btree.GoToFirstLeaf(pDataFile.GetBTree())
+	bTree := pDataFile.GetBTree()
+	crawler := btree.GoToFirstLeaf(bTree)
+
+	if crawler == nil {
+		return make([]btree.BTreeKeyValue, 0), nil
+	}
 	// Loop through the datafile
 	keyValues := make([]btree.BTreeKeyValue, 0)
 
@@ -381,7 +390,6 @@ func MergeOperationsBasedOnIndexedColumnsAndReturnRangeOptions(table *Table, ops
 		lowestLayerOp := findLowestLayerOp(ops)
 		mergedOps = append(mergedOps, ops[lowestLayerOp])
 	}
-	fmt.Printf("MergedOps len %d\n", len(mergedOps))
 
 	preferedRange := 0
 	if len(mergedOps) > 1 {

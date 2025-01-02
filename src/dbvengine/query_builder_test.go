@@ -1,6 +1,7 @@
 package dbvengine
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -15,7 +16,7 @@ import (
 func TestSimpleQueryBuild(t *testing.T) {
 	CreateMockTable(t)
 
-	query := "SELECT t.col FROM table_teste t"
+	query := "SELECT t.id FROM table_teste t"
 	parsedQuery, err := sqlparser.Parse(query)
 
 	if err != nil {
@@ -32,7 +33,11 @@ func TestSimpleQueryBuild(t *testing.T) {
 
 	// Build the plan
 	BuildPlan(analyzedQuery, execLayer)
+	//fmt.Printf("%v", execLayer.Nodes)
+	//t.Error("asd")
 	execLayer.Start()
+	fmt.Printf("%v\n", execLayer.Context.Result)
+	t.Error("asd")
 }
 
 func CreateMockTable(t *testing.T) *database.Table {

@@ -54,13 +54,20 @@ func GoToFirstLeaf(tree *BTree) *BTreeCrawler {
 	crawler := newBTreeCrawler(tree)
 	rootAddr := tree.GetRoot()
 	page := tree.Get(rootAddr)
+
+	// Table is empty
+	if page.GetNItens() == 0 {
+		return nil
+	}
+
 	// While loop to find the leaf
 	for {
 		if page.GetType() == TREE_NODE {
 			crawler.Net = append(crawler.Net, page)
 			crawler.Cursor = append(crawler.Cursor, 0)
 			// Get the next page
-			page = crawler.bTree.Get(page.GetNodeChildByIndex(0).GetAddr())
+			addr := page.GetNodeChildByIndex(0).GetAddr()
+			page = crawler.bTree.Get(addr)
 
 		} else {
 			crawler.Net = append(crawler.Net, page)
@@ -81,6 +88,12 @@ func GoToLastLeaf(tree *BTree) *BTreeCrawler {
 	crawler := newBTreeCrawler(tree)
 	rootAddr := tree.GetRoot()
 	page := tree.Get(rootAddr)
+
+	// Table is empty
+	if page.GetNItens() == 0 {
+		return nil
+	}
+
 	// While loop to find the leaf
 	for {
 		if page.GetType() == TREE_NODE {

@@ -190,7 +190,6 @@ func (d *Database) CreateTable(tableName string, columns []Column) error {
 	}
 	// Update Database file
 	json, err := utils.ToJson(d)
-	fmt.Printf("json: %s\n", json)
 	if err != nil {
 		return err
 	}

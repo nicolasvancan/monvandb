@@ -27,8 +27,10 @@ func (el *ExecutionLayer) Start() {
 	// Function to run until all nodes are finished
 	go func() {
 		for notification := range el.LayerChannel {
+			el.WaitGroup.Done()
 			fmt.Printf("node %s has Finished\n", notification.NodeId)
 			for _, node := range el.Nodes {
+				fmt.Printf("Checking node %s\n", node.Id)
 				node.OnNotified(notification.NodeId)
 
 				if len(node.DependsOn) == 0 && node.State == NodeIdle {

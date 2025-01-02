@@ -1,6 +1,8 @@
 package executor
 
 import (
+	"fmt"
+
 	db "github.com/nicolasvancan/monvandb/src/database"
 	df "github.com/nicolasvancan/monvandb/src/dbvengine/dataframe"
 )
@@ -28,6 +30,23 @@ func TableFileRead(params ...interface{}) (df.Dataframe, error) {
 	}
 
 	// Get raw data from table
+	rangeResults := table.Range(columnComparsions, -1, -1)
+
+	if len(rangeResults) == 0 {
+		fmt.Println("No results found for query")
+		dataframe := df.Dataframe{}
+		columns := make([]string, 0)
+		series := make([]df.Series, 0)
+		for _, col := range table.Columns {
+			columns = append(columns, col.Name)
+			series = append(series, df.NewSeries(col.Name))
+		}
+
+		dataframe.Columns = columns
+		dataframe.Series = series
+		return dataframe, nil
+	}
+
 	return df.NewDataframe(table.Range(columnComparsions, -1, 1)), nil
 }
 

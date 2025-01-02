@@ -40,6 +40,10 @@ func NewExecutionNode(id string, executionLayer *ExecutionLayer) *ExecutionNode 
 	}
 }
 
+func (en ExecutionNode) String() string {
+	return fmt.Sprintf("Node: %s, DependsOn: %v, Notifies: %v, State: %s, Final: %v", en.Id, en.DependsOn, en.Notifies, en.State, en.Final)
+}
+
 func (en *ExecutionNode) AddDependency(nodeId string) {
 	en.DependsOn = append(en.DependsOn, nodeId)
 }
@@ -58,7 +62,6 @@ func (en *ExecutionNode) OnNotified(nodeId string) {
 }
 
 func (en *ExecutionNode) Run(wg *sync.WaitGroup, notify chan<- OpNotification) {
-
 	en.State = NodeRunning
 	fmt.Printf("Node %s is Running\n", en.Id)
 
