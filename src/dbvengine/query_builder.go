@@ -2,6 +2,7 @@ package dbvengine
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/nicolasvancan/monvandb/src/dbvengine/dataframe"
 	executor "github.com/nicolasvancan/monvandb/src/dbvengine/executor"
@@ -75,24 +76,28 @@ func buildSelectPlan(exec *executor.ExecutionLayer, aq *parser.AnalyzedQuerySele
 	// Create the filter layer
 	for alias, filter := range aq.TablesFilters {
 		// Create new execution Node
-		nodeName := fmt.Sprintf("%s_filter", alias)
-		execNode := executor.NewExecutionNode(nodeName, exec)
+		isTableFilter := len(strings.Split(alias, "-")) <= 1
 
-		// Create Operation
-		operation := executor.Operation{}
-		operation.Name = executor.FILTER
-		operation.Args = []interface{}{alias, exec.Context, filter}
+		if isTableFilter {
+			nodeName := fmt.Sprintf("%s_filter", alias)
+			execNode := executor.NewExecutionNode(nodeName, exec)
 
-		// Set operation
-		execNode.Operation = operation
+			// Create Operation
+			operation := executor.Operation{}
+			operation.Name = executor.FILTER
+			operation.Args = []interface{}{alias, exec.Context, filter}
 
-		execNode.AddDependency(alias)
+			// Set operation
+			execNode.Operation = operation
 
-		// Add node to the map
-		nodes[nodeName] = execNode
+			execNode.AddDependency(alias)
 
-		// Edit the parent node to add notify
-		nodes[alias].AddNotify(nodeName)
+			// Add node to the map
+			nodes[nodeName] = execNode
+
+			// Edit the parent node to add notify
+			nodes[alias].AddNotify(nodeName)
+		}
 	}
 
 	// Join the dataframes
@@ -120,6 +125,7 @@ func buildSelectPlan(exec *executor.ExecutionLayer, aq *parser.AnalyzedQuerySele
 
 	for _, join := range aq.Joins {
 		// Create new execution Node
+
 		nodeName := fmt.Sprintf("%s-%s_join", join.LeftAlias, join.RightAlias)
 
 		// Append joins alias to existingJoinedSources
@@ -145,7 +151,7 @@ func buildSelectPlan(exec *executor.ExecutionLayer, aq *parser.AnalyzedQuerySele
 		operation.Args = []interface{}{[]string{
 			leftTable, rightTable},
 			exec.Context,
-			join.On,
+			[]string{join.On.LeftValue.(string)},
 			join.How,
 		}
 
@@ -153,15 +159,23 @@ func buildSelectPlan(exec *executor.ExecutionLayer, aq *parser.AnalyzedQuerySele
 		execNode.Operation = operation
 
 		// Add dependencies
-		execNode.AddDependency(fmt.Sprintf("%s_filter", leftTable))
-		execNode.AddDependency(fmt.Sprintf("%s_filter", rightTable))
+		// When there is no filter for the each table, such as t_filter, we must
+		// add the table itself as dependency
+		if _, ok := nodes[leftTable+"_filter"]; ok {
+			leftTable = leftTable + "_filter"
+		}
 
+		if _, ok := nodes[rightTable+"_filter"]; ok {
+			rightTable = rightTable + "_filter"
+		}
+		execNode.AddDependency(leftTable)
+		execNode.AddDependency(rightTable)
 		// Add node to the map
 		nodes[nodeName] = execNode
 
 		// Edit the parent node to add notify
-		nodes[fmt.Sprintf("%s_filter", leftTable)].AddNotify(nodeName)
-		nodes[fmt.Sprintf("%s_filter", rightTable)].AddNotify(nodeName)
+		nodes[leftTable].AddNotify(nodeName)
+		nodes[rightTable].AddNotify(nodeName)
 
 		previousNode = nodeName
 

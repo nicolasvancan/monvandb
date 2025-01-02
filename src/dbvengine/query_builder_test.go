@@ -16,7 +16,7 @@ import (
 func TestSimpleQueryBuild(t *testing.T) {
 	CreateMockTable(t)
 
-	query := "SELECT t.id FROM table_teste t"
+	query := "SELECT t.id, t.name, t2.other_column FROM table_teste t INNER JOIN table_teste2 t2 ON t.id = t2.id"
 	parsedQuery, err := sqlparser.Parse(query)
 
 	if err != nil {
@@ -30,7 +30,7 @@ func TestSimpleQueryBuild(t *testing.T) {
 
 	// Create a new execution layer
 	execLayer := executor.NewExecutionLayer(contexts.NewExecutionContext())
-
+	fmt.Println(analyzedQuery)
 	// Build the plan
 	BuildPlan(analyzedQuery, execLayer)
 	//fmt.Printf("%v", execLayer.Nodes)
@@ -83,6 +83,8 @@ func CreateMockTable(t *testing.T) *database.Table {
 	table.Indexes = make(map[string]*database.Index)
 	table.PrimaryKey = table.GetColumnByName("id")
 
+	table.Insert([]map[string]interface{}{{"id": 1, "name": "name1"}})
+
 	// Create a new table
 	db.CreateTable("table_teste2", []database.Column{
 		{
@@ -101,6 +103,7 @@ func CreateMockTable(t *testing.T) *database.Table {
 
 	table.Indexes = make(map[string]*database.Index)
 	table.PrimaryKey = table.GetColumnByName("id")
+	table.Insert([]map[string]interface{}{{"id": 1, "other_column": "other_column1"}})
 
 	return table
 }

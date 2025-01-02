@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"fmt"
 	"os"
 	"testing"
 
@@ -134,7 +133,7 @@ func TestFromAnalyzis(t *testing.T) {
 
 	CreateMockTable(t)
 
-	query := "SELECT name as name, id as IDZAO FROM table_teste as t INNER JOIN table_teste2 t2 ON t.id = t2.id AND t.id > 20 WHERE t.id = 1"
+	query := "SELECT t2.name as name, id as IDZAO FROM table_teste as t INNER JOIN table_teste2 t2 ON t.id = t2.id AND t.id > 20 WHERE t.id = 1"
 	stmt, err := sqlparser.Parse(query)
 
 	if err != nil {
@@ -187,8 +186,6 @@ func TestFromAnalyzis(t *testing.T) {
 			firstFilter.Values[0].Comparando != 1 {
 			t.Errorf("expected 1, got %v", firstFilter.Values[0].Comparando)
 		}
-
-		fmt.Printf("Analyzed: %v\n", analyzed)
 	default:
 		t.Errorf("expected AnalyzedQuerySelect, got %v", analyzed)
 	}

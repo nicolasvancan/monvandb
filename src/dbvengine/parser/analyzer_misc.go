@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
+	"strings"
 
 	sqlparser "github.com/blastrain/vitess-sqlparser/sqlparser"
 	database "github.com/nicolasvancan/monvandb/src/database"
@@ -21,6 +22,33 @@ func analyzeAliasedExpr(
 
 	switch exprr := expr.Expr.(type) {
 	case *sqlparser.ColName:
+		// Validate if table exists in context
+		tabRef := exprr.Qualifier.Name.String()
+
+		if tabRef == "" {
+			foundCol := false
+			// The column verifying proccess when there it no tabRef is done by getting all columns
+			// from all tables and checking whether or not they exist
+			for _, tabName := range *tablesAlias {
+				if columnExists(db, tabName, exprr.Name.String()) {
+					foundCol = true
+				}
+			}
+
+			if !foundCol {
+				return aliasedExpr, fmt.Errorf("column %s does not exist in query context", exprr.Name.String())
+			}
+
+		} else {
+			tabName := (*tablesAlias)[exprr.Qualifier.Name.String()]
+			if !tableOrSubQueryAliasExistInContext(tablesAlias, subqueries, tabRef) {
+				return aliasedExpr, fmt.Errorf("table or subquery alias %s does not exist in query context", tabRef)
+			}
+			if !columnExists(db, tabName, exprr.Name.String()) {
+				return aliasedExpr, fmt.Errorf("column %s does not exist in table %s", exprr.Name.String(), tabName)
+			}
+		}
+
 		aliasedExpr.Column = exprr.Name.Lowered()
 		aliasedExpr.Alias = expr.As.Lowered()
 		aliasedExpr.Func = ""
@@ -28,7 +56,7 @@ func analyzeAliasedExpr(
 
 		// Verify if the column exists
 	case *sqlparser.FuncExpr:
-		function, err := analyzeFuncExpr(exprr, columnComparsions)
+		function, err := analyzeFuncExpr(exprr, db, tablesAlias, subqueries, columnComparsions)
 
 		if err != nil {
 			return aliasedExpr, err
@@ -134,6 +162,9 @@ func getValFromSQLVal(val *sqlparser.SQLVal) (interface{}, error) {
 
 func analyzeFuncExpr(
 	expr interface{},
+	db *database.Database,
+	tablesAlias *map[string]string,
+	subqueries *map[string]*AnalyzedQuerySelect,
 	tablesColumnComparsions *map[string][]database.ColumnComparsion,
 ) (ColFunction, error) {
 	function := ColFunction{}
@@ -148,6 +179,35 @@ func analyzeFuncExpr(
 			case *sqlparser.AliasedExpr:
 				switch aliasedExpr := arg.Expr.(type) {
 				case *sqlparser.ColName:
+
+					// Validate if table exists in context
+					tabRef := aliasedExpr.Qualifier.Name.String()
+
+					if tabRef == "" {
+						foundCol := false
+						// The column verifying proccess when there it no tabRef is done by getting all columns
+						// from all tables and checking whether or not they exist
+						for _, tabName := range *tablesAlias {
+							if columnExists(db, tabName, aliasedExpr.Name.String()) {
+								foundCol = true
+							}
+						}
+
+						if !foundCol {
+							return function, fmt.Errorf("column %s does not exist in query context", aliasedExpr.Name.String())
+						}
+
+					} else {
+						if !tableOrSubQueryAliasExistInContext(tablesAlias, subqueries, tabRef) {
+							return function, fmt.Errorf("table or subquery alias %s does not exist in query context", tabRef)
+						}
+
+						tabName := (*tablesAlias)[aliasedExpr.Qualifier.Name.String()]
+						if !columnExists(db, tabName, aliasedExpr.Name.String()) {
+							return function, fmt.Errorf("column %s does not exist in table %s", aliasedExpr.Name.String(), tabName)
+						}
+					}
+
 					colName := aliasedExpr.Name.String()
 					function.Column = colName
 					function.Alias = aliasedExpr.Qualifier.Name.String()
@@ -161,7 +221,7 @@ func analyzeFuncExpr(
 
 					function.Args = append(function.Args, val)
 				case *sqlparser.FuncExpr:
-					anFun, err := analyzeFuncExpr(aliasedExpr, tablesColumnComparsions)
+					anFun, err := analyzeFuncExpr(aliasedExpr, db, tablesAlias, subqueries, tablesColumnComparsions)
 
 					if err != nil {
 						return function, err
@@ -184,13 +244,16 @@ func analyzeFuncExpr(
 
 func analyzeAndExpr(
 	expr *sqlparser.AndExpr,
+	db *database.Database,
 	tablesAlias *map[string]string,
 	tablesColumnComparsions *map[string][]database.ColumnComparsion,
 	tableFilters *map[string]dataframe.Filters,
+	subqueries *map[string]*AnalyzedQuerySelect,
 	id int,
 	parentId int,
 	_ int,
 	parentLogicalLayer int,
+	joinOn *bool,
 ) (CompExpr, error) {
 	compExpr := CompExpr{}
 	left := expr.Left
@@ -200,31 +263,39 @@ func analyzeAndExpr(
 	case *sqlparser.ParenExpr:
 		compExpr, err = analyzeParenExpr(
 			l,
+			db,
 			tablesAlias,
 			tablesColumnComparsions,
 			tableFilters,
+			subqueries,
 			id,
 			parentId,
 			database.AND,
 			database.AND,
+			joinOn,
 		)
 	case *sqlparser.ComparisonExpr:
 		compExpr, err = analyzeComparsionExpr(
 			l,
+			db,
 			tablesAlias,
 			tablesColumnComparsions,
 			tableFilters,
+			subqueries,
 			id,
 			parentId,
 			database.AND,
 			parentLogicalLayer,
+			joinOn,
 		)
 	case *sqlparser.IsExpr:
 		compExpr, err = analyzeIsExpr(
 			l,
+			db,
 			tablesAlias,
 			tablesColumnComparsions,
 			tableFilters,
+			subqueries,
 			id,
 			parentId,
 			database.AND,
@@ -237,53 +308,67 @@ func analyzeAndExpr(
 	case *sqlparser.ParenExpr:
 		_, err = analyzeParenExpr(
 			r,
+			db,
 			tablesAlias,
 			tablesColumnComparsions,
 			tableFilters,
+			subqueries,
 			id,
 			parentId,
 			database.AND,
 			database.AND,
+			joinOn,
 		)
 	case *sqlparser.ComparisonExpr:
 		_, err = analyzeComparsionExpr(
 			r,
+			db,
 			tablesAlias,
 			tablesColumnComparsions,
 			tableFilters,
+			subqueries,
 			id,
 			parentId,
 			database.AND,
 			parentLogicalLayer,
+			joinOn,
 		)
 	case *sqlparser.AndExpr:
 		_, err = analyzeAndExpr(
 			r,
+			db,
 			tablesAlias,
 			tablesColumnComparsions,
 			tableFilters,
+			subqueries,
 			id,
 			parentId,
 			database.AND,
 			parentLogicalLayer,
+			joinOn,
 		)
 	case *sqlparser.OrExpr:
 		_, err = analyzeOrExpr(
 			r,
+			db,
 			tablesAlias,
 			tablesColumnComparsions,
 			tableFilters,
+			subqueries,
 			id,
 			parentId,
 			database.AND,
 			parentLogicalLayer,
+			joinOn,
 		)
 	case *sqlparser.IsExpr:
 		_, err = analyzeIsExpr(
 			r,
+			db,
 			tablesAlias,
 			tablesColumnComparsions,
 			tableFilters,
+			subqueries,
 			id,
 			parentId,
 			database.AND,
@@ -299,13 +384,16 @@ func analyzeAndExpr(
 
 func analyzeOrExpr(
 	expr *sqlparser.OrExpr,
+	db *database.Database,
 	tablesAlias *map[string]string,
 	tablesColumnComparsions *map[string][]database.ColumnComparsion,
 	tableFilters *map[string]dataframe.Filters,
+	subqueries *map[string]*AnalyzedQuerySelect,
 	id int,
 	parentId int,
 	_ int,
 	parentLogicalLayer int,
+	joinOn *bool,
 ) (CompExpr, error) {
 	compExpr := CompExpr{}
 	left := expr.Left
@@ -316,31 +404,39 @@ func analyzeOrExpr(
 	case *sqlparser.ParenExpr:
 		compExpr, err = analyzeParenExpr(
 			l,
+			db,
 			tablesAlias,
 			tablesColumnComparsions,
 			tableFilters,
+			subqueries,
 			id,
 			parentId,
 			database.AND,
 			database.OR,
+			joinOn,
 		)
 	case *sqlparser.ComparisonExpr:
 		compExpr, err = analyzeComparsionExpr(
 			l,
+			db,
 			tablesAlias,
 			tablesColumnComparsions,
 			tableFilters,
+			subqueries,
 			id,
 			parentId,
 			database.OR,
 			parentLogicalLayer,
+			joinOn,
 		)
 	case *sqlparser.IsExpr:
 		compExpr, err = analyzeIsExpr(
 			l,
+			db,
 			tablesAlias,
 			tablesColumnComparsions,
 			tableFilters,
+			subqueries,
 			id,
 			parentId,
 			database.OR,
@@ -353,53 +449,67 @@ func analyzeOrExpr(
 	case *sqlparser.ParenExpr:
 		_, err = analyzeParenExpr(
 			r,
+			db,
 			tablesAlias,
 			tablesColumnComparsions,
 			tableFilters,
+			subqueries,
 			id,
 			parentId,
 			database.AND,
 			database.AND,
+			joinOn,
 		)
 	case *sqlparser.ComparisonExpr:
 		_, err = analyzeComparsionExpr(
 			r,
+			db,
 			tablesAlias,
 			tablesColumnComparsions,
 			tableFilters,
+			subqueries,
 			id,
 			parentId,
 			database.AND,
 			parentLogicalLayer,
+			joinOn,
 		)
 	case *sqlparser.AndExpr:
 		_, err = analyzeAndExpr(
 			r,
+			db,
 			tablesAlias,
 			tablesColumnComparsions,
 			tableFilters,
+			subqueries,
 			id,
 			parentId,
 			database.OR,
 			parentLogicalLayer,
+			joinOn,
 		)
 	case *sqlparser.OrExpr:
 		_, err = analyzeOrExpr(
 			r,
+			db,
 			tablesAlias,
 			tablesColumnComparsions,
 			tableFilters,
+			subqueries,
 			id,
 			parentId,
 			database.OR,
 			parentLogicalLayer,
+			joinOn,
 		)
 	case *sqlparser.IsExpr:
 		_, err = analyzeIsExpr(
 			r,
+			db,
 			tablesAlias,
 			tablesColumnComparsions,
 			tableFilters,
+			subqueries,
 			id,
 			parentId,
 			database.OR,
@@ -415,13 +525,16 @@ func analyzeOrExpr(
 
 func analyzeParenExpr(
 	expr *sqlparser.ParenExpr,
+	db *database.Database,
 	tablesAlias *map[string]string,
 	tablesColumnComparsions *map[string][]database.ColumnComparsion,
 	tableFilters *map[string]dataframe.Filters,
+	subqueries *map[string]*AnalyzedQuerySelect,
 	id int,
 	parentId int,
 	logicalLayer int,
 	parentLogicalLayer int,
+	joinOn *bool,
 ) (CompExpr, error) {
 	compExpr := CompExpr{}
 	var err error
@@ -431,53 +544,67 @@ func analyzeParenExpr(
 	case *sqlparser.AndExpr:
 		compExpr, err = analyzeAndExpr(
 			innerExpr,
+			db,
 			tablesAlias,
 			tablesColumnComparsions,
 			tableFilters,
+			subqueries,
 			randomId,
 			id,
 			database.AND,
 			parentLogicalLayer,
+			joinOn,
 		)
 	case *sqlparser.OrExpr:
 		compExpr, err = analyzeOrExpr(
 			innerExpr,
+			db,
 			tablesAlias,
 			tablesColumnComparsions,
 			tableFilters,
+			subqueries,
 			randomId,
 			id,
 			database.AND,
 			parentLogicalLayer,
+			joinOn,
 		)
 	case *sqlparser.ParenExpr:
 		compExpr, err = analyzeParenExpr(
 			innerExpr,
+			db,
 			tablesAlias,
 			tablesColumnComparsions,
 			tableFilters,
+			subqueries,
 			randomId,
 			id,
 			database.AND,
 			logicalLayer,
+			joinOn,
 		)
 	case *sqlparser.ComparisonExpr:
 		compExpr, err = analyzeComparsionExpr(
 			innerExpr,
+			db,
 			tablesAlias,
 			tablesColumnComparsions,
 			tableFilters,
+			subqueries,
 			randomId,
 			id,
 			database.AND,
 			parentLogicalLayer,
+			joinOn,
 		)
 	case *sqlparser.IsExpr:
 		compExpr, err = analyzeIsExpr(
 			innerExpr,
+			db,
 			tablesAlias,
 			tablesColumnComparsions,
 			tableFilters,
+			subqueries,
 			id,
 			parentId,
 			database.AND,
@@ -495,9 +622,11 @@ func analyzeParenExpr(
 
 func analyzeIsExpr(
 	expr *sqlparser.IsExpr,
+	db *database.Database,
 	tablesAlias *map[string]string,
 	tablesColumnComparsions *map[string][]database.ColumnComparsion,
 	tableFilters *map[string]dataframe.Filters,
+	subqueries *map[string]*AnalyzedQuerySelect,
 	id int,
 	parentId int,
 	logicalLayer int,
@@ -569,13 +698,16 @@ func analyzeIsExpr(
 
 func analyzeComparsionExpr(
 	expr *sqlparser.ComparisonExpr,
+	db *database.Database,
 	tablesAlias *map[string]string,
 	tablesColumnComparsions *map[string][]database.ColumnComparsion,
 	tableFilters *map[string]dataframe.Filters,
+	subqueries *map[string]*AnalyzedQuerySelect,
 	id int,
 	parentId int,
 	logicalLayer int,
 	parentLogicalLayer int,
+	joinOn *bool, // Controls insertion of filter for columns after ON, should not insert
 ) (CompExpr, error) {
 	compExpr := CompExpr{}
 
@@ -586,6 +718,33 @@ func analyzeComparsionExpr(
 
 	switch l := left.(type) {
 	case *sqlparser.ColName:
+		// Validate if table exists in context
+		tabRef := l.Qualifier.Name.String()
+
+		if tabRef == "" {
+			foundCol := false
+			// The column verifying proccess when there it no tabRef is done by getting all columns
+			// from all tables and checking whether or not they exist
+			for _, tabName := range *tablesAlias {
+				if columnExists(db, tabName, l.Name.String()) {
+					foundCol = true
+				}
+			}
+
+			if !foundCol {
+				return compExpr, fmt.Errorf("column %s does not exist in query context", l.Name.String())
+			}
+
+		} else {
+			tabName := (*tablesAlias)[l.Qualifier.Name.String()]
+			if !tableOrSubQueryAliasExistInContext(tablesAlias, subqueries, tabRef) {
+				return compExpr, fmt.Errorf("table or subquery alias %s does not exist in query context", tabRef)
+			}
+			if !columnExists(db, tabName, l.Name.String()) {
+				return compExpr, fmt.Errorf("column %s does not exist in table %s", l.Name.String(), tabName)
+			}
+		}
+
 		compExpr.LeftType = "column"
 		compExpr.LeftValue = l.Name.String()
 		compExpr.LeftAlias = l.Qualifier.Name.String()
@@ -600,7 +759,7 @@ func analyzeComparsionExpr(
 		compExpr.LeftValue = val
 	case *sqlparser.FuncExpr:
 		compExpr.LeftType = "function"
-		function, err := analyzeFuncExpr(l, tablesColumnComparsions)
+		function, err := analyzeFuncExpr(l, db, tablesAlias, subqueries, tablesColumnComparsions)
 		compExpr.LeftValue = function
 		if err != nil {
 			return compExpr, err
@@ -609,6 +768,33 @@ func analyzeComparsionExpr(
 
 	switch r := right.(type) {
 	case *sqlparser.ColName:
+
+		tabRef := r.Qualifier.Name.String()
+
+		if tabRef == "" {
+			foundCol := false
+			// The column verifying proccess when there it no tabRef is done by getting all columns
+			// from all tables and checking whether or not they exist
+			for _, tabName := range *tablesAlias {
+				if columnExists(db, tabName, r.Name.String()) {
+					foundCol = true
+				}
+			}
+
+			if !foundCol {
+				return compExpr, fmt.Errorf("column %s does not exist in query context", r.Name.String())
+			}
+
+		} else {
+			tabName := (*tablesAlias)[r.Qualifier.Name.String()]
+			if !tableOrSubQueryAliasExistInContext(tablesAlias, subqueries, tabRef) {
+				return compExpr, fmt.Errorf("table or subquery alias %s does not exist in query context", tabRef)
+			}
+			if !columnExists(db, tabName, r.Name.String()) {
+				return compExpr, fmt.Errorf("column %s does not exist in table %s", r.Name.String(), tabName)
+			}
+		}
+
 		compExpr.RightType = "column"
 		compExpr.RightValue = r.Name.String()
 		compExpr.RightAlias = r.Qualifier.Name.String()
@@ -624,7 +810,7 @@ func analyzeComparsionExpr(
 		compExpr.RightValue = val
 	case *sqlparser.FuncExpr:
 		compExpr.RightType = "function"
-		function, err := analyzeFuncExpr(r, tablesColumnComparsions)
+		function, err := analyzeFuncExpr(r, db, tablesAlias, subqueries, tablesColumnComparsions)
 
 		if err != nil {
 			return compExpr, err
@@ -634,13 +820,16 @@ func analyzeComparsionExpr(
 	case *sqlparser.AndExpr:
 		cmpExpr, err := analyzeAndExpr(
 			r,
+			db,
 			tablesAlias,
 			tablesColumnComparsions,
 			tableFilters,
+			subqueries,
 			id,
 			parentId,
 			logicalLayer,
 			parentLogicalLayer,
+			joinOn,
 		)
 
 		if err != nil {
@@ -654,13 +843,16 @@ func analyzeComparsionExpr(
 	case *sqlparser.OrExpr:
 		cmpExpr, err := analyzeOrExpr(
 			r,
+			db,
 			tablesAlias,
 			tablesColumnComparsions,
 			tableFilters,
+			subqueries,
 			id,
 			parentId,
 			logicalLayer,
 			parentLogicalLayer,
+			joinOn,
 		)
 
 		if err != nil {
@@ -690,14 +882,19 @@ func analyzeComparsionExpr(
 		(*tablesColumnComparsions)[comparsions[1].Alias] = append((*tablesColumnComparsions)[comparsions[1].Alias], comparsions[1])
 	}
 
-	createOrUpdateFilterBasedOnCompExpr(
-		compExpr,
-		tableFilters,
-		id,
-		parentId,
-		logicalLayer,
-		parentLogicalLayer,
-	)
+	if !(*joinOn) {
+		createOrUpdateFilterBasedOnCompExpr(
+			compExpr,
+			tableFilters,
+			id,
+			parentId,
+			logicalLayer,
+			parentLogicalLayer,
+		)
+	}
+
+	// After first call it must be false for further filters
+	*joinOn = false
 
 	return compExpr, nil
 }
@@ -718,4 +915,27 @@ func analyzeGroupBy(stmt sqlparser.GroupBy) []ColFunction {
 	}
 
 	return colFunctions
+}
+
+func columnExists(db *database.Database, tableName string, column string) bool {
+	table, err := db.GetTable(strings.ToLower(tableName))
+
+	if err != nil {
+		return false
+	}
+
+	col := table.GetColumnByName(column)
+
+	return col != nil
+}
+
+func tableOrSubQueryAliasExistInContext(
+	tablesAlias *map[string]string,
+	subqueries *map[string]*AnalyzedQuerySelect,
+	tableAlias string,
+) bool {
+	_, subqueryExists := (*subqueries)[tableAlias]
+	_, tableAliasExists := (*tablesAlias)[tableAlias]
+
+	return subqueryExists || tableAliasExists
 }

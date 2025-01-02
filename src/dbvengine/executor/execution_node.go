@@ -62,6 +62,7 @@ func (en *ExecutionNode) OnNotified(nodeId string) {
 }
 
 func (en *ExecutionNode) Run(wg *sync.WaitGroup, notify chan<- OpNotification) {
+
 	en.State = NodeRunning
 	fmt.Printf("Node %s is Running\n", en.Id)
 

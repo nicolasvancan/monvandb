@@ -27,8 +27,12 @@ func analyzeSelectedColumns(
 
 			analyzedQuerySelect = append(analyzedQuerySelect, colFunction)
 		case *sqlparser.StarExpr:
+			alias := expr.TableName.Name.String()
+
+			// Verify if alias exist in either subqueries or tablesAlias
+
 			conFunction := ColFunction{
-				Alias:  expr.TableName.Name.String(),
+				Alias:  alias,
 				Column: "*",
 				Func:   "",
 				Args:   nil,

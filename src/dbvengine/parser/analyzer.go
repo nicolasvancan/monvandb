@@ -165,9 +165,11 @@ func analyzeSelect(databaseName string, stmt *sqlparser.Select) *AnalyzedQuerySe
 	if stmt.Where != nil {
 		err = analyzeWhere(
 			stmt.Where,
+			db,
 			&analyzedQuerySelect.TablesAlias,
 			&analyzedQuerySelect.TablesColumnComparsions,
 			&analyzedQuerySelect.TablesFilters,
+			&analyzedQuerySelect.Subqueries,
 		)
 		if err != nil {
 			analyzedQuerySelect.err = err

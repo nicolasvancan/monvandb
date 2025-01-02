@@ -117,7 +117,7 @@ func analyzeJoinExpression(
 	joinAnalyzys.LeftAlias = leftAnalysis.Alias
 	joinAnalyzys.RightAlias = rightAnalysis.Alias
 	hash := fmt.Sprintf("%s-%s", leftAnalysis.Alias, rightAnalysis.Alias)
-	hash2 := fmt.Sprintf("%s-%s", rightAnalysis.Alias, leftAnalysis.Alias)
+	//hash2 := fmt.Sprintf("%s-%s", rightAnalysis.Alias, leftAnalysis.Alias)
 	newStr := ""
 	newStr = strings.Replace(expr.Join, "join", newStr, -1)
 	if strings.Trim(newStr, " ") == "" {
@@ -126,52 +126,65 @@ func analyzeJoinExpression(
 		joinAnalyzys.How = strings.Trim(newStr, " ")
 	}
 
+	jOn := true
 	// Analyze on
 	var joinOn CompExpr
 	switch expr.On.(type) {
 	case *sqlparser.ComparisonExpr:
 		joinOn, err = analyzeComparsionExpr(
 			expr.On.(*sqlparser.ComparisonExpr),
+			db,
 			tablesAlias,
 			tablesColumnComparsions,
 			joinsColumnFilters,
+			subqueries,
 			0,  // Indicates that it is the first comparsion
 			-1, // No parent,
 			database.AND,
 			database.AND,
+			&jOn,
 		)
 	case *sqlparser.AndExpr:
 		joinOn, err = analyzeAndExpr(
 			expr.On.(*sqlparser.AndExpr),
+			db,
 			tablesAlias,
 			tablesColumnComparsions,
 			joinsColumnFilters,
+			subqueries,
 			0,  // Indicates that it is the first comparsion
 			-1, // No parent,
 			database.AND,
 			database.AND,
+			&jOn,
 		)
 	case *sqlparser.OrExpr:
 		joinOn, err = analyzeOrExpr(
 			expr.On.(*sqlparser.OrExpr),
+			db,
 			tablesAlias,
 			tablesColumnComparsions,
 			joinsColumnFilters,
+			subqueries,
 			0,  // Indicates that it is the first comparsion
 			-1, // No parent,
 			database.OR,
 			database.AND,
+			&jOn,
 		)
 	case *sqlparser.ParenExpr:
 		joinOn, err = analyzeParenExpr(
 			expr.On.(*sqlparser.ParenExpr),
+			db,
 			tablesAlias,
 			tablesColumnComparsions,
 			joinsColumnFilters,
+			subqueries,
 			0,  // Indicates that it is the first comparsion
 			-1, // No parent,
 			database.AND,
 			database.AND,
+			&jOn,
 		)
 	}
 
@@ -183,7 +196,7 @@ func analyzeJoinExpression(
 
 	// Add backyards as well
 	(*joinsOn)[hash] = joinAnalyzys
-	(*joinsOn)[hash2] = joinAnalyzys
+	//(*joinsOn)[hash2] = joinAnalyzys
 
 	return fromAnalysis, nil
 }
