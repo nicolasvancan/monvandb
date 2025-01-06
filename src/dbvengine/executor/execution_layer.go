@@ -14,7 +14,7 @@ type ExecutionLayer struct {
 	WaitGroup    sync.WaitGroup
 }
 
-func (el *ExecutionLayer) Start() {
+func (el *ExecutionLayer) Start() error {
 	// Start the execution layer
 	for _, node := range el.Nodes {
 		if len(node.DependsOn) == 0 {
@@ -27,6 +27,10 @@ func (el *ExecutionLayer) Start() {
 	// Function to run until all nodes are finished
 	go func() {
 		for notification := range el.LayerChannel {
+			if notification.Err != nil {
+				fmt.Printf("Error on node %s: %v\n", notification.NodeId, notification.Err)
+			}
+
 			fmt.Printf("node %s has Finished\n", notification.NodeId)
 			for _, node := range el.Nodes {
 				fmt.Printf("Checking node %s\n", node.Id)
@@ -44,6 +48,7 @@ func (el *ExecutionLayer) Start() {
 	el.WaitGroup.Wait()
 	close(el.LayerChannel)
 	fmt.Println("Execution Layer Finished")
+	return nil
 }
 
 func (el *ExecutionLayer) AddNode(node *ExecutionNode, final bool) {

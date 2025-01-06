@@ -45,12 +45,20 @@ func buildSelectPlan(exec *executor.ExecutionLayer, aq *parser.AnalyzedQuerySele
 		nodeName := alias
 		execNode := executor.NewExecutionNode(nodeName, exec)
 
+		// It comes as -1, if it is different from -1, we must limit the results
+		// of the main table
+		limit := -1
+
+		if nodeName == aq.From.Alias {
+			limit = aq.Limit
+		}
+
 		// Create Operation
 		operation := executor.Operation{}
 		operation.Name = executor.TABLE_FILE_READ
 		// Get column comparsions for the table
 		columnComparsions := aq.TablesColumnComparsions[alias]
-		operation.Args = []interface{}{aq.DatabaseName, table, columnComparsions}
+		operation.Args = []interface{}{aq.DatabaseName, table, columnComparsions, limit}
 
 		// Set operation
 		execNode.Operation = operation

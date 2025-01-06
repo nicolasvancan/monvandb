@@ -16,6 +16,7 @@ func TableFileRead(params ...interface{}) (df.Dataframe, error) {
 	tableName := params[1].(string)
 
 	columnComparsions := params[2].([]db.ColumnComparsion)
+	limit := params[3].(int)
 
 	database, err := db.GetDatabase(databaseName)
 
@@ -30,7 +31,7 @@ func TableFileRead(params ...interface{}) (df.Dataframe, error) {
 	}
 
 	// Get raw data from table
-	rangeResults := table.Range(columnComparsions, -1, -1)
+	rangeResults := table.Range(columnComparsions, limit, -1)
 
 	if len(rangeResults) == 0 {
 		fmt.Println("No results found for query")

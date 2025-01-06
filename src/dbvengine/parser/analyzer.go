@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"strconv"
 
 	sqlparser "github.com/blastrain/vitess-sqlparser/sqlparser"
 	database "github.com/nicolasvancan/monvandb/src/database"
@@ -76,7 +77,8 @@ type AnalyzedQuerySelect struct {
 	Joins                   map[string]JoinAnalysis
 	From                    FromAnalysis
 	JoinsFilters            map[string]dataframe.Filters
-	Order                   string
+	Order                   []ColFunction
+	Limit                   int
 	err                     error
 }
 
@@ -96,6 +98,7 @@ func NewAnalyzedQuerySelect() *AnalyzedQuerySelect {
 		Joins:                   make(map[string]JoinAnalysis),
 		From:                    FromAnalysis{},
 		JoinsFilters:            make(map[string]dataframe.Filters),
+		Limit:                   -1,
 		err:                     nil,
 	}
 }
@@ -181,6 +184,33 @@ func analyzeSelect(databaseName string, stmt *sqlparser.Select) *AnalyzedQuerySe
 
 	// Group by
 	analyzedQuerySelect.GroupBy = analyzeGroupBy(stmt.GroupBy)
+
+	// Having
+	// Limit
+	if stmt.Limit != nil {
+		if stmt.Limit.Rowcount != nil {
+			limitValue, err := strconv.Atoi(string(stmt.Limit.Rowcount.(*sqlparser.SQLVal).Val))
+			if err != nil {
+				analyzedQuerySelect.err = fmt.Errorf("invalid limit value: %v", err)
+				return analyzedQuerySelect
+			}
+			analyzedQuerySelect.Limit = limitValue
+		}
+	}
+
+	// Order
+	if stmt.OrderBy != nil {
+		analyzedQuerySelect.Order, err = analyzeOrderBy(
+			db,
+			stmt.OrderBy,
+			&analyzedQuerySelect.TablesAlias,
+		)
+
+		if err != nil {
+			analyzedQuerySelect.err = err
+			return analyzedQuerySelect
+		}
+	}
 
 	// Select
 	analyzedQuerySelect.Select, err = analyzeSelectedColumns(

@@ -626,7 +626,7 @@ func analyzeIsExpr(
 	tablesAlias *map[string]string,
 	tablesColumnComparsions *map[string][]database.ColumnComparsion,
 	tableFilters *map[string]dataframe.Filters,
-	subqueries *map[string]*AnalyzedQuerySelect,
+	_ *map[string]*AnalyzedQuerySelect,
 	id int,
 	parentId int,
 	logicalLayer int,
@@ -661,6 +661,25 @@ func analyzeIsExpr(
 	// The only type here is colname
 	switch v := expr.Expr.(type) {
 	case *sqlparser.ColName:
+
+		// Validate if table exists in context
+		tabRef := v.Qualifier.Name.String()
+
+		if tabRef == "" {
+			foundCol := false
+			// The column verifying proccess when there it no tabRef is done by getting all columns
+			// from all tables and checking whether or not they exist
+			for _, tabName := range *tablesAlias {
+				if columnExists(db, tabName, v.Name.String()) {
+					foundCol = true
+				}
+			}
+
+			if !foundCol {
+				return compExpr, fmt.Errorf("column %s does not exist in query context", v.Name.String())
+			}
+		}
+
 		compExpr.LeftType = "column"
 		compExpr.LeftValue = v.Name.String()
 		compExpr.LeftAlias = v.Qualifier.Name.String()
