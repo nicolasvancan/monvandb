@@ -283,30 +283,31 @@ func buildSelectPlan(exec *executor.ExecutionLayer, aq *parser.AnalyzedQuerySele
 		// Edit the parent node to add notify
 		nodes[previousNode].AddNotify(nodeName)
 		previousNode = nodeName
+	} else {
+		// Create new execution Node
+		nodeName := fmt.Sprintf("select_%s", previousNode)
+		execNode := executor.NewExecutionNode(nodeName, exec)
+
+		// Create Operation
+		operation := executor.Operation{}
+		operation.Name = executor.SELECT
+		operation.Args = []interface{}{previousNode, exec.Context, selectColumns}
+
+		// Set operation
+		execNode.Operation = operation
+
+		// Add dependency
+		execNode.AddDependency(previousNode)
+
+		// Add node to the map
+		nodes[nodeName] = execNode
+
+		// Edit the parent node to add notify
+		nodes[previousNode].AddNotify(nodeName)
+		previousNode = nodeName
 	}
 
-	// Create new execution Node
-	nodeName := fmt.Sprintf("select_%s", previousNode)
-	execNode := executor.NewExecutionNode(nodeName, exec)
-
-	// Create Operation
-	operation := executor.Operation{}
-	operation.Name = executor.SELECT
-	operation.Args = []interface{}{previousNode, exec.Context, selectColumns}
-
-	// Set operation
-	execNode.Operation = operation
-
-	// Add dependency
-	execNode.AddDependency(previousNode)
-
-	// Add node to the map
-	nodes[nodeName] = execNode
-
-	// Edit the parent node to add notify
-	nodes[previousNode].AddNotify(nodeName)
-	previousNode = nodeName
-	returnNode = nodeName
+	returnNode = previousNode
 
 	// OrderBy
 	if len(aq.Order) > 0 {
