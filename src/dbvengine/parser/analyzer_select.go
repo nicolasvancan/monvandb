@@ -46,9 +46,9 @@ func analyzeSelectedColumns(
 	return analyzedQuerySelect, nil
 }
 
-func analyzeOrderBy(db *database.Database, stmt sqlparser.OrderBy, tablesAlias *map[string]string) ([]ColFunction, error) {
+func analyzeOrderBy(db *database.Database, stmt sqlparser.OrderBy, tablesAlias *map[string]string) ([]ColFunction, bool, error) {
 	analyzedQuerySelect := make([]ColFunction, 0)
-
+	asc := false
 	// Iterate over order by columns
 	for _, orderByExpr := range stmt {
 		expr := orderByExpr.Expr.(*sqlparser.ColName)
@@ -57,7 +57,7 @@ func analyzeOrderBy(db *database.Database, stmt sqlparser.OrderBy, tablesAlias *
 		// Verify if column exists in the database
 		// Validate if table exists in context
 		tabRef := expr.Qualifier.Name.String()
-
+		asc := orderByExpr.Direction == sqlparser.AscScr
 		if tabRef == "" {
 			foundCol := false
 			// The column verifying proccess when there it no tabRef is done by getting all columns
@@ -69,7 +69,7 @@ func analyzeOrderBy(db *database.Database, stmt sqlparser.OrderBy, tablesAlias *
 			}
 
 			if !foundCol {
-				return analyzedQuerySelect, fmt.Errorf("column %s does not exist in query context", expr.Name.String())
+				return analyzedQuerySelect, asc, fmt.Errorf("column %s does not exist in query context", expr.Name.String())
 			}
 		}
 
@@ -81,5 +81,5 @@ func analyzeOrderBy(db *database.Database, stmt sqlparser.OrderBy, tablesAlias *
 		analyzedQuerySelect = append(analyzedQuerySelect, tmp)
 	}
 
-	return analyzedQuerySelect, nil
+	return analyzedQuerySelect, asc, nil
 }

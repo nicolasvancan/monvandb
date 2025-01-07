@@ -1,8 +1,13 @@
 package dbvengine
 
 import (
+	"time"
+
+	"github.com/blastrain/vitess-sqlparser/sqlparser"
 	"github.com/nicolasvancan/monvandb/src/dbvengine/contexts"
+	df "github.com/nicolasvancan/monvandb/src/dbvengine/dataframe"
 	executor "github.com/nicolasvancan/monvandb/src/dbvengine/executor"
+	parser "github.com/nicolasvancan/monvandb/src/dbvengine/parser"
 )
 
 /* The engine is the entrypoint for queries to the database.
@@ -22,19 +27,59 @@ func NewVirtualEngine(globalContext *Context) *VirtualEngine {
 	ve.GlobalContext = globalContext
 	// Create execution Layer
 	ve.ExecutionLayer = executor.NewExecutionLayer(new(contexts.ExecutionContext))
-	// Create the execution layer
 
 	return ve
+}
+
+func (ve *VirtualEngine) Execute(databaseName string, query string) ExecutionResults {
+	results := ExecutionResults{ExecutionFailed, df.Dataframe{}, 0, ""}
+	// Parse And analyze Query the query
+	parsedQuery, err := sqlparser.Parse(query)
+
+	if err != nil {
+		results.ErrorMessage = err.Error()
+		return results
+	}
+	// Analyze the query
+	analyzedQuery := parser.AnalyzeQuery(databaseName, parsedQuery)
+	// Execute the query
+	if analyzedQuery.Error() != nil {
+		results.ErrorMessage = analyzedQuery.Error().Error()
+		return results
+	}
+
+	// Build the plan
+	BuildPlan(analyzedQuery, ve.ExecutionLayer)
+	// Get time now
+	before := time.Now()
+	// Execute the plan
+	ve.ExecutionLayer.Start()
+	// Get time after
+	after := time.Now()
+	// Calculate the duration in seconds
+	results.Duration = int(after.Sub(before).Seconds())
+	// Return the results
+	results.Status = ExecutionSuccess
+	results.Result = ve.ExecutionLayer.Context.Result
+	return results
 }
 
 type Context struct {
 	// The current database
 	Ttl              int
-	ExecutionResults map[string]interface{}
+	ExecutionResults map[string]df.Dataframe
 }
 
+type ExecutionStatus int
+
+const (
+	ExecutionFailed ExecutionStatus = iota
+	ExecutionSuccess
+)
+
 type ExecutionResults struct {
-	Status       int
-	Result       interface{}
+	Status       ExecutionStatus
+	Result       df.Dataframe
+	Duration     int
 	ErrorMessage string
 }

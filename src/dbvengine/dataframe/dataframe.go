@@ -21,6 +21,12 @@ type Dataframe struct {
 	Alias   string
 }
 
+type DfOn struct {
+	Left     string
+	Right    string
+	Operator string
+}
+
 func DataframeFromElementsSlice(rows []HashedElementSlice, columns []string, Dtypes []int) Dataframe {
 	dataframe := Dataframe{}
 	dataframe.Columns = columns
@@ -668,8 +674,6 @@ func (df Dataframe) GroupBy(columns []string, aggregators []GroupByAgg) (Datafra
 		finalDf.Columns = tmpColumns
 		finalDf.DTypes = tmpDtypes
 		finalDf.Series = tmpSeries
-		fmt.Printf("Final df Table: %v\n", finalDf)
-
 	}
 
 	for _, elementsSlice := range hashedTable {
@@ -703,7 +707,6 @@ func (df Dataframe) GroupBy(columns []string, aggregators []GroupByAgg) (Datafra
 		newRow := make([]Element, 0)
 		newRow = append(newRow, firstRowValues...)
 
-		fmt.Printf("Final df Table: %v\n", finalDf)
 		// Otherwise, we need to aggregate the values and add the new aggregated columns
 		// to the final dataframe
 

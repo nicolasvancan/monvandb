@@ -225,8 +225,12 @@ func buildSelectPlan(exec *executor.ExecutionLayer, aq *parser.AnalyzedQuerySele
 	}
 
 	// TODO: GroupBy
-	// TODO: OrderBy
-
+	groupCols := make([]string, 0)
+	groupByAggregators := make([]dataframe.GroupByAgg, 0)
+	for _, groupBy := range aq.GroupBy {
+		colName := groupBy.Column
+		groupCols = append(groupCols, colName)
+	}
 	// Select based on previous join
 	// This is the final node
 	selectColumns := make([]string, 0)
@@ -235,10 +239,50 @@ func buildSelectPlan(exec *executor.ExecutionLayer, aq *parser.AnalyzedQuerySele
 		// For col functions, when there is either case, function, operation or subquery
 		// we must create node handlers for that, otherwise we just append the column name
 		if colFunc.Func != "" {
-			//TODO: process function
+			// When there is a function to be called first we check
+			// whether the function is an aggregation function
+			if len(groupCols) > 0 {
+				_, isInAggregation := dataframe.Aggregators[strings.ToLower(colFunc.Func)]
+				if isInAggregation {
+					aggregator := dataframe.GroupByAgg{
+						Column: colFunc.Column,
+						Agg:    strings.ToLower(colFunc.Func),
+						As:     colFunc.Alias,
+					}
+
+					groupByAggregators = append(groupByAggregators, aggregator)
+				}
+				continue
+			}
+
+			// Otherwise we create a new node for the function
 		}
 
 		selectColumns = append(selectColumns, colFunc.Column)
+	}
+
+	// If group by is present, we must create a new node for the group by operation
+	if len(groupCols) > 0 {
+		nodeName := fmt.Sprintf("groupby_%s", previousNode)
+		execNode := executor.NewExecutionNode(nodeName, exec)
+
+		// Create Operation
+		operation := executor.Operation{}
+		operation.Name = executor.GROUPBY
+		operation.Args = []interface{}{previousNode, exec.Context, groupCols, groupByAggregators}
+
+		// Set operation
+		execNode.Operation = operation
+
+		// Add dependency
+		execNode.AddDependency(previousNode)
+
+		// Add node to the map
+		nodes[nodeName] = execNode
+
+		// Edit the parent node to add notify
+		nodes[previousNode].AddNotify(nodeName)
+		previousNode = nodeName
 	}
 
 	// Create new execution Node
@@ -261,7 +305,41 @@ func buildSelectPlan(exec *executor.ExecutionLayer, aq *parser.AnalyzedQuerySele
 
 	// Edit the parent node to add notify
 	nodes[previousNode].AddNotify(nodeName)
+	previousNode = nodeName
 	returnNode = nodeName
+
+	// OrderBy
+	if len(aq.Order) > 0 {
+		// Create new execution Node
+		stringOrderSlice := make([]string, 0)
+
+		for _, order := range aq.Order {
+			stringOrderSlice = append(stringOrderSlice, order.Column)
+		}
+
+		nodeName := fmt.Sprintf("order_%s", previousNode)
+		execNode := executor.NewExecutionNode(nodeName, exec)
+
+		// Create Operation
+		operation := executor.Operation{}
+		operation.Name = executor.ORDERBY
+		operation.Args = []interface{}{previousNode, exec.Context, stringOrderSlice, aq.Asc}
+
+		// Set operation
+		execNode.Operation = operation
+
+		// Add dependency
+		execNode.AddDependency(previousNode)
+
+		// Add node to the map
+		nodes[nodeName] = execNode
+
+		// Edit the parent node to add notify
+		nodes[previousNode].AddNotify(nodeName)
+
+		returnNode = nodeName
+	}
+
 	// dump the nodes to the execution layer
 	for _, node := range nodes {
 		exec.AddNode(node, false)

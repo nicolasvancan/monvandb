@@ -78,6 +78,7 @@ type AnalyzedQuerySelect struct {
 	From                    FromAnalysis
 	JoinsFilters            map[string]dataframe.Filters
 	Order                   []ColFunction
+	Asc                     bool
 	Limit                   int
 	err                     error
 }
@@ -98,7 +99,9 @@ func NewAnalyzedQuerySelect() *AnalyzedQuerySelect {
 		Joins:                   make(map[string]JoinAnalysis),
 		From:                    FromAnalysis{},
 		JoinsFilters:            make(map[string]dataframe.Filters),
+		Order:                   make([]ColFunction, 0),
 		Limit:                   -1,
+		Asc:                     false,
 		err:                     nil,
 	}
 }
@@ -200,7 +203,7 @@ func analyzeSelect(databaseName string, stmt *sqlparser.Select) *AnalyzedQuerySe
 
 	// Order
 	if stmt.OrderBy != nil {
-		analyzedQuerySelect.Order, err = analyzeOrderBy(
+		analyzedQuerySelect.Order, analyzedQuerySelect.Asc, err = analyzeOrderBy(
 			db,
 			stmt.OrderBy,
 			&analyzedQuerySelect.TablesAlias,
