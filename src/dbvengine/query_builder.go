@@ -58,7 +58,13 @@ func buildSelectPlan(exec *executor.ExecutionLayer, aq *parser.AnalyzedQuerySele
 		operation.Name = executor.TABLE_FILE_READ
 		// Get column comparsions for the table
 		columnComparsions := aq.TablesColumnComparsions[alias]
-		operation.Args = []interface{}{aq.DatabaseName, table, columnComparsions, limit}
+		operation.Args = []interface{}{
+			aq.DatabaseName,
+			table,
+			columnComparsions,
+			limit,
+			alias, // This will be the qualifier
+		}
 
 		// Set operation
 		execNode.Operation = operation
@@ -231,9 +237,10 @@ func buildSelectPlan(exec *executor.ExecutionLayer, aq *parser.AnalyzedQuerySele
 		colName := groupBy.Column
 		groupCols = append(groupCols, colName)
 	}
+
 	// Select based on previous join
 	// This is the final node
-	selectColumns := make([]string, 0)
+	selectColumns := make([]dataframe.SelectColumnInput, 0)
 
 	for _, colFunc := range aq.Select {
 		// For col functions, when there is either case, function, operation or subquery
@@ -257,8 +264,12 @@ func buildSelectPlan(exec *executor.ExecutionLayer, aq *parser.AnalyzedQuerySele
 
 			// Otherwise we create a new node for the function
 		}
+		tmpSelectColumn := dataframe.SelectColumnInput{
+			Column: colFunc.Column,
+			Alias:  colFunc.Alias,
+		}
 
-		selectColumns = append(selectColumns, colFunc.Column)
+		selectColumns = append(selectColumns, tmpSelectColumn)
 	}
 
 	// If group by is present, we must create a new node for the group by operation

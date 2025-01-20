@@ -79,10 +79,10 @@ func NewSeries(values interface{}) Series {
 }
 
 func (s Series) Copy() Series {
-	copied_elements := make([]Element, len(s.Elements))
-	copy(copied_elements, s.Elements)
+	copiedElements := make([]Element, len(s.Elements))
+	copy(copiedElements, s.Elements)
 	return Series{
-		Elements: copied_elements,
+		Elements: copiedElements,
 		Type:     s.Type,
 	}
 }

@@ -16,8 +16,8 @@ func TestDataFrameCreation(t *testing.T) {
 	}
 
 	df := NewDataframe(rawRows)
-	df2, err := df.Select([]string{"Name", "age"})
 
+	df2, err := df.Select([]SelectColumnInput{{Column: "Name"}, {Column: "age"}})
 	if df.Len() != 3 {
 		t.Errorf("Expected 3 rows, got %d", df.Len())
 	}
@@ -139,13 +139,13 @@ func TestInnerJoin(t *testing.T) {
 	for _, col := range joined.Columns {
 		isIn := false
 		for _, col2 := range []string{"name", "age", "height", "height1"} {
-			if col2 == col {
+			if col2 == col.Info.Name {
 				isIn = true
 				break
 			}
 		}
 		if !isIn {
-			t.Errorf("Column %s not found", col)
+			t.Errorf("column %s not found", col.Info.Name)
 		}
 	}
 	fmt.Printf("%v\n", joined)
@@ -182,13 +182,13 @@ func TestLeftJoin(t *testing.T) {
 	for _, col := range joined.Columns {
 		isIn := false
 		for _, col2 := range []string{"name", "age", "height", "height1"} {
-			if col2 == col {
+			if col2 == col.Info.Name {
 				isIn = true
 				break
 			}
 		}
 		if !isIn {
-			t.Errorf("Column %s not found", col)
+			t.Errorf("column %s not found", col.Info.Name)
 		}
 	}
 }
@@ -224,13 +224,13 @@ func TestRightJoin(t *testing.T) {
 	for _, col := range joined.Columns {
 		isIn := false
 		for _, col2 := range []string{"name", "age", "height", "height1"} {
-			if col2 == col {
+			if col2 == col.Info.Name {
 				isIn = true
 				break
 			}
 		}
 		if !isIn {
-			t.Errorf("Column %s not found", col)
+			t.Errorf("Column %s not found", col.Info.Name)
 		}
 	}
 }
@@ -266,13 +266,13 @@ func TestOuterJoin(t *testing.T) {
 	for _, col := range joined.Columns {
 		isIn := false
 		for _, col2 := range []string{"name", "age", "height", "height1"} {
-			if col2 == col {
+			if col2 == col.Info.Name {
 				isIn = true
 				break
 			}
 		}
 		if !isIn {
-			t.Errorf("Column %s not found", col)
+			t.Errorf("column %s not found", col.Info.Name)
 		}
 	}
 }

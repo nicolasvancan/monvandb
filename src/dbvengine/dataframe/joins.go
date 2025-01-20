@@ -70,22 +70,26 @@ func resolveColumnsAndDTypesForJoin(df1 Dataframe, df2 Dataframe, on []string) (
 	// without duplicating the ones in on list
 
 	cols := make([]string, 0)
-	cols = append(cols, df1.Columns...)
 	dtypes := make([]int, 0)
-	dtypes = append(dtypes, df1.DTypes...)
+
+	for _, col := range df1.Columns {
+		cols = append(cols, col.Info.Name)
+		dtypes = append(dtypes, col.DType)
+
+	}
 
 	for i, col := range df2.Columns {
-		if !isColumnInList(col, on) {
-			if isColumnInList(col, cols) {
+		if !isColumnInList(col.Info.Name, on) {
+			if isColumnInList(col.Info.Name, cols) {
 				if df2.Alias != "" {
-					cols = append(cols, df2.Alias+"."+col)
-					dtypes = append(dtypes, df2.DTypes[i])
+					cols = append(cols, df2.Alias+"."+col.Info.Name)
+					dtypes = append(dtypes, df2.Columns[i].DType)
 				} else {
-					return nil, nil, fmt.Errorf("column %s exists in both dataframes", col)
+					return nil, nil, fmt.Errorf("column %s exists in both dataframes", col.Info.Name)
 				}
 			} else {
-				cols = append(cols, col)
-				dtypes = append(dtypes, df2.DTypes[i])
+				cols = append(cols, col.Info.Name)
+				dtypes = append(dtypes, df2.Columns[i].DType)
 			}
 		}
 	}
@@ -321,7 +325,7 @@ func outerJoin(df1 Dataframe, df2 Dataframe, on []string) (Dataframe, error) {
 
 				for i := range df1Elements {
 					if inIndex(i, indexesDf1) {
-						indexColumnLocation := indexOf(df1.Columns[i], df2.Columns)
+						indexColumnLocation := indexOf(df1.Columns[i].Info.Name, df2.Columns)
 						indexLocation := 0
 						for j, colIdx := range indexes {
 							if colIdx == indexColumnLocation {

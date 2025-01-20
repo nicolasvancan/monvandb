@@ -17,7 +17,7 @@ func TableFileRead(params ...interface{}) (df.Dataframe, error) {
 
 	columnComparsions := params[2].([]db.ColumnComparsion)
 	limit := params[3].(int)
-
+	qualifier := params[4].(string)
 	database, err := db.GetDatabase(databaseName)
 
 	if err != nil {
@@ -36,19 +36,23 @@ func TableFileRead(params ...interface{}) (df.Dataframe, error) {
 	if len(rangeResults) == 0 {
 		fmt.Println("No results found for query")
 		dataframe := df.Dataframe{}
-		columns := make([]string, 0)
-		series := make([]df.Series, 0)
+		colDfs := make([]df.DFColumn, 0)
 		for _, col := range table.Columns {
-			columns = append(columns, col.Name)
-			series = append(series, df.NewSeries(col.Name))
+
+			tmpDFCol := df.DFColumn{
+				Info:  df.DFColInfo{Name: col.Name, Qualifier: ""},
+				DType: col.Type,
+				Serie: df.NewSeries(nil),
+			}
+			colDfs = append(colDfs, tmpDFCol)
 		}
 
-		dataframe.Columns = columns
-		dataframe.Series = series
+		dataframe.Columns = colDfs
 		return dataframe, nil
 	}
-
-	return df.NewDataframe(table.Range(columnComparsions, -1, 1)), nil
+	newDf := df.NewDataframe(table.Range(columnComparsions, -1, 1))
+	newDf.SetQualifier(qualifier)
+	return newDf, nil
 }
 
 func TableFileInsert(params ...interface{}) (df.Dataframe, error) {

@@ -13,10 +13,25 @@ import (
 type AggType int
 type Aggregation int
 
+type SelectColumnInput struct {
+	Column string
+	Alias  string
+}
+
+// Abstraction of a column name, such as t.col1
+type DFColInfo struct {
+	Name      string
+	Qualifier string
+}
+
+type DFColumn struct {
+	Info  DFColInfo
+	Serie Series
+	DType int
+}
+
 type Dataframe struct {
-	Columns []string
-	Series  []Series // Map of column series
-	DTypes  []int
+	Columns []DFColumn
 	nRows   int
 	Alias   string
 }
@@ -27,21 +42,44 @@ type DfOn struct {
 	Operator string
 }
 
+func fromStringSliceToDFColumnSlice(slice []string) []DFColumn {
+	columns := make([]DFColumn, 0)
+	for _, col := range slice {
+		// Evaluate if the column has a qualifier
+		if strings.Contains(col, ".") {
+			splitted := strings.Split(col, ".")
+			columns = append(columns, DFColumn{
+				Info: DFColInfo{
+					Name:      splitted[1],
+					Qualifier: splitted[0],
+				},
+				Serie: NewSeries(nil),
+				DType: STRING,
+			})
+			continue
+		}
+
+		columns = append(columns, DFColumn{Info: DFColInfo{Name: col, Qualifier: ""}})
+	}
+
+	return columns
+}
+
 func DataframeFromElementsSlice(rows []HashedElementSlice, columns []string, Dtypes []int) Dataframe {
 	dataframe := Dataframe{}
-	dataframe.Columns = columns
-	dataframe.DTypes = Dtypes
-	dataframe.Series = make([]Series, len(columns))
-	dataframe.nRows = len(rows)
+	dataframe.Columns = fromStringSliceToDFColumnSlice(columns)
 
-	for i := range columns {
-		dataframe.Series[i] = NewSeries(nil)
-		dataframe.Series[i].Type = Dtypes[i]
+	for _, dType := range Dtypes {
+		dataframe.Columns[dType].DType = dType
+		dataframe.Columns[dType].Serie = NewSeries(nil)
+		dataframe.Columns[dType].Serie.Type = dType
 	}
+
+	dataframe.nRows = len(rows)
 
 	for _, row := range rows {
 		for i, value := range row {
-			dataframe.Series[i].AddValue(value)
+			dataframe.Columns[i].Serie.AddValue(value)
 		}
 	}
 
@@ -51,9 +89,16 @@ func DataframeFromElementsSlice(rows []HashedElementSlice, columns []string, Dty
 func (df Dataframe) String() string {
 	finalString := "\n"
 
+	// Print columns
 	for _, column := range df.Columns {
 		tmp := "| "
-		tmp += column
+
+		if column.Info.Qualifier != "" {
+			tmp += column.Info.Qualifier + "." + column.Info.Name
+		} else {
+			tmp += column.Info.Name
+		}
+
 		if len(tmp) < 30 {
 			for len(tmp) < 30 {
 				tmp += " "
@@ -67,6 +112,7 @@ func (df Dataframe) String() string {
 
 	finalString += "|\n"
 
+	// Print separator
 	final_string_len := len(finalString)
 	for i := 0; i < final_string_len-2; i++ {
 		finalString += "_"
@@ -74,9 +120,10 @@ func (df Dataframe) String() string {
 
 	finalString += "\n"
 
+	// Print values
 	for i := 0; i < df.Len(); i++ {
 		for j := 0; j < len(df.Columns); j++ {
-			value := df.Series[j].Elements[i]
+			value := df.Columns[j].Serie.Elements[i]
 			tmp := "| "
 			tmp += value.String()
 			if len(tmp) < 30 {
@@ -98,9 +145,9 @@ func (df Dataframe) String() string {
 func (df Dataframe) Values() [][]Element {
 	values := make([][]Element, 0)
 
-	for _, serie := range df.Series {
+	for _, col := range df.Columns {
 		tmp := make([]Element, 0)
-		tmp = append(tmp, serie.Elements...)
+		tmp = append(tmp, col.Serie.Elements...)
 		values = append(values, tmp)
 	}
 
@@ -117,20 +164,20 @@ func (df Dataframe) IsEmpty() bool {
 
 func (df Dataframe) getRow(index int) []Element {
 	row := make([]Element, 0)
-	for _, serie := range df.Series {
-		row = append(row, serie.Elements[index])
+	for _, col := range df.Columns {
+		row = append(row, col.Serie.Elements[index])
 	}
 
 	return row
 }
 
 func (df Dataframe) setRow(index int, row []Element) error {
-	if len(row) != len(df.Series) {
+	if len(row) != len(df.Columns) {
 		return fmt.Errorf("row length is different from dataframe columns")
 	}
 
 	for i, value := range row {
-		df.Series[i].Elements[index] = value
+		df.Columns[i].Serie.Elements[index] = value
 	}
 
 	return nil
@@ -138,7 +185,7 @@ func (df Dataframe) setRow(index int, row []Element) error {
 
 func (df *Dataframe) AddRow(row []Element) {
 	for i, value := range row {
-		df.Series[i].AddValue(value)
+		df.Columns[i].Serie.AddValue(value)
 	}
 	df.nRows = df.nRows + 1
 }
@@ -184,124 +231,120 @@ func NewDataframe(rawRows interface{}) Dataframe {
 	}
 }
 
-func (df *Dataframe) setDtypes(dTypes []int) {
-	df.DTypes = dTypes
+func (df *Dataframe) setDtypes(dTypes []int) error {
 
-	for i, _ := range df.Series {
-		df.Series[i].Type = dTypes[i]
+	if len(dTypes) != len(df.Columns) {
+		return fmt.Errorf("dTypes length is different from dataframe columns")
 	}
+
+	for i, _ := range df.Columns {
+		df.Columns[i].Serie.Type = dTypes[i]
+	}
+
+	return nil
 }
 
 func newDataFrameFromColumnsList(cols []string) Dataframe {
-	columns := make([]string, 0)
-	series := make([]Series, 0)
-	dTypes := make([]int, 0)
-	nRows := 0
+	newDf := Dataframe{}
+	newDf.Columns = fromStringSliceToDFColumnSlice(cols)
+	newDf.nRows = 0
+	newDf.Alias = ""
 
-	for _, col := range cols {
-		columns = append(columns, col)
-		series = append(series, NewSeries(nil))
-		dTypes = append(dTypes, STRING)
-	}
-
-	return Dataframe{
-		Columns: columns,
-		Series:  series,
-		DTypes:  dTypes,
-		nRows:   nRows,
-		Alias:   "",
-	}
+	return newDf
 }
 
 func newDataFrameFromMatrixElements(rows [][]Element) Dataframe {
-	series := make([]Series, 0)
-	columns := make([]string, 0)
-	dTypes := make([]int, 0)
-	nRows := len(rows)
-
+	columns := make([]DFColumn, 0)
+	nRows := 0
 	// Iterate over each row or rawRows
 	for _, row := range rows {
 		// Iterate over each column in the roww
 		for i, value := range row {
 			// Fill columns
 			if len(columns) < len(row) {
-				columns = append(columns, fmt.Sprintf("column_%d", i))
-				series = append(series, NewSeries(nil))
-			}
-			// Fill dTypes
-			if len(dTypes) < len(row) {
-				dTypes = append(dTypes, value.GetType())
-				series[i].Type = value.GetType()
+				dfCol := DFColumn{}
+				dfCol.Info.Name = fmt.Sprintf("column_%d", i)
+				dfCol.Serie = NewSeries(nil)
+				dfCol.Serie.Type = value.GetType()
+				dfCol.DType = value.GetType()
+				dfCol.Info.Qualifier = ""
+				columns = append(columns, dfCol)
 			}
 
-			series[i].AddValue(value)
+			columns[i].Serie.AddValue(value)
+			nRows += 1
 		}
 	}
 
 	return Dataframe{
 		Columns: columns,
-		Series:  series,
-		DTypes:  dTypes,
 		nRows:   nRows,
 		Alias:   "",
 	}
 }
 
 func newDataframeRawRow(rawRows []db.RawRow) Dataframe {
-	columns := make([]string, 0)
-	series := make([]Series, 0)
-	dTypes := make([]int, 0)
-	nRows := len(rawRows)
-
+	columns := make([]DFColumn, 0)
+	nRows := 0
 	// Iterate over each row or rawRows
 	for _, row := range rawRows {
 		// Iterate over each column in the row
 		for column, value := range row {
 			// Check if the column already exists
 			index := indexOf(strings.ToLower(column), columns)
+			elem := Elem(value)
 			if index == -1 {
 				// No column found, add it
-				columns = append(columns, strings.ToLower(column))
-				index = len(columns) - 1
-				// Create a new series for the column
-				series = append(series, NewSeries(nil))
+				dfCol := DFColumn{}
+				dfCol.Info.Name = column
+				dfCol.Info.Qualifier = ""
+				dfCol.DType = elem.GetType()
+				dfCol.Serie = NewSeries(nil)
+				dfCol.Serie.AddValue(elem)
+				columns = append(columns, dfCol)
+				continue
 			}
 
 			// Infer the schema of the value
-			dType := inferSchema(value)
-			if len(dTypes) < index+1 {
-				dTypes = append(dTypes, dType)
-				series[index] = series[index].Cast(dType)
-			} else {
-				// This avoid null values to change the type of the column
-				if dTypes[index] != dType && dTypes[index] == STRING {
-					dTypes[index] = dType
-					series[index] = series[index].Cast(dType)
-				}
+
+			dType := elem.GetType()
+
+			// This avoid null values to change the type of the column
+			if columns[index].DType != dType && columns[index].DType == STRING {
+				columns[index].DType = dType
+				columns[index].Serie = columns[index].Serie.Cast(dType)
 			}
 
 			// Add the value to the series
-			series[index].AddValue(Elem(value))
+			columns[index].Serie.AddValue(elem)
 		}
+		nRows += 1
+
 	}
 
 	return Dataframe{
 		Columns: columns,
-		Series:  series,
-		DTypes:  dTypes,
 		nRows:   nRows,
 		Alias:   "",
 	}
 }
 
+// Set qualifier replacing old qualifiers
+func (df Dataframe) SetQualifier(qualifier string) {
+	for _, col := range df.Columns {
+		col.Info.Qualifier = qualifier
+	}
+}
+
 func (df Dataframe) GetColumn(column string) (Series, error) {
 	index := indexOf(strings.ToLower(column), df.Columns)
+
 	if index == -1 {
 		return Series{}, fmt.Errorf("column %s not found", column)
 	}
 
 	//TODO: I don't know if it should come as a copy or as a reference
-	newSeries := NewSeries(df.Series[index])
+	newSeries := NewSeries(df.Columns[index].Serie)
 
 	return newSeries, nil
 }
@@ -316,7 +359,7 @@ func (df Dataframe) SetColumn(column string, series Series) error {
 		return fmt.Errorf("series length is different from dataframe length")
 	}
 
-	df.Series[index] = series
+	df.Columns[index].Serie = series
 	return nil
 }
 
@@ -337,47 +380,49 @@ func inferSchema(value interface{}) int {
 	}
 }
 
-func indexOf(element string, data []string) int {
+func indexOf(element string, data []DFColumn) int {
+	// Search for the element in data
+	splitedElement := strings.Split(element, ".")
+	qualifier := ""
+	colName := element
+
+	if len(splitedElement) > 1 {
+		qualifier = splitedElement[0]
+		colName = splitedElement[1]
+	}
+
 	for i, v := range data {
-		if v == element {
+		if qualifier != "" {
+			if v.Info.Qualifier == qualifier && v.Info.Name == colName {
+				return i
+			}
+		}
+
+		if v.Info.Name == element && v.Info.Qualifier == "" {
 			return i
 		}
 	}
+
 	return -1 // Return -1 if the element is not found
 }
 
-func (df Dataframe) Select(columns []string) (Dataframe, error) {
+func (df Dataframe) Select(columnsInputs []SelectColumnInput) (Dataframe, error) {
 
-	newSeries := make([]Series, 0)
-	dTypes := make([]int, 0)
-	indexes := make([]int, len(columns))
-	cols := make([]string, len(columns))
+	columns := make([]DFColumn, 0)
 	// Fill indexes array and validate if there is a column that does not exist
-	for i, column := range columns {
-		indexOf := indexOf(strings.ToLower(column), df.Columns)
+	for _, column := range columnsInputs {
+		indexOf := indexOf(strings.ToLower(column.Column), df.Columns)
 
 		// Returns if column is not found
 		if indexOf == -1 {
 			return Dataframe{}, fmt.Errorf("column %s not found", column)
 		}
-		indexes[i] = indexOf
-		cols[i] = strings.ToLower(df.Columns[indexOf])
-	}
 
-	// Fill newRows and dTypes
-	for _, col := range cols {
-		colSeries, err := df.GetColumn(col)
-		if err != nil {
-			return Dataframe{}, err
-		}
-
-		newSeries = append(newSeries, NewSeries(colSeries))
+		columns = append(columns, df.Columns[indexOf])
 	}
 
 	return Dataframe{
-		Columns: cols,
-		Series:  newSeries,
-		DTypes:  dTypes,
+		Columns: columns,
 		nRows:   df.nRows,
 	}, nil
 }
@@ -419,15 +464,14 @@ func isSlice(value interface{}) bool {
 }
 
 func (df Dataframe) indexes(indexes []int) Dataframe {
-	newSeries := make([]Series, 0)
-	for _, serie := range df.Series {
-		newSeries = append(newSeries, serie.Subset(indexes))
+	newColumns := make([]DFColumn, 0)
+	for _, col := range df.Columns {
+		col.Serie = col.Serie.Subset(indexes).Copy()
+		newColumns = append(newColumns, col)
 	}
 
 	return Dataframe{
-		Columns: df.Columns,
-		Series:  newSeries,
-		DTypes:  df.DTypes,
+		Columns: newColumns,
 		nRows:   len(indexes),
 	}
 }
@@ -551,12 +595,19 @@ func (df Dataframe) Apply(column string, fn AppliableFunction) (Dataframe, error
 func (df Dataframe) Concat(dataframe Dataframe) (Dataframe, error) {
 	newSeriesSize := 0
 	for _, column := range dataframe.Columns {
-		serieToBeConcatenated, err := dataframe.GetColumn(column) // Copy the Series
+		fullColName := column.Info.Name
+
+		if column.Info.Qualifier != "" {
+			fullColName = column.Info.Qualifier + "." + column.Info.Name
+		}
+
+		serieToBeConcatenated, err := dataframe.GetColumn(fullColName) // Copy the Series
+
 		if err != nil {
 			return Dataframe{}, err
 		}
 
-		serie, err := df.GetColumn(column)
+		serie, err := df.GetColumn(fullColName)
 
 		if err != nil {
 			return Dataframe{}, err
@@ -564,7 +615,8 @@ func (df Dataframe) Concat(dataframe Dataframe) (Dataframe, error) {
 
 		serie.Concat(serieToBeConcatenated)
 		df.nRows = serie.Len()
-		df.SetColumn(column, serie)
+
+		df.SetColumn(fullColName, serie)
 
 		if newSeriesSize > 0 && newSeriesSize != serie.Len() {
 			return Dataframe{}, fmt.Errorf("series have different lengths")
@@ -617,48 +669,68 @@ func (df Dataframe) GroupBy(columns []string, aggregators []GroupByAgg) (Datafra
 
 	for _, col := range allColumns {
 		index := indexOf(col, df.Columns)
+
 		if index == -1 {
 			return Dataframe{}, fmt.Errorf("column %s not found in df1", col)
 		}
 
-		DTypes = append(DTypes, df.DTypes[index])
+		DTypes = append(DTypes, df.Columns[index].DType)
 	}
 
 	// Bind output dataframe informations
 	aggregate := len(aggregators) > 0
 
 	if !aggregate {
-		finalDf.Columns = allColumns
-		finalDf.DTypes = DTypes
-		finalDf.Series = make([]Series, len(allColumns))
+		colDfs := fromStringSliceToDFColumnSlice(allColumns)
+
+		for i, colDf := range colDfs {
+			colDf.Serie = NewSeries(nil)
+			colDf.Serie.Type = DTypes[i]
+			colDf.DType = DTypes[i]
+		}
+
+		finalDf.Columns = colDfs
 	} else {
 		// Create new columns for the aggregators
 		// The types are copied from the original column
 		// The column names are eiher the one in AS field or
 		// the function name with column within parenthesis, such as
 		// sum(height)
-
-		tmpColumns := make([]string, 0)
-		tmpDtypes := make([]int, 0)
-		tmpSeries := make([]Series, 0)
+		tmpDfColumns := make([]DFColumn, 0)
 
 		// Get columns Dtypes and columns names, without aggregation
 		for _, col := range columns {
+			tmpDfCol := DFColumn{}
+
 			index := indexOf(col, df.Columns)
 			if index == -1 {
 				return Dataframe{}, fmt.Errorf("column %s not found in df1", col)
 			}
-			tmpColumns = append(tmpColumns, col)
-			tmpDtypes = append(tmpDtypes, df.DTypes[index])
-			tmpSeries = append(tmpSeries, NewSeries(nil))
+
+			tmpName := col
+			tmpQualifier := ""
+			if strings.Contains(col, ".") {
+				splitted := strings.Split(col, ".")
+				tmpName = splitted[1]
+				tmpQualifier = splitted[0]
+			}
+
+			tmpDfCol.Info.Name = tmpName
+			tmpDfCol.Info.Qualifier = tmpQualifier
+			tmpDfCol.DType = df.Columns[index].DType
+			tmpDfCol.Serie = NewSeries(nil)
+			tmpDfColumns = append(tmpDfColumns, tmpDfCol)
 		}
 
 		// Get aggergations infos for new DataFrame
 		for _, agg := range aggregators {
+			newDfCol := DFColumn{}
+			newAggColName := ""
+
 			if agg.As == "" {
-				tmpColumns = append(tmpColumns, fmt.Sprintf("%s(%s)", agg.Agg, agg.Column))
+				newAggColName = fmt.Sprintf("%s(%s)", agg.Agg, agg.Column)
 			} else {
-				tmpColumns = append(tmpColumns, agg.As)
+				newAggColName = agg.As
 			}
 
 			// Get index in order to get type
@@ -667,13 +739,15 @@ func (df Dataframe) GroupBy(columns []string, aggregators []GroupByAgg) (Datafra
 				return Dataframe{}, fmt.Errorf("column %s not found in df1", agg.Column)
 			}
 
-			tmpDtypes = append(tmpDtypes, df.DTypes[indexOf])
-			tmpSeries = append(tmpSeries, NewSeries(nil))
+			newDfCol.Info.Name = newAggColName
+			newDfCol.Info.Qualifier = ""
+			newDfCol.DType = df.Columns[indexOf].DType
+			newDfCol.Serie = NewSeries(nil)
+
+			tmpDfColumns = append(tmpDfColumns, newDfCol)
 		}
 
-		finalDf.Columns = tmpColumns
-		finalDf.DTypes = tmpDtypes
-		finalDf.Series = tmpSeries
+		finalDf.Columns = tmpDfColumns
 	}
 
 	for _, elementsSlice := range hashedTable {
@@ -697,7 +771,13 @@ func (df Dataframe) GroupBy(columns []string, aggregators []GroupByAgg) (Datafra
 		}
 
 		// Get columns values
-		firstRowColumns, err := firstRow.Select(columns)
+		selectInputs := make([]SelectColumnInput, 0)
+
+		for _, col := range columns {
+			selectInputs = append(selectInputs, SelectColumnInput{Column: col, Alias: ""})
+		}
+
+		firstRowColumns, err := firstRow.Select(selectInputs)
 		if err != nil {
 			return Dataframe{}, err
 		}
@@ -719,7 +799,7 @@ func (df Dataframe) GroupBy(columns []string, aggregators []GroupByAgg) (Datafra
 				return Dataframe{}, fmt.Errorf("aggregator %s not found", agg.Agg)
 			}
 
-			res, err := function(elementsDf.Series[i])
+			res, err := function(elementsDf.Columns[i].Serie)
 
 			if err != nil {
 				return Dataframe{}, err
@@ -781,14 +861,14 @@ func (df Dataframe) Sort(columns []string, ascending bool) (Dataframe, error) {
 func (df Dataframe) Limit(n int) (Dataframe, error) {
 
 	newDf := Dataframe{}
-	newDf.Columns = df.Columns
-	newDf.DTypes = df.DTypes
-	newDf.Alias = df.Alias
-	newDf.Series = make([]Series, 0)
 
-	for _, serie := range df.Series {
-		newSerie := serie.Limit(n)
-		newDf.Series = append(newDf.Series, newSerie)
+	newDf.Columns = df.Columns
+	newDf.Alias = df.Alias
+
+	for i, col := range df.Columns {
+		newSerie := col.Serie.Limit(n)
+
+		newDf.Columns[i].Serie = newSerie
 		newDf.nRows = newSerie.Len()
 	}
 
@@ -801,12 +881,19 @@ func (df Dataframe) ToRawRow() ([]db.RawRow, error) {
 	for i := 0; i < df.Len(); i++ {
 		row := make(db.RawRow)
 		for _, column := range df.Columns {
-			serie, err := df.GetColumn(column)
+			fullColName := column.Info.Name
+
+			if column.Info.Qualifier != "" {
+				fullColName = column.Info.Qualifier + "." + column.Info.Name
+			}
+			serie, err := df.GetColumn(fullColName)
+
 			if err != nil {
 				return nil, err
 			}
 
-			row[strings.ToLower(column)] = serie.Elements[i].GetValue()
+			// Qualifier should not come out in the final result
+			row[strings.ToLower(column.Info.Name)] = serie.Elements[i].GetValue()
 		}
 		rawRows = append(rawRows, row)
 	}

@@ -13,7 +13,7 @@ func DataframeSelect(params ...interface{}) (df.Dataframe, error) {
 	dataframeRef := params[0].(string)
 	context := params[1].(*contexts.ExecutionContext)
 	dataframe := context.OperationsResults[dataframeRef]
-	selectCols := params[2].([]string)
+	selectCols := params[2].([]df.SelectColumnInput)
 
 	// Select data from dataframe
 	selectedDf, err := dataframe.Select(selectCols)
