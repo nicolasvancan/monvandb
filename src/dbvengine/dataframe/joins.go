@@ -5,6 +5,12 @@ import "fmt"
 type HashedElementSlice []Element
 type ElementHashTable map[string][]HashedElementSlice
 
+type JoinOn struct {
+	Left       string
+	Right      string
+	Comparator string
+}
+
 func isColumnInList(column string, list []string) bool {
 	for _, col := range list {
 		if col == column {
@@ -65,7 +71,7 @@ func addRowToHash(row HashedElementSlice, hashTable *ElementHashTable, indexes [
 	(*hashTable)[hash] = append((*hashTable)[hash], row)
 }
 
-func resolveColumnsAndDTypesForJoin(df1 Dataframe, df2 Dataframe, on []string) ([]string, []int, error) {
+func resolveColumnsAndDTypesForJoin(df1 Dataframe, df2 Dataframe, on JoinOn) ([]string, []int, error) {
 	// Inner columns are supposed to be all columns
 	// without duplicating the ones in on list
 
@@ -79,7 +85,7 @@ func resolveColumnsAndDTypesForJoin(df1 Dataframe, df2 Dataframe, on []string) (
 	}
 
 	for i, col := range df2.Columns {
-		if !isColumnInList(col.Info.Name, on) {
+		if !isColumnInList(col.Info.Name, []string{on.Right}) {
 			if isColumnInList(col.Info.Name, cols) {
 				if df2.Alias != "" {
 					cols = append(cols, df2.Alias+"."+col.Info.Name)
@@ -106,16 +112,16 @@ func inIndex(index int, indexes []int) bool {
 	return false
 }
 
-func innerJoin(df1 Dataframe, df2 Dataframe, on []string) (Dataframe, error) {
+func innerJoin(df1 Dataframe, df2 Dataframe, on JoinOn) (Dataframe, error) {
 
-	hashTable, err := createHashTableForDf(df1, on)
+	hashTable, err := createHashTableForDf(df1, []string{on.Left})
 
 	if err != nil {
 		return Dataframe{}, err
 	}
 
 	// For dataFrame 2
-	indexes, err := getIndexes(df2, on)
+	indexes, err := getIndexes(df2, []string{on.Right})
 
 	if err != nil {
 		return Dataframe{}, err
@@ -159,9 +165,9 @@ func innerJoin(df1 Dataframe, df2 Dataframe, on []string) (Dataframe, error) {
 	return finalDf, nil
 }
 
-func leftJoin(df1 Dataframe, df2 Dataframe, on []string) (Dataframe, error) {
+func leftJoin(df1 Dataframe, df2 Dataframe, on JoinOn) (Dataframe, error) {
 
-	hashTableDf1, err := createHashTableForDf(df1, on)
+	hashTableDf1, err := createHashTableForDf(df1, []string{on.Left})
 
 	if err != nil {
 		return Dataframe{}, err
@@ -178,14 +184,14 @@ func leftJoin(df1 Dataframe, df2 Dataframe, on []string) (Dataframe, error) {
 	finalDf := NewDataframe(resolvedColumns)
 	finalDf.setDtypes(dTypes)
 
-	hasTableDf2, err := createHashTableForDf(df2, on)
+	hasTableDf2, err := createHashTableForDf(df2, []string{on.Right})
 
 	if err != nil {
 		return Dataframe{}, err
 	}
 
 	// Indexes For dataFrame 2
-	indexes, err := getIndexes(df2, on)
+	indexes, err := getIndexes(df2, []string{on.Right})
 
 	if err != nil {
 		return Dataframe{}, err
@@ -226,14 +232,14 @@ func leftJoin(df1 Dataframe, df2 Dataframe, on []string) (Dataframe, error) {
 	return finalDf, nil
 }
 
-func rightJoin(df1 Dataframe, df2 Dataframe, on []string) (Dataframe, error) {
+func rightJoin(df1 Dataframe, df2 Dataframe, on JoinOn) (Dataframe, error) {
 	// Operates exactly like left join but with the dataframes switched
 	return leftJoin(df2, df1, on)
 }
 
-func outerJoin(df1 Dataframe, df2 Dataframe, on []string) (Dataframe, error) {
+func outerJoin(df1 Dataframe, df2 Dataframe, on JoinOn) (Dataframe, error) {
 	// Create a new Dataframe
-	hashTableDf1, err := createHashTableForDf(df1, on)
+	hashTableDf1, err := createHashTableForDf(df1, []string{on.Left})
 
 	if err != nil {
 		return Dataframe{}, err
@@ -250,14 +256,14 @@ func outerJoin(df1 Dataframe, df2 Dataframe, on []string) (Dataframe, error) {
 	finalDf := NewDataframe(resolvedColumns)
 	finalDf.setDtypes(dTypes)
 
-	hasTableDf2, err := createHashTableForDf(df2, on)
+	hasTableDf2, err := createHashTableForDf(df2, []string{on.Right})
 
 	if err != nil {
 		return Dataframe{}, err
 	}
 
 	// Indexes For dataFrame 2
-	indexes, err := getIndexes(df2, on)
+	indexes, err := getIndexes(df2, []string{on.Right})
 
 	if err != nil {
 		return Dataframe{}, err
@@ -294,7 +300,7 @@ func outerJoin(df1 Dataframe, df2 Dataframe, on []string) (Dataframe, error) {
 		}
 	}
 
-	indexesDf1, err := getIndexes(df1, on)
+	indexesDf1, err := getIndexes(df1, []string{on.Left})
 
 	if err != nil {
 		return Dataframe{}, err

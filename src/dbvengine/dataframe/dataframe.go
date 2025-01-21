@@ -631,7 +631,7 @@ func (df Dataframe) Drop(columns []string) (Dataframe, error) {
 	return Dataframe{}, nil
 }
 
-func (df Dataframe) Join(df2 Dataframe, on []string, how string) (Dataframe, error) {
+func (df Dataframe) Join(df2 Dataframe, on JoinOn, how string) (Dataframe, error) {
 	switch how {
 	case "inner":
 		return innerJoin(df, df2, on)

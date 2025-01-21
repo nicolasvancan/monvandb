@@ -125,7 +125,8 @@ func TestInnerJoin(t *testing.T) {
 	df1 := NewDataframe(rawRows1)
 	df2 := NewDataframe(rawRows2)
 	df2.Alias = "t"
-	joined, err := df1.Join(df2, []string{"name", "age"}, "inner")
+	joined, err := df1.Join(df2, JoinOn{Left: "name", Right: "name"}, "inner")
+	joined, err = joined.Join(df2, JoinOn{Left: "age", Right: "age"}, "inner")
 
 	if err != nil {
 		t.Errorf("Expected no error got %v", err)
@@ -168,7 +169,8 @@ func TestLeftJoin(t *testing.T) {
 	df1 := NewDataframe(rawRows1)
 	df2 := NewDataframe(rawRows2)
 	df2.Alias = "t"
-	joined, err := df1.Join(df2, []string{"name", "age"}, "left")
+	joined, err := df1.Join(df2, JoinOn{Left: "name", Right: "name"}, "left")
+	joined, err = joined.Join(df2, JoinOn{Left: "age", Right: "age"}, "left")
 
 	if err != nil {
 		t.Errorf("Expected no error got %v", err)
@@ -210,7 +212,8 @@ func TestRightJoin(t *testing.T) {
 	df1 := NewDataframe(rawRows1)
 	df2 := NewDataframe(rawRows2)
 	df2.Alias = "t"
-	joined, err := df1.Join(df2, []string{"name", "age"}, "right")
+	joined, err := df1.Join(df2, JoinOn{Left: "name", Right: "name"}, "right")
+	joined, err = joined.Join(df2, JoinOn{Left: "age", Right: "age"}, "right")
 
 	if err != nil {
 		t.Errorf("Expected no error got %v", err)
@@ -252,7 +255,8 @@ func TestOuterJoin(t *testing.T) {
 	df1 := NewDataframe(rawRows1)
 	df2 := NewDataframe(rawRows2)
 	df2.Alias = "t"
-	joined, err := df1.Join(df2, []string{"name", "age"}, "outer")
+	joined, _ := df1.Join(df2, JoinOn{Left: "age", Right: "age"}, "outer")
+	joined, err := joined.Join(df2, JoinOn{Left: "name", Right: "name"}, "outer")
 
 	if err != nil {
 		t.Errorf("Expected no error got %v", err)

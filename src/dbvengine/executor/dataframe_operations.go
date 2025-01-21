@@ -36,7 +36,7 @@ func DataframeJoin(params ...interface{}) (df.Dataframe, error) {
 	dataframe := context.OperationsResults[dataframeRefs[0]]
 	joinDataframe := context.OperationsResults[dataframeRefs[1]]
 	// On
-	on := params[2].([]string)
+	on := params[2].(df.JoinOn)
 	// how
 	how := params[3].(string)
 

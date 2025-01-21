@@ -40,6 +40,91 @@ func buildSelectPlan(exec *executor.ExecutionLayer, aq *parser.AnalyzedQuerySele
 		previousNode = aq.From.Alias
 	}
 
+	// Build queries for table
+	previousNode = buildQueryForTables(exec, aq, &nodes, previousNode)
+
+	// Sub selects
+	previousNode = buildQueryForSubSelects(exec, aq, &nodes, previousNode)
+
+	// Create the filter layer
+	previousNode = buildQueriesForFilterLayer(exec, aq, &nodes, previousNode)
+
+	// Create the join layer
+	previousNode = buildQueriesForJoins(exec, aq, &nodes, previousNode)
+
+	// Create queries for GroupBy
+	groupCols := make([]string, 0)
+	groupByAggregators := make([]dataframe.GroupByAgg, 0)
+	for _, groupBy := range aq.GroupBy {
+		colName := groupBy.Column
+		groupCols = append(groupCols, colName)
+	}
+
+	// This is the final node
+	selectColumns := make([]dataframe.SelectColumnInput, 0)
+
+	// Select based on previous join
+	previousNode = fillUpAggregatorsAndSelect(
+		exec,
+		aq,
+		&groupByAggregators,
+		&selectColumns,
+		previousNode,
+		len(groupCols) > 0,
+	)
+
+	// Create operations for select and group by
+	previousNode = selectAndGroupBy(
+		exec,
+		&nodes,
+		previousNode,
+		groupCols,
+		groupByAggregators,
+		selectColumns,
+	)
+
+	// OrderBy
+	previousNode = buildOrderByPlan(
+		exec,
+		aq,
+		&nodes,
+		previousNode,
+	)
+
+	returnNode = previousNode
+
+	// dump the nodes to the execution layer
+	for _, node := range nodes {
+		exec.AddNode(node, false)
+	}
+	return returnNode
+}
+
+// This should not be here, I must create a module for this kind of functions
+func appendIfMissing(slice []string, value string) []string {
+	for _, v := range slice {
+		if v == value {
+			return slice
+		}
+	}
+	return append(slice, value)
+}
+
+func isInSlice(slice []string, value string) bool {
+	for _, v := range slice {
+		if v == value {
+			return true
+		}
+	}
+	return false
+}
+
+func buildQueryForTables(
+	exec *executor.ExecutionLayer,
+	aq *parser.AnalyzedQuerySelect,
+	nodes *map[string]*executor.ExecutionNode,
+	previousNode string,
+) string {
 	for alias, table := range aq.TablesAlias {
 		// Create new execution Noe
 		nodeName := alias
@@ -70,24 +155,41 @@ func buildSelectPlan(exec *executor.ExecutionLayer, aq *parser.AnalyzedQuerySele
 		execNode.Operation = operation
 
 		// Add node to the map
-		nodes[alias] = execNode
+		(*nodes)[alias] = execNode
 	}
 
-	// Sub selects
+	return previousNode
+}
+
+func buildQueryForSubSelects(
+	exec *executor.ExecutionLayer,
+	aq *parser.AnalyzedQuerySelect,
+	nodes *map[string]*executor.ExecutionNode,
+	previousNode string,
+) string {
+	prevNode := previousNode
 	for alias, subSelect := range aq.Subqueries {
 
 		// Calls this function recursivelly
 		resultNodeName := buildSelectPlan(exec, subSelect)
 
 		// Create reference to node using subquery alias
-		nodes[alias] = nodes[resultNodeName]
+		(*nodes)[alias] = (*nodes)[resultNodeName]
 
 		if previousNode == "" && aq.From.IsSubQuery && aq.From.Alias == alias {
-			previousNode = alias
+			prevNode = alias
 		}
 	}
 
-	// Create the filter layer
+	return prevNode
+}
+
+func buildQueriesForFilterLayer(
+	exec *executor.ExecutionLayer,
+	aq *parser.AnalyzedQuerySelect,
+	nodes *map[string]*executor.ExecutionNode,
+	previousNode string,
+) string {
 	for alias, filter := range aq.TablesFilters {
 		// Create new execution Node
 		isTableFilter := len(strings.Split(alias, "-")) <= 1
@@ -107,12 +209,22 @@ func buildSelectPlan(exec *executor.ExecutionLayer, aq *parser.AnalyzedQuerySele
 			execNode.AddDependency(alias)
 
 			// Add node to the map
-			nodes[nodeName] = execNode
+			(*nodes)[nodeName] = execNode
 
 			// Edit the parent node to add notify
-			nodes[alias].AddNotify(nodeName)
+			(*nodes)[alias].AddNotify(nodeName)
 		}
 	}
+
+	return previousNode
+}
+
+func buildQueriesForJoins(
+	exec *executor.ExecutionLayer,
+	aq *parser.AnalyzedQuerySelect,
+	nodes *map[string]*executor.ExecutionNode,
+	previousNode string,
+) string {
 
 	// Join the dataframes
 	// Search for table filtering when there is a join
@@ -136,7 +248,7 @@ func buildSelectPlan(exec *executor.ExecutionLayer, aq *parser.AnalyzedQuerySele
 	// for example, if the resulting join is from t1 to t2, than both will be present
 	// in this slice
 	existingJoinedSources := make([]string, 0)
-
+	prevNode := previousNode
 	for _, join := range aq.Joins {
 		// Create new execution Node
 
@@ -151,21 +263,26 @@ func buildSelectPlan(exec *executor.ExecutionLayer, aq *parser.AnalyzedQuerySele
 		leftTable := join.LeftAlias
 		rightTable := join.RightAlias
 
-		if previousNode != "" {
+		if prevNode != "" {
 			if isInSlice(existingJoinedSources, leftTable) {
-				leftTable = previousNode
+				leftTable = prevNode
 			} else {
-				rightTable = previousNode
+				rightTable = prevNode
 			}
 		}
 
+		dfJoin := dataframe.JoinOn{
+			Left:       join.On.LeftValue.(string),
+			Right:      join.On.RightValue.(string),
+			Comparator: "=",
+		}
 		// Create Operation
 		operation := executor.Operation{}
 		operation.Name = executor.JOIN
 		operation.Args = []interface{}{[]string{
 			leftTable, rightTable},
 			exec.Context,
-			[]string{join.On.LeftValue.(string)},
+			dfJoin,
 			join.How,
 		}
 
@@ -175,23 +292,23 @@ func buildSelectPlan(exec *executor.ExecutionLayer, aq *parser.AnalyzedQuerySele
 		// Add dependencies
 		// When there is no filter for the each table, such as t_filter, we must
 		// add the table itself as dependency
-		if _, ok := nodes[leftTable+"_filter"]; ok {
+		if _, ok := (*nodes)[leftTable+"_filter"]; ok {
 			leftTable = leftTable + "_filter"
 		}
 
-		if _, ok := nodes[rightTable+"_filter"]; ok {
+		if _, ok := (*nodes)[rightTable+"_filter"]; ok {
 			rightTable = rightTable + "_filter"
 		}
 		execNode.AddDependency(leftTable)
 		execNode.AddDependency(rightTable)
 		// Add node to the map
-		nodes[nodeName] = execNode
+		(*nodes)[nodeName] = execNode
 
 		// Edit the parent node to add notify
-		nodes[leftTable].AddNotify(nodeName)
-		nodes[rightTable].AddNotify(nodeName)
+		(*nodes)[leftTable].AddNotify(nodeName)
+		(*nodes)[rightTable].AddNotify(nodeName)
 
-		previousNode = nodeName
+		prevNode = nodeName
 
 		// Verify filtering part
 		// If there is a filter for the join, we must create a new node
@@ -220,35 +337,34 @@ func buildSelectPlan(exec *executor.ExecutionLayer, aq *parser.AnalyzedQuerySele
 			execNode.AddDependency(nodeName)
 
 			// Add node to the map
-			nodes[filterNodeName] = execNode
+			(*nodes)[filterNodeName] = execNode
 
 			// Edit the parent node to add notify
-			nodes[nodeName].AddNotify(filterNodeName)
+			(*nodes)[nodeName].AddNotify(filterNodeName)
 
 			// Edit the previous join node to add notify
-			previousNode = filterNodeName
+			prevNode = filterNodeName
 		}
 	}
 
-	// TODO: GroupBy
-	groupCols := make([]string, 0)
-	groupByAggregators := make([]dataframe.GroupByAgg, 0)
-	for _, groupBy := range aq.GroupBy {
-		colName := groupBy.Column
-		groupCols = append(groupCols, colName)
-	}
+	return prevNode
+}
 
-	// Select based on previous join
-	// This is the final node
-	selectColumns := make([]dataframe.SelectColumnInput, 0)
-
+func fillUpAggregatorsAndSelect(
+	_ *executor.ExecutionLayer,
+	aq *parser.AnalyzedQuerySelect,
+	groupByAggregators *[]dataframe.GroupByAgg,
+	selectColumns *[]dataframe.SelectColumnInput,
+	previousNode string,
+	hasGroupBy bool,
+) string {
 	for _, colFunc := range aq.Select {
 		// For col functions, when there is either case, function, operation or subquery
 		// we must create node handlers for that, otherwise we just append the column name
 		if colFunc.Func != "" {
 			// When there is a function to be called first we check
 			// whether the function is an aggregation function
-			if len(groupCols) > 0 {
+			if hasGroupBy {
 				_, isInAggregation := dataframe.Aggregators[strings.ToLower(colFunc.Func)]
 				if isInAggregation {
 					aggregator := dataframe.GroupByAgg{
@@ -257,7 +373,7 @@ func buildSelectPlan(exec *executor.ExecutionLayer, aq *parser.AnalyzedQuerySele
 						As:     colFunc.Alias,
 					}
 
-					groupByAggregators = append(groupByAggregators, aggregator)
+					*groupByAggregators = append(*groupByAggregators, aggregator)
 				}
 				continue
 			}
@@ -269,9 +385,20 @@ func buildSelectPlan(exec *executor.ExecutionLayer, aq *parser.AnalyzedQuerySele
 			Alias:  colFunc.Alias,
 		}
 
-		selectColumns = append(selectColumns, tmpSelectColumn)
+		*selectColumns = append(*selectColumns, tmpSelectColumn)
 	}
 
+	return previousNode
+}
+
+func selectAndGroupBy(
+	exec *executor.ExecutionLayer,
+	nodes *map[string]*executor.ExecutionNode,
+	previousNode string,
+	groupCols []string,
+	groupByAggregators []dataframe.GroupByAgg,
+	selectColumns []dataframe.SelectColumnInput,
+) string {
 	// If group by is present, we must create a new node for the group by operation
 	if len(groupCols) > 0 {
 		nodeName := fmt.Sprintf("groupby_%s", previousNode)
@@ -289,10 +416,10 @@ func buildSelectPlan(exec *executor.ExecutionLayer, aq *parser.AnalyzedQuerySele
 		execNode.AddDependency(previousNode)
 
 		// Add node to the map
-		nodes[nodeName] = execNode
+		(*nodes)[nodeName] = execNode
 
 		// Edit the parent node to add notify
-		nodes[previousNode].AddNotify(nodeName)
+		(*nodes)[previousNode].AddNotify(nodeName)
 		previousNode = nodeName
 	} else {
 		// Create new execution Node
@@ -311,16 +438,22 @@ func buildSelectPlan(exec *executor.ExecutionLayer, aq *parser.AnalyzedQuerySele
 		execNode.AddDependency(previousNode)
 
 		// Add node to the map
-		nodes[nodeName] = execNode
+		(*nodes)[nodeName] = execNode
 
 		// Edit the parent node to add notify
-		nodes[previousNode].AddNotify(nodeName)
+		(*nodes)[previousNode].AddNotify(nodeName)
 		previousNode = nodeName
 	}
 
-	returnNode = previousNode
+	return previousNode
+}
 
-	// OrderBy
+func buildOrderByPlan(
+	exec *executor.ExecutionLayer,
+	aq *parser.AnalyzedQuerySelect,
+	nodes *map[string]*executor.ExecutionNode,
+	previousNode string,
+) string {
 	if len(aq.Order) > 0 {
 		// Create new execution Node
 		stringOrderSlice := make([]string, 0)
@@ -344,36 +477,13 @@ func buildSelectPlan(exec *executor.ExecutionLayer, aq *parser.AnalyzedQuerySele
 		execNode.AddDependency(previousNode)
 
 		// Add node to the map
-		nodes[nodeName] = execNode
+		(*nodes)[nodeName] = execNode
 
 		// Edit the parent node to add notify
-		nodes[previousNode].AddNotify(nodeName)
+		(*nodes)[previousNode].AddNotify(nodeName)
 
-		returnNode = nodeName
+		previousNode = nodeName
 	}
 
-	// dump the nodes to the execution layer
-	for _, node := range nodes {
-		exec.AddNode(node, false)
-	}
-	return returnNode
-}
-
-// This should not be here, I must create a module for this kind of functions
-func appendIfMissing(slice []string, value string) []string {
-	for _, v := range slice {
-		if v == value {
-			return slice
-		}
-	}
-	return append(slice, value)
-}
-
-func isInSlice(slice []string, value string) bool {
-	for _, v := range slice {
-		if v == value {
-			return true
-		}
-	}
-	return false
+	return previousNode
 }
