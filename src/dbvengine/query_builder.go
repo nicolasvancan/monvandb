@@ -274,7 +274,7 @@ func buildQueriesForJoins(
 		dfJoin := dataframe.JoinOn{
 			Left:       join.On.LeftValue.(string),
 			Right:      join.On.RightValue.(string),
-			Comparator: "=",
+			Comparator: join.On.Operator,
 		}
 		// Create Operation
 		operation := executor.Operation{}

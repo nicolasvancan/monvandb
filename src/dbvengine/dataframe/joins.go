@@ -26,6 +26,8 @@ func createHashForColumns(row []Element, indexes []int) string {
 	for _, index := range indexes {
 		hash += row[index].String() + "|"
 	}
+
+	hash = hash[:len(hash)-1]
 	return hash
 }
 
@@ -112,6 +114,21 @@ func inIndex(index int, indexes []int) bool {
 	return false
 }
 
+func compareHashes(hash1, hash2, comparator string) bool {
+	switch comparator {
+	case ">":
+		return hash1 > hash2
+	case "<":
+		return hash1 < hash2
+	case ">=":
+		return hash1 >= hash2
+	case "<=":
+		return hash1 <= hash2
+	default:
+		return false
+	}
+}
+
 func innerJoin(df1 Dataframe, df2 Dataframe, on JoinOn) (Dataframe, error) {
 
 	hashTable, err := createHashTableForDf(df1, []string{on.Left})
@@ -142,23 +159,48 @@ func innerJoin(df1 Dataframe, df2 Dataframe, on JoinOn) (Dataframe, error) {
 
 	for iterator.HasNext() {
 		row := iterator.Next()
-		hash := createHashForColumns(row, indexes)
+		switch on.Comparator {
+		case "=", "!=", "<>":
+			hash := createHashForColumns(row, indexes)
 
-		hashedValues, ok := hashTable[hash]
-		// If the hash exists in the hash table
-		if ok {
+			hashedValues, ok := hashTable[hash]
+			// If the hash exists in the hash table
+			if ok && on.Comparator == "=" || !ok && (on.Comparator == "!=" || on.Comparator == "<>") {
 
-			for _, hashedValue := range hashedValues {
-				colsToAppend := make([]Element, 0)
+				for _, hashedValue := range hashedValues {
+					colsToAppend := make([]Element, 0)
 
-				for i, el := range row {
-					if !inIndex(i, indexes) {
-						colsToAppend = append(colsToAppend, el)
+					for i, el := range row {
+						if !inIndex(i, indexes) {
+							colsToAppend = append(colsToAppend, el)
+						}
+					}
+
+					finalDf.AddRow(append(hashedValue, colsToAppend...))
+				}
+			}
+		case ">", "<", ">=", "<=":
+
+			// Iterate over hash table
+			for hash, hashedValues := range hashTable {
+				// If the hash is greater than the current hash
+				// Iterate over all hashed values
+				if compareHashes(hash, createHashForColumns(row, indexes), on.Comparator) {
+					for _, hashedValue := range hashedValues {
+						colsToAppend := make([]Element, 0)
+
+						for i, el := range row {
+							if !inIndex(i, indexes) {
+								colsToAppend = append(colsToAppend, el)
+							}
+						}
+
+						finalDf.AddRow(append(hashedValue, colsToAppend...))
 					}
 				}
-
-				finalDf.AddRow(append(hashedValue, colsToAppend...))
 			}
+		default:
+			return Dataframe{}, fmt.Errorf("comparator %s not supported", on.Comparator)
 		}
 	}
 
@@ -200,31 +242,52 @@ func leftJoin(df1 Dataframe, df2 Dataframe, on JoinOn) (Dataframe, error) {
 	// Iterate over the first hashtable
 	for hash, hashedValues1 := range hashTableDf1 {
 
-		// Iterate over all hashed elements for the given hash
-		for _, elements := range hashedValues1 {
+		switch on.Comparator {
+		case "=", "!=", "<>":
+			// Iterate over all hashed elements for the given hash
+			for _, elements := range hashedValues1 {
 
-			// Get hash value []Elements
-			hashedValues, ok := hasTableDf2[hash]
+				// Get hash value []Elements
+				hashedValues, ok := hasTableDf2[hash]
 
-			// If the hash exists in the right hash table
-			if ok {
-				for _, hashedValue := range hashedValues {
-					for i, el := range hashedValue {
-						if !inIndex(i, indexes) {
-							elements = append(elements, el)
+				// If the hash exists in the right hash table
+				if ok && on.Comparator == "=" || !ok && (on.Comparator == "!=" || on.Comparator == "<>") {
+					for _, hashedValue := range hashedValues {
+						for i, el := range hashedValue {
+							if !inIndex(i, indexes) {
+								elements = append(elements, el)
+							}
 						}
+						finalDf.AddRow(elements)
 					}
-					finalDf.AddRow(elements)
-				}
+					continue
 
-			} else {
+				}
 
 				for len(resolvedColumns)-len(elements) > 0 {
 					elements = append(elements, Elem(nil))
 				}
 				finalDf.AddRow(elements)
-			}
 
+			}
+		case ">", "<", ">=", "<=":
+			// Iterate over hash table
+			for hash, hashedValues := range hasTableDf2 {
+				// If the hash is greater than the current hash
+				// Iterate over all hashed values
+				if compareHashes(hash, hash, on.Comparator) {
+					for _, hashedValue := range hashedValues {
+						for _, elements := range hashedValues1 {
+							for i, el := range hashedValue {
+								if !inIndex(i, indexes) {
+									elements = append(elements, el)
+								}
+							}
+							finalDf.AddRow(elements)
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -288,14 +351,13 @@ func outerJoin(df1 Dataframe, df2 Dataframe, on JoinOn) (Dataframe, error) {
 					}
 					finalDf.AddRow(elements)
 				}
-
-			} else {
-
-				for len(resolvedColumns)-len(elements) > 0 {
-					elements = append(elements, Elem(nil))
-				}
-				finalDf.AddRow(elements)
+				continue
 			}
+
+			for len(resolvedColumns)-len(elements) > 0 {
+				elements = append(elements, Elem(nil))
+			}
+			finalDf.AddRow(elements)
 
 		}
 	}
