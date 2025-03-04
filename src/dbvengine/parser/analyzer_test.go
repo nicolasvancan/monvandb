@@ -31,7 +31,7 @@ func CreateDatabaseFileAndSetFile(t *testing.T) {
 	// Create a new database
 
 	db := new(database.Database)
-	db.Name = "db_teste"
+	db.Name = "mock"
 	db.Path = databaseFolderName
 	db.TablePaths = make(map[string]string)
 	db.Tables = make(map[string]*database.Table)
@@ -89,7 +89,7 @@ func CreateMockTable(t *testing.T) *database.Table {
 			Name: "name",
 			Type: database.COL_TYPE_STRING,
 		},
-	})
+	}, false, false)
 
 	if err != nil {
 		t.Errorf("error creating table: %v", err)
@@ -119,7 +119,7 @@ func CreateMockTable(t *testing.T) *database.Table {
 			Name: "other_column",
 			Type: database.COL_TYPE_STRING,
 		},
-	})
+	}, false, false)
 
 	table, _ = db.GetTable("table_teste2")
 
@@ -133,7 +133,7 @@ func TestFromAnalyzis(t *testing.T) {
 
 	CreateMockTable(t)
 
-	query := "SELECT t2.name as name, id as IDZAO FROM table_teste as t INNER JOIN table_teste2 t2 ON t.id = t2.id AND t.id > 20 WHERE t.id = 1"
+	query := "SELECT t.name as name, id as IDZAO FROM table_teste as t INNER JOIN table_teste2 t2 ON t.id = t2.id AND t.id > 20 WHERE t.id = 1"
 	stmt, err := sqlparser.Parse(query)
 
 	if err != nil {
@@ -160,7 +160,7 @@ func TestFromAnalyzis(t *testing.T) {
 
 		// analyze joins
 		joins := analyzed.Joins
-		if len(joins) != 2 {
+		if len(joins) != 1 {
 			t.Errorf("expected 1, got %v", len(joins))
 		}
 
@@ -175,7 +175,7 @@ func TestFromAnalyzis(t *testing.T) {
 
 		// analyze filters
 		tableFilters := analyzed.TablesFilters
-		if len(tableFilters) != 2 {
+		if len(tableFilters) != 1 {
 			t.Errorf("expected 1, got %v", len(tableFilters))
 		}
 
@@ -188,5 +188,51 @@ func TestFromAnalyzis(t *testing.T) {
 		}
 	default:
 		t.Errorf("expected AnalyzedQuerySelect, got %v", analyzed)
+	}
+}
+
+func TestCreateTableAnalysis(t *testing.T) {
+	CreateMockTable(t)
+
+	query := "CREATE TABLE table_teste3 (id INT PRIMARY KEY, name TEXT)"
+	stmt, err := sqlparser.Parse(query)
+
+	if err != nil {
+		t.Errorf("error parsing query: %v", err)
+	}
+
+	analyzed := AnalyzeQuery("mock", stmt)
+
+	if analyzed.Error() != nil {
+		t.Errorf("error analyzing query: %v", analyzed.Error())
+	}
+
+	switch analyzed := analyzed.(type) {
+	case *AnalyzedQueryCreateTable:
+		if analyzed.DatabaseName != "mock" {
+			t.Errorf("expected mock, got %v", analyzed.DatabaseName)
+		}
+
+		if analyzed.TableName != "table_teste3" {
+			t.Errorf("expected table_teste3, got %v", analyzed)
+		}
+
+		if len(analyzed.Columns) != 2 {
+			t.Errorf("expected 2, got %v", len(analyzed.Columns))
+		}
+
+		if analyzed.Columns[0].Name != "id" &&
+			analyzed.Columns[0].Type != database.COL_TYPE_INT &&
+			analyzed.Columns[0].Primary != true {
+			t.Errorf("wrong column")
+		}
+
+		if analyzed.Columns[1].Name != "name" &&
+			analyzed.Columns[1].Type != database.COL_TYPE_STRING &&
+			analyzed.Columns[1].Primary != false {
+			t.Errorf("wrong column")
+		}
+	default:
+		t.Errorf("expected AnalyzedQueryCreateTable, got %v", analyzed)
 	}
 }

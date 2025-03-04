@@ -58,9 +58,9 @@ var Operations = map[string]func(...interface{}) (df.Dataframe, error){
 	ORDERBY: DataframeOrderBy,
 	LIMIT:   DataframeLimit,
 	// Table Operations
-	TABLE_CREATE: nil, // Create a table operation
-	TABLE_DROP:   nil, // Drop a table operation
-	TABLE_ALTER:  nil, // Alter a table operation
+	TABLE_CREATE: TableFileCreate, // Create a table operation
+	TABLE_DROP:   nil,             // Drop a table operation
+	TABLE_ALTER:  nil,             // Alter a table operation
 	// Database Operations
 	DATABASE_CREATE: nil, // Create a database operation
 	DATABASE_DROP:   nil, // Drop a database operation

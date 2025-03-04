@@ -59,6 +59,9 @@ type ColFunction struct {
 	Args   []interface{}
 }
 
+/*
+Interface Types
+*/
 type AnalyzedQueryData interface {
 	String() string
 	Error() error
@@ -83,9 +86,17 @@ type AnalyzedQuerySelect struct {
 	err                     error
 }
 
-func (a AnalyzedQuerySelect) String() string {
-	return fmt.Sprintf("AnalyzedQuerySelect{DatabaseName: Select %v\n %s\n From %v\n TablesAlias: %v\n Subqueries: %v\n TablesColumnComparsions: %v\n TablesFilters: %v\n Joins: %v\n JoinsFilters: %v\n Error: %v\n", a.Select, a.DatabaseName, a.From, a.TablesAlias, a.Subqueries, a.TablesColumnComparsions, a.TablesFilters, a.Joins, a.JoinsFilters, a.Error())
+// TODO: Create constraints
+type AnalyzedQueryCreateTable struct {
+	DatabaseName    string
+	TableName       string
+	Columns         []database.Column
+	Truncate        bool
+	VerifyExistence bool
+	err             error
 }
+
+/* End interface Types*/
 
 func NewAnalyzedQuerySelect() *AnalyzedQuerySelect {
 	return &AnalyzedQuerySelect{
@@ -106,7 +117,28 @@ func NewAnalyzedQuerySelect() *AnalyzedQuerySelect {
 	}
 }
 
+func (a AnalyzedQuerySelect) String() string {
+	return fmt.Sprintf("AnalyzedQuerySelect{DatabaseName: Select %v\n %s\n From %v\n TablesAlias: %v\n Subqueries: %v\n TablesColumnComparsions: %v\n TablesFilters: %v\n Joins: %v\n JoinsFilters: %v\n Error: %v\n", a.Select, a.DatabaseName, a.From, a.TablesAlias, a.Subqueries, a.TablesColumnComparsions, a.TablesFilters, a.Joins, a.JoinsFilters, a.Error())
+}
+
 func (a *AnalyzedQuerySelect) Error() error {
+	return a.err
+}
+
+func NewAnalyzedQueryCreateTable() *AnalyzedQueryCreateTable {
+	return &AnalyzedQueryCreateTable{
+		Columns:         make([]database.Column, 0),
+		Truncate:        false,
+		VerifyExistence: false,
+		err:             nil,
+	}
+}
+
+func (a AnalyzedQueryCreateTable) String() string {
+	return fmt.Sprintf("AnalyzedQueryCreateTable{DatabaseName: %s\n TableName: %s\n Columns: %v\n Truncate: %v\n VerifyExistence: %v\n Error: %v\n", a.DatabaseName, a.TableName, a.Columns, a.Truncate, a.VerifyExistence, a.Error())
+}
+
+func (a *AnalyzedQueryCreateTable) Error() error {
 	return a.err
 }
 
@@ -115,6 +147,8 @@ func AnalyzeQuery(databaseName string, parsedQuery sqlparser.Statement) Analyzed
 	switch stmt := parsedQuery.(type) {
 	case *sqlparser.Select:
 		analyzedData = analyzeSelect(databaseName, stmt)
+	case *sqlparser.CreateTable:
+		analyzedData = analyzeCreateTable(databaseName, stmt)
 	default:
 	}
 	return analyzedData

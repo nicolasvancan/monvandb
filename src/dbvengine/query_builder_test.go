@@ -16,7 +16,7 @@ import (
 func TestSimpleQueryBuild(t *testing.T) {
 	CreateMockTable(t)
 
-	query := "SELECT t.id, t.name, t2.other_column FROM table_teste t INNER JOIN table_teste2 t2 ON t.id = t2.id"
+	query := "SELECT t.id, t.name as bang, t2.other_column aiusop FROM table_teste t INNER JOIN table_teste2 t2 ON t.id = t2.id"
 	parsedQuery, err := sqlparser.Parse(query)
 
 	if err != nil {
@@ -64,7 +64,7 @@ func CreateMockTable(t *testing.T) *database.Table {
 			Type:    database.COL_TYPE_STRING,
 			Primary: false,
 		},
-	})
+	}, false, false)
 
 	if err != nil {
 		t.Errorf("error creating table: %v", err)
@@ -97,7 +97,7 @@ func CreateMockTable(t *testing.T) *database.Table {
 			Type:    database.COL_TYPE_STRING,
 			Primary: false,
 		},
-	})
+	}, false, false)
 
 	table, _ = db.GetTable("table_teste2")
 

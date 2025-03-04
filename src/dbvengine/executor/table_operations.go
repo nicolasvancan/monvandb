@@ -50,8 +50,10 @@ func TableFileRead(params ...interface{}) (df.Dataframe, error) {
 		dataframe.Columns = colDfs
 		return dataframe, nil
 	}
+
 	newDf := df.NewDataframe(table.Range(columnComparsions, -1, 1))
 	newDf.SetQualifier(qualifier)
+
 	return newDf, nil
 }
 
@@ -168,4 +170,33 @@ func TableFileDelete(params ...interface{}) (df.Dataframe, error) {
 	}
 
 	return df.NewDataframe([]db.RawRow{{"Rows Deleted": numberRows}}), nil
+}
+
+func TableFileCreate(params ...interface{}) (df.Dataframe, error) {
+	// First parameter is always the database name
+	// Second parameter is always the table name
+	// The last parameter is always a []db.Column
+	// fourth param is truncate
+	// fith param is if exists
+
+	databaseName := params[0].(string)
+	tableName := params[1].(string)
+	columns := params[2].([]db.Column)
+	truncate := params[3].(bool)
+	verifyExistence := params[4].(bool)
+
+	database, err := db.GetDatabase(databaseName)
+
+	if err != nil {
+		return df.Dataframe{}, err
+	}
+
+	// Create a new table
+	err = database.CreateTable(tableName, columns, truncate, verifyExistence)
+
+	if err != nil {
+		return df.Dataframe{}, err
+	}
+
+	return df.NewDataframe([]db.RawRow{{"Table Created": tableName}}), nil
 }
