@@ -1,5 +1,9 @@
 package parser
 
+/*
+	This file contains all table modifications analyzer functions
+	such as Create Table, Update Table, Drop Table, Alter Table, and so on
+*/
 import (
 	"strconv"
 	"strings"

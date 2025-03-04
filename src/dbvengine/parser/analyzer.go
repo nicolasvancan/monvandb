@@ -2,7 +2,6 @@ package parser
 
 import (
 	"fmt"
-	"strconv"
 
 	sqlparser "github.com/blastrain/vitess-sqlparser/sqlparser"
 	database "github.com/nicolasvancan/monvandb/src/database"
@@ -96,6 +95,14 @@ type AnalyzedQueryCreateTable struct {
 	err             error
 }
 
+type AnalyzedQueryInsert struct {
+	DatabaseName string
+	TableName    string
+	Columns      []string
+	Values       interface{}
+	err          error
+}
+
 /* End interface Types*/
 
 func NewAnalyzedQuerySelect() *AnalyzedQuerySelect {
@@ -142,6 +149,22 @@ func (a *AnalyzedQueryCreateTable) Error() error {
 	return a.err
 }
 
+func NewAnalyzedQueryInsert() *AnalyzedQueryInsert {
+	return &AnalyzedQueryInsert{
+		Columns: make([]string, 0),
+		Values:  nil,
+		err:     nil,
+	}
+}
+
+func (a *AnalyzedQueryInsert) String() string {
+	return fmt.Sprintf("AnalyzedQueryInsert{DatabaseName: %s\n TableName: %s\n Columns: %v\n Values: %v\n", a.DatabaseName, a.TableName, a.Columns, a.Values)
+}
+
+func (a *AnalyzedQueryInsert) Error() error {
+	return a.err
+}
+
 func AnalyzeQuery(databaseName string, parsedQuery sqlparser.Statement) AnalyzedQueryData {
 	var analyzedData AnalyzedQueryData
 	switch stmt := parsedQuery.(type) {
@@ -149,118 +172,9 @@ func AnalyzeQuery(databaseName string, parsedQuery sqlparser.Statement) Analyzed
 		analyzedData = analyzeSelect(databaseName, stmt)
 	case *sqlparser.CreateTable:
 		analyzedData = analyzeCreateTable(databaseName, stmt)
+	case *sqlparser.Insert:
+		analyzedData = analyzeInsert(databaseName, stmt)
 	default:
 	}
 	return analyzedData
-}
-
-func AnalyseSubSelect(
-	databaseName string,
-	stmt *sqlparser.Select,
-	columnComparsions *map[string][]database.ColumnComparsion,
-) *AnalyzedQuerySelect {
-	return nil
-}
-
-func getTable(database *database.Database, tableName string) (*database.Table, error) {
-	table, err := database.GetTable(tableName)
-	if err != nil {
-		return nil, fmt.Errorf("table %s does not exist", tableName)
-	}
-	return table, nil
-}
-
-func analyzeSelect(databaseName string, stmt *sqlparser.Select) *AnalyzedQuerySelect {
-	// Iterate over from clause
-	analyzedQuerySelect := NewAnalyzedQuerySelect()
-	analyzedQuerySelect.DatabaseName = databaseName
-
-	// Verify database
-	db, err := database.GetDatabase(databaseName)
-
-	if err != nil {
-		analyzedQuerySelect.err = err
-		return analyzedQuerySelect
-	}
-
-	// Verify from clause
-	fromAnalyzis, joinsOn, err := analyzeFrom(
-		db,
-		stmt.From,
-		&analyzedQuerySelect.TablesAlias,
-		&analyzedQuerySelect.Subqueries,
-		&analyzedQuerySelect.TablesColumnComparsions,
-		&analyzedQuerySelect.TablesFilters,
-	)
-
-	if err != nil {
-		analyzedQuerySelect.err = err
-		return analyzedQuerySelect
-	}
-
-	analyzedQuerySelect.From = fromAnalyzis
-	analyzedQuerySelect.Joins = joinsOn
-
-	// Analyze Where
-	if stmt.Where != nil {
-		err = analyzeWhere(
-			stmt.Where,
-			db,
-			&analyzedQuerySelect.TablesAlias,
-			&analyzedQuerySelect.TablesColumnComparsions,
-			&analyzedQuerySelect.TablesFilters,
-			&analyzedQuerySelect.Subqueries,
-		)
-		if err != nil {
-			analyzedQuerySelect.err = err
-		}
-	}
-
-	// Distinct
-	analyzedQuerySelect.Distinct = stmt.Distinct != ""
-
-	// Group by
-	analyzedQuerySelect.GroupBy = analyzeGroupBy(stmt.GroupBy)
-
-	// Having
-	// Limit
-	if stmt.Limit != nil {
-		if stmt.Limit.Rowcount != nil {
-			limitValue, err := strconv.Atoi(string(stmt.Limit.Rowcount.(*sqlparser.SQLVal).Val))
-			if err != nil {
-				analyzedQuerySelect.err = fmt.Errorf("invalid limit value: %v", err)
-				return analyzedQuerySelect
-			}
-			analyzedQuerySelect.Limit = limitValue
-		}
-	}
-
-	// Order
-	if stmt.OrderBy != nil {
-		analyzedQuerySelect.Order, analyzedQuerySelect.Asc, err = analyzeOrderBy(
-			db,
-			stmt.OrderBy,
-			&analyzedQuerySelect.TablesAlias,
-		)
-
-		if err != nil {
-			analyzedQuerySelect.err = err
-			return analyzedQuerySelect
-		}
-	}
-
-	// Select
-	analyzedQuerySelect.Select, err = analyzeSelectedColumns(
-		db,
-		stmt.SelectExprs,
-		&analyzedQuerySelect.TablesAlias,
-		&analyzedQuerySelect.Subqueries,
-		&analyzedQuerySelect.TablesColumnComparsions,
-	)
-
-	if err != nil {
-		analyzedQuerySelect.err = err
-	}
-
-	return analyzedQuerySelect
 }
