@@ -18,6 +18,13 @@ func DataframeSelect(params ...interface{}) (df.Dataframe, error) {
 	// Select data from dataframe
 	selectedDf, err := dataframe.Select(selectCols)
 
+	// Rename columns that have alias
+	for _, col := range selectCols {
+		if col.Alias != "" {
+			selectedDf.RenameCol(col.Column, col.Alias)
+		}
+	}
+
 	if err != nil {
 		return df.Dataframe{}, err
 	}

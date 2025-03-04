@@ -686,7 +686,6 @@ func (df Dataframe) GroupBy(columns []string, aggregators []GroupByAgg) (Datafra
 		for i, colDf := range colDfs {
 			colDf.Serie = NewSeries(nil)
 			colDf.Serie.Type = DTypes[i]
-			colDf.DType = DTypes[i]
 		}
 
 		finalDf.Columns = colDfs
@@ -812,6 +811,18 @@ func (df Dataframe) GroupBy(columns []string, aggregators []GroupByAgg) (Datafra
 
 	}
 	return finalDf, nil
+}
+
+func (df Dataframe) RenameCol(oldName string, newName string) error {
+	index := indexOf(oldName, df.Columns)
+
+	if index == -1 {
+		return fmt.Errorf("column %s not found", oldName)
+	}
+
+	df.Columns[index].Info.Name = newName
+
+	return nil
 }
 
 // ByColumn implements sort.Interface for [][]Element based on a specific column.
