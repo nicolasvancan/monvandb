@@ -1,6 +1,7 @@
 package executor
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -15,12 +16,14 @@ type ExecutionLayer struct {
 }
 
 func (el *ExecutionLayer) Start() error {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	// Start the execution layer
 	for _, node := range el.Nodes {
 		if len(node.DependsOn) == 0 {
 			// Start the node
 			el.WaitGroup.Add(1)
-			go node.Run(&el.WaitGroup, el.LayerChannel)
+			go node.Run(ctx, &el.WaitGroup, el.LayerChannel)
 		}
 	}
 
@@ -29,6 +32,8 @@ func (el *ExecutionLayer) Start() error {
 		for notification := range el.LayerChannel {
 			if notification.Err != nil {
 				fmt.Printf("Error on node %s: %v\n", notification.NodeId, notification.Err)
+				cancel()
+				return
 			}
 
 			fmt.Printf("node %s has Finished\n", notification.NodeId)
@@ -38,7 +43,7 @@ func (el *ExecutionLayer) Start() error {
 
 				if len(node.DependsOn) == 0 && node.State == NodeIdle {
 					el.WaitGroup.Add(1)
-					go node.Run(&el.WaitGroup, el.LayerChannel)
+					go node.Run(ctx, &el.WaitGroup, el.LayerChannel)
 				}
 			}
 			el.WaitGroup.Done()
