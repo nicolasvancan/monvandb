@@ -54,7 +54,7 @@ func TestSerializationWithDataFile(t *testing.T) {
 	row[1] = table.ColumnValue{Col: 2, Value: "Hello"}
 	row[2] = table.ColumnValue{Col: 3, Value: 0.8}
 	row[3] = table.ColumnValue{Col: 4, Value: 123456}
-	row[4] = table.ColumnValue{Col: 4, Value: nil}
+	row[4] = table.ColumnValue{Col: 5, Value: nil}
 
 	// Serialize them
 	serializedRow, err := utils.Serialize(row)

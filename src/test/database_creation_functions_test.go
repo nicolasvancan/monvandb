@@ -49,7 +49,7 @@ func TestCreateTable(t *testing.T) {
 			Name: "name",
 			Type: database.COL_TYPE_STRING,
 		},
-	})
+	}, false, false)
 
 	if err != nil {
 		t.Errorf("error creating table: %v", err)
@@ -93,7 +93,7 @@ func TestCreateIndex(t *testing.T) {
 			Name: "name",
 			Type: database.COL_TYPE_STRING,
 		},
-	})
+	}, false, false)
 
 	if err != nil {
 		t.Errorf("error creating table: %v", err)

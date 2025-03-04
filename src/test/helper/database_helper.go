@@ -88,7 +88,7 @@ func CreateMockTable(t *testing.T) *database.Table {
 			Name: "name",
 			Type: database.COL_TYPE_STRING,
 		},
-	})
+	}, false, false)
 
 	if err != nil {
 		t.Errorf("error creating table: %v", err)

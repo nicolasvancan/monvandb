@@ -149,9 +149,15 @@ func (t *Table) getPrimaryColumns() []Column {
 }
 
 // Basic Database function Create Table
-func (d *Database) CreateTable(tableName string, columns []Column) error {
-	if _, ok := d.Tables[tableName]; ok {
-		return errors.New("table already exists")
+func (d *Database) CreateTable(tableName string, columns []Column, truncate bool, verify_existence bool) error {
+
+	if !truncate {
+		if _, ok := d.Tables[tableName]; ok {
+			if verify_existence {
+				return nil
+			}
+			return errors.New("table already exists")
+		}
 	}
 
 	// Create a new table
@@ -223,6 +229,7 @@ func (d *Database) CreateIndex(tableName string, indexedColumn string, indexName
 	if column == nil {
 		return fmt.Errorf("column %s does not exist in table %s", indexedColumn, tableName)
 	}
+
 	// Create new pointer to DataFile for index
 	indexPath := table.Path + utils.SEPARATOR + indexName + ".index.db"
 	indexDataFile, err := files.OpenDataFile(indexPath)
@@ -248,7 +255,7 @@ func (d *Database) CreateIndex(tableName string, indexedColumn string, indexName
 		return err
 	}
 
-	err = utils.WriteToFile(table.Path+string(os.PathSeparator)+utils.METDATA_FILE, json)
+	err = utils.WriteToFile(table.Path+utils.SEPARATOR+utils.METDATA_FILE, json)
 
 	if err != nil {
 		return fmt.Errorf("could not write to table metadata file: %v", err)
@@ -278,6 +285,15 @@ func LoadTable(path string) (*Table, error) {
 
 	if err != nil {
 		return nil, err
+	}
+
+	// Load all indexes
+	for _, index := range table.Indexes {
+		index.PDataFile, err = files.OpenDataFile(index.Path)
+
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return table, nil
