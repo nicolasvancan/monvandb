@@ -298,3 +298,75 @@ func LoadTable(path string) (*Table, error) {
 
 	return table, nil
 }
+
+func (d *Database) DropTable(tableName string) error {
+	table, err := d.GetTable(tableName)
+
+	if err != nil {
+		return err
+	}
+
+	// Delete the table folder
+	err = os.RemoveAll(table.Path)
+
+	if err != nil {
+		return err
+	}
+
+	// Delete the table from the database
+	delete(d.TablePaths, tableName)
+	delete(d.Tables, tableName)
+
+	// Update the database metadata file
+	json, err := utils.ToJson(d)
+
+	if err != nil {
+		return err
+	}
+
+	err = utils.WriteToFile(d.Path+utils.SEPARATOR+utils.METDATA_FILE, json)
+
+	if err != nil {
+		return fmt.Errorf("could not write to database metadata file: %v", err)
+	}
+
+	return nil
+}
+
+func (d *Database) DropIndex(tableName string, indexName string) error {
+	table, err := d.GetTable(tableName)
+
+	if err != nil {
+		return err
+	}
+
+	// Check if the index exists
+	if _, ok := table.Indexes[indexName]; !ok {
+		return fmt.Errorf("index %s does not exist in table %s", indexName, tableName)
+	}
+
+	// Delete the index file
+	err = os.Remove(table.Indexes[indexName].Path)
+
+	if err != nil {
+		return err
+	}
+
+	// Delete the index from the table
+	delete(table.Indexes, indexName)
+
+	// Update the table metadata file
+	json, err := utils.ToJson(table)
+
+	if err != nil {
+		return err
+	}
+
+	err = utils.WriteToFile(table.Path+utils.SEPARATOR+utils.METDATA_FILE, json)
+
+	if err != nil {
+		return fmt.Errorf("could not write to table metadata file: %v", err)
+	}
+
+	return nil
+}
