@@ -1,8 +1,10 @@
 package executor
 
 import (
+	"github.com/nicolasvancan/monvandb/src/database"
 	"github.com/nicolasvancan/monvandb/src/dbvengine/contexts"
 	df "github.com/nicolasvancan/monvandb/src/dbvengine/dataframe"
+	parser "github.com/nicolasvancan/monvandb/src/dbvengine/parser"
 )
 
 func DataframeSelect(params ...interface{}) (df.Dataframe, error) {
@@ -134,4 +136,45 @@ func DataframeLimit(params ...interface{}) (df.Dataframe, error) {
 	}
 
 	return limitedDf, nil
+}
+
+func CreateDataFrameFromRawRow(params ...interface{}) (df.Dataframe, error) {
+
+	// First parameter is always the raw rows
+	// Second parameter is always the columns
+
+	rawRows := params[0].([]database.RawRow)
+
+	// Create dataframe from raw rows
+	dataframe := df.NewDataframe(rawRows)
+
+	return dataframe, nil
+}
+
+func DataframeSetRow(params ...interface{}) (df.Dataframe, error) {
+	// First parameter is always the reference name of the dataframe
+	// The last parameter is always the row to set
+
+	dataframeRef := params[0].(string)
+	context := params[1].(*contexts.ExecutionContext)
+	dataframe := context.OperationsResults[dataframeRef]
+	colToSet := params[2].(string)
+	value := params[3]
+
+	var valToSet interface{}
+	switch v := value.(type) {
+	case parser.ColFunction:
+		// Evaluate column function
+		valToSet = v.Column
+		if v.Alias != "" {
+			valToSet = v.Alias + "." + v.Column
+		}
+	default:
+		valToSet = value
+	}
+
+	// Set row in dataframe
+	dataframe.SetColumn(colToSet, valToSet)
+
+	return dataframe, nil
 }

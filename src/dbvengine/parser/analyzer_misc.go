@@ -746,6 +746,8 @@ func analyzeComparsionExpr(
 			// from all tables and checking whether or not they exist
 			for _, tabName := range *tablesAlias {
 				if columnExists(db, tabName, l.Name.String()) {
+					// Table alias will be binded as table name
+					compExpr.LeftAlias = tabName
 					foundCol = true
 				}
 			}
@@ -766,7 +768,9 @@ func analyzeComparsionExpr(
 
 		compExpr.LeftType = "column"
 		compExpr.LeftValue = l.Name.String()
-		compExpr.LeftAlias = l.Qualifier.Name.String()
+		if compExpr.LeftAlias == "" {
+			compExpr.LeftAlias = l.Qualifier.Name.String()
+		}
 	case *sqlparser.SQLVal:
 		compExpr.LeftType = "value"
 		val, err := getValFromSQLVal(l)

@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/blastrain/vitess-sqlparser/sqlparser"
 	database "github.com/nicolasvancan/monvandb/src/database"
@@ -159,7 +160,7 @@ func analyzeInsert(databaseName string, stmt *sqlparser.Insert) *AnalyzedQueryIn
 	analyzedQueryInsert.Columns = columns
 
 	// Values
-	values, err := analyzeInsertValues(databaseName, stmt.Rows, table)
+	values, err := analyzeInsertValues(databaseName, columns, stmt.Rows, table)
 
 	if err != nil {
 		analyzedQueryInsert.err = err
@@ -183,32 +184,36 @@ func analyzeInsertColumns(columns []sqlparser.ColIdent, table *database.Table) (
 	return columnsNames, nil
 }
 
-func analyzeInsertValues(databaseName string, rows sqlparser.InsertRows, table *database.Table) (interface{}, error) {
+func analyzeInsertValues(
+	databaseName string,
+	columns []string,
+	rows sqlparser.InsertRows,
+	table *database.Table,
+) (interface{}, error) {
 
 	switch rowsValues := rows.(type) {
-	case *sqlparser.Values:
-		values := make([][]interface{}, 0)
+	default:
+		values := make([]database.RawRow, 0)
 
-		for _, row := range *rowsValues {
-			valuesRow := make([]interface{}, 0)
+		for _, row := range rowsValues.(sqlparser.Values) {
+			valuesRow := make(database.RawRow)
 			for i, value := range row {
-				columnName := table.Columns[i].Name
+				columnName := columns[i]
 				val, err := analyzeInsertValue(value, table, columnName)
 
 				if err != nil {
 					return nil, err
 				}
 
-				valuesRow = append(valuesRow, val)
+				valuesRow[columnName] = val
 			}
+
 			values = append(values, valuesRow)
 		}
 		return values, nil
 	case *sqlparser.Select:
 		return analyzeSelect(databaseName, rowsValues), nil
 	}
-
-	return nil, nil
 }
 
 // Todo work on it
@@ -245,4 +250,169 @@ func analyzeInsertValue(value sqlparser.Expr, table *database.Table, columnName 
 	default:
 		return string(val.Val), nil
 	}
+}
+
+func analyzeTableRowsUpdate(databaseName string, stmt *sqlparser.Update) *AnalyzedQueryUpdate {
+	analyzedQueryUpdate := NewAnalyzedQueryUpdate()
+	analyzedQueryUpdate.DatabaseName = databaseName
+
+	// Verify database
+	db, err := database.GetDatabase(databaseName)
+	if err != nil {
+		analyzedQueryUpdate.err = err
+		return analyzedQueryUpdate
+	}
+
+	// Verify from clause
+	fromAnalyzis, joinsOn, err := analyzeFrom(
+		db,
+		stmt.TableExprs,
+		&analyzedQueryUpdate.TablesAlias,
+		&analyzedQueryUpdate.Subqueries,
+		&analyzedQueryUpdate.TablesColumnComparsions,
+		&analyzedQueryUpdate.TablesFilters,
+	)
+
+	if err != nil {
+		analyzedQueryUpdate.err = err
+		return analyzedQueryUpdate
+	}
+
+	analyzedQueryUpdate.TableName = fromAnalyzis
+	analyzedQueryUpdate.Joins = joinsOn
+
+	// Analyze Where
+	if stmt.Where != nil {
+		err = analyzeWhere(
+			stmt.Where,
+			db,
+			&analyzedQueryUpdate.TablesAlias,
+			&analyzedQueryUpdate.TablesColumnComparsions,
+			&analyzedQueryUpdate.TablesFilters,
+			&analyzedQueryUpdate.Subqueries,
+		)
+		if err != nil {
+			analyzedQueryUpdate.err = err
+		}
+	}
+
+	// Analyze Sets
+	set, err := analyzeUpdateSet(
+		db,
+		stmt.Exprs,
+		&analyzedQueryUpdate.TablesAlias,
+	)
+
+	analyzedQueryUpdate.Set = set
+
+	return analyzedQueryUpdate
+}
+
+func analyzeUpdateSet(
+	db *database.Database,
+	exprs sqlparser.UpdateExprs,
+	tablesAlias *map[string]string,
+) ([]UpdateSet, error) {
+
+	sets := make([]UpdateSet, 0)
+	var err error
+
+	for _, expr := range exprs {
+		updateExpr := expr
+		columnName := updateExpr.Name.Name.String()
+		columnAlias := updateExpr.Name.Qualifier.Name.String()
+
+		// Verify if column exists in table
+		if columnAlias != "" {
+			if _, ok := (*tablesAlias)[columnAlias]; !ok {
+				return nil, fmt.Errorf("table %s does not exist", columnAlias)
+			}
+
+			table, err := getTable(db, (*tablesAlias)[columnAlias])
+
+			if err != nil {
+				return nil, err
+			}
+
+			column := table.GetColumnByName(strings.ToLower(columnName))
+
+			if column == nil {
+				return nil, fmt.Errorf("column %s does not exist in table %s", columnName, columnAlias)
+			}
+		}
+
+		var val interface{}
+
+		switch exprVal := updateExpr.Expr.(type) {
+		case *sqlparser.SQLVal:
+			val, err = getValFromSQLVal(exprVal)
+
+			if err != nil {
+				return nil, err
+			}
+		case *sqlparser.ColName:
+			val = ColFunction{
+				Column: expr.Name.Name.String(),
+				Alias:  expr.Name.Qualifier.Name.String(),
+			}
+		default:
+			return nil, fmt.Errorf("invalid value for column %s", columnName)
+		}
+
+		set := UpdateSet{
+			Column: strings.ToLower(columnName),
+			Value:  val,
+		}
+
+		sets = append(sets, set)
+	}
+
+	return sets, nil
+}
+
+func analyzeTableRowsDelete(databaseName string, stmt *sqlparser.Delete) *AnalyzedQueryDelete {
+	analyzedQueryDelete := NewAnalyzedQueryDelete()
+	analyzedQueryDelete.DatabaseName = databaseName
+
+	// Verify database
+	db, err := database.GetDatabase(databaseName)
+	if err != nil {
+		analyzedQueryDelete.err = err
+		return analyzedQueryDelete
+	}
+
+	// Verify from clause
+	fromAnalyzis, joinsOn, err := analyzeFrom(
+		db,
+		stmt.TableExprs,
+		&analyzedQueryDelete.TablesAlias,
+		&analyzedQueryDelete.Subqueries,
+		&analyzedQueryDelete.TablesColumnComparsions,
+		&analyzedQueryDelete.TablesFilters,
+	)
+
+	if err != nil {
+		analyzedQueryDelete.err = err
+		return analyzedQueryDelete
+	}
+
+	analyzedQueryDelete.TableName = fromAnalyzis
+	analyzedQueryDelete.Joins = joinsOn
+
+	// Analyze Where
+	if stmt.Where != nil {
+		err = analyzeWhere(
+			stmt.Where,
+			db,
+			&analyzedQueryDelete.TablesAlias,
+			&analyzedQueryDelete.TablesColumnComparsions,
+			&analyzedQueryDelete.TablesFilters,
+			&analyzedQueryDelete.Subqueries,
+		)
+		if err != nil {
+			analyzedQueryDelete.err = err
+		}
+	}
+
+	return analyzedQueryDelete
 }

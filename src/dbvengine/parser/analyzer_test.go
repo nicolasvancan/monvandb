@@ -236,3 +236,55 @@ func TestCreateTableAnalysis(t *testing.T) {
 		t.Errorf("expected AnalyzedQueryCreateTable, got %v", analyzed)
 	}
 }
+
+func TestInsertFunctionStaticValues(t *testing.T) {
+	CreateMockTable(t)
+
+	query := "INSERT INTO table_teste (id, name) VALUES (1, 'nicolas')"
+	stmt, err := sqlparser.Parse(query)
+
+	if err != nil {
+		t.Errorf("error parsing query: %v", err)
+	}
+
+	analyzed := AnalyzeQuery("mock", stmt)
+
+	if analyzed.Error() != nil {
+		t.Errorf("error analyzing query: %v", analyzed.Error())
+	}
+
+	switch analyzed := analyzed.(type) {
+	case *AnalyzedQueryInsert:
+		if analyzed.DatabaseName != "mock" {
+			t.Errorf("expected mock, got %v", analyzed.DatabaseName)
+		}
+
+		if analyzed.TableName != "table_teste" {
+			t.Errorf("expected table_teste, got %v", analyzed.TableName)
+		}
+
+		if len(analyzed.Columns) != 2 {
+			t.Errorf("expected 2, got %v", len(analyzed.Columns))
+		}
+
+		if analyzed.Columns[0] != "id" &&
+			analyzed.Columns[1] != "name" {
+			t.Errorf("wrong columns")
+		}
+
+		if len(analyzed.Values.([]database.RawRow)) != 1 {
+			t.Errorf("expected 1, got %v", len(analyzed.Values.([]database.RawRow)))
+		}
+
+		if len(analyzed.Values.([]database.RawRow)[0]) != 2 {
+			t.Errorf("expected 2, got %v", len(analyzed.Values.([]database.RawRow)[0]))
+		}
+
+		if analyzed.Values.([]database.RawRow)[0]["id"] != 1 &&
+			analyzed.Values.([]database.RawRow)[0]["name"] != "nicolas" {
+			t.Errorf("wrong values")
+		}
+	default:
+		t.Errorf("expected AnalyzedQueryInsert, got %v", analyzed)
+	}
+}

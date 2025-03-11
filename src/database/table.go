@@ -343,6 +343,12 @@ func (t *Table) Range(input []ColumnComparsion, limit int, order int) []RawRow {
 
 func (t *Table) getLastItem() RawRow {
 	lastLeafCrawler := btree.GoToLastLeaf(t.PDataFile.GetBTree())
+
+	// Means that the table is empty
+	if lastLeafCrawler == nil {
+		return nil
+	}
+
 	if len(lastLeafCrawler.Net) > 0 {
 		lastLeaf := lastLeafCrawler.Net[len(lastLeafCrawler.Net)-1]
 		lastLeafNItens := lastLeaf.GetNItens()

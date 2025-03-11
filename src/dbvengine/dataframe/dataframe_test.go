@@ -355,3 +355,25 @@ func TestGroupBy(t *testing.T) {
 		t.Errorf("Expected 3 rows, got %d", grouped.Len())
 	}
 }
+
+func TestSetEntireColumn(t *testing.T) {
+	rawRows := []database.RawRow{
+		{"name": "Nicolas", "age": 25, "height": 1.75},
+	}
+
+	df := NewDataframe(rawRows)
+	df.SetQualifier("t")
+	series, err := df.GetColumn("name")
+	series.Set(-1, "Test")
+	if err != nil {
+		t.Errorf("Error setting column")
+	}
+
+	if series.Elements[0].GetValue() != "Test" {
+		t.Errorf("Expected Test, got %s", series.Elements[0].GetValue())
+	}
+
+	if df.Columns[0].Info.Qualifier != "t" {
+		t.Errorf("Expected t, got %s", df.Columns[0].Info.Qualifier)
+	}
+}

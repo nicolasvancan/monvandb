@@ -8,6 +8,7 @@ import (
 	df "github.com/nicolasvancan/monvandb/src/dbvengine/dataframe"
 	executor "github.com/nicolasvancan/monvandb/src/dbvengine/executor"
 	parser "github.com/nicolasvancan/monvandb/src/dbvengine/parser"
+	builder "github.com/nicolasvancan/monvandb/src/dbvengine/planner"
 )
 
 /* The engine is the entrypoint for queries to the database.
@@ -49,7 +50,7 @@ func (ve *VirtualEngine) Execute(databaseName string, query string) ExecutionRes
 	}
 
 	// Build the plan
-	BuildPlan(analyzedQuery, ve.ExecutionLayer)
+	builder.BuildPlan(analyzedQuery, ve.ExecutionLayer)
 	// Get time now
 	before := time.Now()
 	// Execute the plan

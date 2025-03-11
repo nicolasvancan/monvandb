@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	db "github.com/nicolasvancan/monvandb/src/database"
+	"github.com/nicolasvancan/monvandb/src/dbvengine/contexts"
 	df "github.com/nicolasvancan/monvandb/src/dbvengine/dataframe"
 )
 
@@ -62,10 +63,11 @@ func TableFileInsert(params ...interface{}) (df.Dataframe, error) {
 	// Second parameter is always the table name
 	// The last parameter is always a dataframe
 
-	databaseName := params[0].(string)
-	tableName := params[1].(string)
-
-	dataframe := params[2].(df.Dataframe)
+	daframeRef := params[0].(string)
+	context := params[1].(*contexts.ExecutionContext)
+	dataframe := context.OperationsResults[daframeRef]
+	databaseName := params[2].(string)
+	tableName := params[3].(string)
 
 	database, err := db.GetDatabase(databaseName)
 
@@ -101,10 +103,11 @@ func TableFileUpdate(params ...interface{}) (df.Dataframe, error) {
 	// Second parameter is always the table name
 	// The last parameter is always a dataframe
 
-	databaseName := params[0].(string)
-	tableName := params[1].(string)
-
-	dataframe := params[2].(df.Dataframe)
+	daframeRef := params[0].(string)
+	context := params[1].(*contexts.ExecutionContext)
+	dataframe := context.OperationsResults[daframeRef]
+	databaseName := params[2].(string)
+	tableName := params[3].(string)
 
 	database, err := db.GetDatabase(databaseName)
 
@@ -139,10 +142,11 @@ func TableFileDelete(params ...interface{}) (df.Dataframe, error) {
 	// Second parameter is always the table name
 	// The last parameter is always a dataframe
 
-	databaseName := params[0].(string)
-	tableName := params[1].(string)
-
-	dataframe := params[2].(df.Dataframe)
+	daframeRef := params[0].(string)
+	context := params[1].(*contexts.ExecutionContext)
+	dataframe := context.OperationsResults[daframeRef]
+	databaseName := params[2].(string)
+	tableName := params[3].(string)
 
 	database, err := db.GetDatabase(databaseName)
 

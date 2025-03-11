@@ -23,8 +23,8 @@ The function returns an error if any, otherwise it returns nil.
 
 func (t *Table) ValidateRawRows(rows []RawRow) ([]RawRow, error) {
 	validatedRows := make([]RawRow, 0)
-	for _, row := range rows {
-		err := t.ValidateColumns(&row)
+	for i, row := range rows {
+		err := t.ValidateColumns(&row, i)
 		if err != nil {
 			return nil, err
 		}
@@ -33,10 +33,10 @@ func (t *Table) ValidateRawRows(rows []RawRow) ([]RawRow, error) {
 	return validatedRows, nil
 }
 
-func (t *Table) ValidateColumns(row *RawRow) error {
+func (t *Table) ValidateColumns(row *RawRow, cur int) error {
 	columns := t.Columns
 	for _, column := range columns {
-		fillupMissingFields(t, row, column)
+		fillupMissingFields(t, row, column, cur)
 		err := validateIfColumnExist(column, t)
 		if err != nil {
 			return err
@@ -67,7 +67,7 @@ func validateIfColumnExist(column Column, t *Table) error {
 	return nil
 }
 
-func fillupMissingFields(t *Table, row *RawRow, column Column) {
+func fillupMissingFields(t *Table, row *RawRow, column Column, cur int) {
 	// Fill up missing fields with default values
 	if _, ok := (*row)[column.Name]; !ok {
 		if !column.AutoIncrement && !column.Primary && !ok {
@@ -80,9 +80,25 @@ func fillupMissingFields(t *Table, row *RawRow, column Column) {
 	// Meaning that the columns is an integer between all possiblities
 	// SMALL_INT, BIG_INT, INT, etc
 	if column.AutoIncrement && column.Primary {
+		if (*row)[column.Name] != nil {
+			return
+		}
+
 		lastValue := t.getLastItem()
 		if lastValue != nil {
-			(*row)[column.Name] = lastValue[column.Name].(int64) + 1
+			lastVal := lastValue[column.Name]
+			switch lastVal := lastVal.(type) {
+			case int64:
+				(*row)[column.Name] = lastVal + 1 + int64(cur)
+			case int:
+				(*row)[column.Name] = lastVal + 1 + cur
+			case int32:
+				(*row)[column.Name] = lastVal + 1 + int32(cur)
+			case int16:
+				(*row)[column.Name] = lastVal + 1 + int16(cur)
+			case int8:
+				(*row)[column.Name] = lastVal + 1 + int8(cur)
+			}
 		} else {
 			(*row)[column.Name] = 1
 		}

@@ -23,6 +23,7 @@ type AppliableFunction func(elem Element, inputs ...interface{}) (Element, error
 // Comparator types
 const (
 	EQ      ComparatorType = "=="
+	EQS     ComparatorType = "="
 	NE      ComparatorType = "!="
 	GT      ComparatorType = ">"
 	GE      ComparatorType = ">="
@@ -105,6 +106,14 @@ func (s *Series) AddValue(value Element) {
 // if index is out of range, it returns an error
 func (s Series) Set(index int, value interface{}) error {
 
+	// Set whole series with same value
+	if index == -1 {
+		for i := 0; i < len(s.Elements); i++ {
+			s.Elements[i] = castElement(Elem(value), s.GetType())
+		}
+		return nil
+	}
+
 	if index >= len(s.Elements) {
 		return fmt.Errorf("index out of range for method Set Element in Series")
 	}
@@ -181,7 +190,7 @@ func (s Series) Filter(comparator ComparatorType, value interface{}) (Indexes, e
 		switch v := value.(type) {
 		case Element:
 			switch comparator {
-			case EQ:
+			case EQ, EQS:
 				if elem.Equal(v) {
 					indexes = append(indexes, i)
 				}

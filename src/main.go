@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
-	"strings"
+	"reflect"
+
+	"github.com/blastrain/vitess-sqlparser/sqlparser"
 )
 
 func main() {
-	/*query := "SELECT t.col1, t.col2, sum(t.col3) soma FROM tab t GROUP BY t.col1, t.col2 HAVING sum(t.col3) > 10 ORDER BY t.col1"
+	query := "DELETE FROM table_teste WHERE id = 1"
 	stmt, err := sqlparser.Parse(query)
 	if err != nil {
 		panic(err)
@@ -18,10 +20,21 @@ func main() {
 		//statement := stmt.From[0].(*sqlparser.JoinTableExpr).On.(*sqlparser.AndExpr).Right.(*sqlparser.IsExpr).Expr
 		fmt.Printf("%s\n", reflect.TypeOf(statement))
 		fmt.Printf("Value %s\n", statement)
-	default:
-		fmt.Println("Unsupported statement")
-	}*/
-	teste := "bang"
-	fmt.Println(strings.Split(teste, "."))
-
+	case *sqlparser.CreateTable:
+		statement := stmt.NewName.ToViewName().Name
+		fmt.Printf("%s\n", reflect.TypeOf(statement))
+		fmt.Println(statement)
+	case *sqlparser.Insert:
+		statement := stmt.Rows
+		fmt.Printf("%s\n", reflect.TypeOf(statement))
+		fmt.Println(statement)
+	case *sqlparser.Update:
+		statement := stmt.Exprs[0].Expr
+		fmt.Printf("%s\n", reflect.TypeOf(statement))
+		fmt.Println(statement)
+	case *sqlparser.Delete:
+		statement := stmt.TableExprs
+		fmt.Printf("%s\n", reflect.TypeOf(statement))
+		fmt.Println(statement)
+	}
 }

@@ -331,8 +331,8 @@ func newDataframeRawRow(rawRows []db.RawRow) Dataframe {
 
 // Set qualifier replacing old qualifiers
 func (df Dataframe) SetQualifier(qualifier string) {
-	for _, col := range df.Columns {
-		col.Info.Qualifier = qualifier
+	for i := range df.Columns {
+		df.Columns[i].Info.Qualifier = qualifier
 	}
 }
 
@@ -349,17 +349,31 @@ func (df Dataframe) GetColumn(column string) (Series, error) {
 	return newSeries, nil
 }
 
-func (df Dataframe) SetColumn(column string, series Series) error {
-	index := indexOf(strings.ToLower(column), df.Columns)
-	if index == -1 {
+func (df Dataframe) SetColumn(column string, series interface{}) error {
+	colIndex := indexOf(strings.ToLower(column), df.Columns)
+	if colIndex == -1 {
 		return fmt.Errorf("column %s not found", column)
 	}
 
-	if series.Len() != df.Len() {
-		return fmt.Errorf("series length is different from dataframe length")
+	switch v := series.(type) {
+	case Series:
+
+		if v.Len() != df.Len() {
+			return fmt.Errorf("series length is different from dataframe length")
+		}
+
+		df.Columns[colIndex].Serie = v
+	case string:
+		index := indexOf(strings.ToLower(v), df.Columns)
+		if index == -1 {
+			// find column index
+			df.Columns[colIndex].Serie.Set(-1, v)
+			return nil
+		}
+	default:
+		df.Columns[colIndex].Serie.Set(-1, v)
 	}
 
-	df.Columns[index].Serie = series
 	return nil
 }
 
@@ -398,7 +412,7 @@ func indexOf(element string, data []DFColumn) int {
 			}
 		}
 
-		if v.Info.Name == element && v.Info.Qualifier == "" {
+		if v.Info.Name == element {
 			return i
 		}
 	}
@@ -411,6 +425,22 @@ func (df Dataframe) Select(columnsInputs []SelectColumnInput) (Dataframe, error)
 	columns := make([]DFColumn, 0)
 	// Fill indexes array and validate if there is a column that does not exist
 	for _, column := range columnsInputs {
+		if strings.Contains(column.Column, "*") {
+			// Verify if there is a qualifier
+			if strings.Contains(column.Column, ".") {
+				qualifier := strings.Split(column.Column, ".")[0]
+				for _, col := range df.Columns {
+					if col.Info.Qualifier == qualifier {
+						columns = append(columns, col)
+					}
+				}
+				continue
+			}
+
+			columns = append(columns, df.Columns...)
+			break
+		}
+
 		indexOf := indexOf(strings.ToLower(column.Column), df.Columns)
 
 		// Returns if column is not found

@@ -64,38 +64,37 @@ func (en *ExecutionNode) OnNotified(nodeId string) {
 
 func (en *ExecutionNode) Run(ctx context.Context, wg *sync.WaitGroup, notify chan<- OpNotification) {
 
-	en.State = NodeRunning
-	fmt.Printf("Node %s is Running\n", en.Id)
-
-	// Get results from dependencies
-	dependencies := make([]interface{}, len(en.DependsOn))
-
-	// Get operation Results
-	for _, dep := range en.DependsOn {
-		dependencies = append(dependencies, en.Layer.Context.GetOperationResult(dep))
-	}
-
-	// Run the operation Inserting both dataframe dependencies first
-	df, err := Operations[en.Operation.Name](append(dependencies, en.Operation.Args...)...)
-
-	if err != nil {
-		en.State = NodeError
-		notify <- OpNotification{NodeId: en.Id, Err: err}
+	select {
+	case <-ctx.Done():
+		fmt.Printf("Node %s stopped due to cancellation\n", en.Id)
 		return
+	default:
+
+		en.State = NodeRunning
+		fmt.Printf("Node %s is Running\n", en.Id)
+
+		// Run the operation Inserting both dataframe dependencies first
+		df, err := Operations[en.Operation.Name](en.Operation.Args...)
+
+		if err != nil {
+			en.State = NodeError
+			notify <- OpNotification{NodeId: en.Id, Err: err}
+			return
+		}
+
+		// Add result to context
+		en.Layer.Context.AddOperationResult(en.Id, df)
+
+		// if it is final, add it to the final result of context
+		if en.Final {
+			en.Layer.Context.Result = df
+		}
+
+		// Remove its id from dependencies of context
+		en.Layer.Context.RemoveDependency(en.Id)
+		en.State = NodeFinished
+		notify <- OpNotification{NodeId: en.Id, Err: nil}
 	}
-
-	// Add result to context
-	en.Layer.Context.AddOperationResult(en.Id, df)
-
-	// if it is final, add it to the final result of context
-	if en.Final {
-		en.Layer.Context.Result = df
-	}
-
-	// Remove its id from dependencies of context
-	en.Layer.Context.RemoveDependency(en.Id)
-	en.State = NodeFinished
-	notify <- OpNotification{NodeId: en.Id, Err: nil}
 }
 
 // removeNodeFromSlice removes the element at index i from the slice.

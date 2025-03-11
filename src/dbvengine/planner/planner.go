@@ -1,9 +1,10 @@
-package dbvengine
+package planner
 
 import (
 	"fmt"
 	"strings"
 
+	"github.com/nicolasvancan/monvandb/src/database"
 	"github.com/nicolasvancan/monvandb/src/dbvengine/dataframe"
 	executor "github.com/nicolasvancan/monvandb/src/dbvengine/executor"
 	parser "github.com/nicolasvancan/monvandb/src/dbvengine/parser"
@@ -15,6 +16,18 @@ func BuildPlan(analyzedQuery parser.AnalyzedQueryData, exec *executor.ExecutionL
 	case *parser.AnalyzedQuerySelect:
 		// Select query
 		resultId := buildSelectPlan(exec, aq)
+		exec.Nodes[resultId].Final = true
+	case *parser.AnalyzedQueryCreateTable:
+		resultId := buildCreateTablePlan(exec, aq)
+		exec.Nodes[resultId].Final = true
+	case *parser.AnalyzedQueryInsert:
+		resultId := buildInsertRowsTablePlan(exec, aq)
+		exec.Nodes[resultId].Final = true
+	case *parser.AnalyzedQueryUpdate:
+		resultId := buildUpdateTablePlan(exec, aq)
+		exec.Nodes[resultId].Final = true
+	case *parser.AnalyzedQueryDelete:
+		resultId := buildDeleteTablePlan(exec, aq)
 		exec.Nodes[resultId].Final = true
 	}
 }
@@ -47,10 +60,10 @@ func buildSelectPlan(exec *executor.ExecutionLayer, aq *parser.AnalyzedQuerySele
 	previousNode = buildQueryForSubSelects(exec, aq, &nodes, previousNode)
 
 	// Create the filter layer
-	previousNode = buildQueriesForFilterLayer(exec, aq, &nodes, previousNode)
+	previousNode = buildQueriesForFilterLayer(exec, &aq.TablesFilters, &nodes, previousNode)
 
 	// Create the join layer
-	previousNode = buildQueriesForJoins(exec, aq, &nodes, previousNode)
+	previousNode = buildQueriesForJoins(exec, &aq.TablesFilters, &aq.Joins, &nodes, previousNode)
 
 	// Create queries for GroupBy
 	groupCols := make([]string, 0)
@@ -186,11 +199,11 @@ func buildQueryForSubSelects(
 
 func buildQueriesForFilterLayer(
 	exec *executor.ExecutionLayer,
-	aq *parser.AnalyzedQuerySelect,
+	TablesFilters *map[string]dataframe.Filters,
 	nodes *map[string]*executor.ExecutionNode,
 	previousNode string,
 ) string {
-	for alias, filter := range aq.TablesFilters {
+	for alias, filter := range *TablesFilters {
 		// Create new execution Node
 		isTableFilter := len(strings.Split(alias, "-")) <= 1
 
@@ -221,7 +234,8 @@ func buildQueriesForFilterLayer(
 
 func buildQueriesForJoins(
 	exec *executor.ExecutionLayer,
-	aq *parser.AnalyzedQuerySelect,
+	TablesFilters *map[string]dataframe.Filters,
+	Joins *map[string]parser.JoinAnalysis,
 	nodes *map[string]*executor.ExecutionNode,
 	previousNode string,
 ) string {
@@ -249,7 +263,7 @@ func buildQueriesForJoins(
 	// in this slice
 	existingJoinedSources := make([]string, 0)
 	prevNode := previousNode
-	for _, join := range aq.Joins {
+	for _, join := range *Joins {
 		// Create new execution Node
 
 		nodeName := fmt.Sprintf("%s-%s_join", join.LeftAlias, join.RightAlias)
@@ -314,11 +328,11 @@ func buildQueriesForJoins(
 		// If there is a filter for the join, we must create a new node
 		// to apply the filter to the join result
 		var filters dataframe.Filters = nil
-		if aq.TablesFilters[join.LeftAlias+"-"+join.RightAlias] != nil {
-			filters = aq.TablesFilters[join.LeftAlias+"-"+join.RightAlias]
+		if (*TablesFilters)[join.LeftAlias+"-"+join.RightAlias] != nil {
+			filters = (*TablesFilters)[join.LeftAlias+"-"+join.RightAlias]
 
-		} else if aq.TablesFilters[join.RightAlias+"-"+join.LeftAlias] != nil {
-			filters = aq.TablesFilters[join.RightAlias+"-"+join.LeftAlias]
+		} else if (*TablesFilters)[join.RightAlias+"-"+join.LeftAlias] != nil {
+			filters = (*TablesFilters)[join.RightAlias+"-"+join.LeftAlias]
 		}
 
 		if filters != nil {
@@ -486,4 +500,376 @@ func buildOrderByPlan(
 	}
 
 	return previousNode
+}
+
+func buildInsertRowsTablePlan(
+	exec *executor.ExecutionLayer,
+	aq *parser.AnalyzedQueryInsert,
+) string {
+	// Create new execution Node
+	previousNode := ""
+	// Verify if values are a subquery or static values
+	switch aq.Values.(type) {
+	case parser.AnalyzedQuerySelect:
+		// Subquery
+		subSelect := aq.Values.(parser.AnalyzedQuerySelect)
+		subSelectNodeName := buildSelectPlan(exec, &subSelect)
+		previousNode = subSelectNodeName
+	case []database.RawRow:
+		// Static values
+		name := fmt.Sprintf("%s-%s", "DataframeCreate", aq.TableName)
+		newExecNode := executor.NewExecutionNode(name, exec)
+
+		operation := executor.Operation{}
+		operation.Name = executor.DATAFRAME_CREATE
+		operation.Args = []interface{}{aq.Values}
+
+		// Set operation
+		newExecNode.Operation = operation
+
+		// Add node to the map
+		exec.AddNode(newExecNode, false)
+
+		previousNode = name
+	}
+
+	nodeName := fmt.Sprintf("insert_rows_%s", aq.TableName)
+	execNode := executor.NewExecutionNode(nodeName, exec)
+	// Create Operation
+	operation := executor.Operation{}
+	operation.Name = executor.TABLE_FILE_INSERT
+	operation.Args = []interface{}{
+		previousNode,
+		exec.Context,
+		aq.DatabaseName,
+		aq.TableName,
+	}
+
+	// Set operation
+	execNode.Operation = operation
+	execNode.AddDependency(previousNode)
+	exec.Nodes[previousNode].AddNotify(nodeName)
+
+	// Add node to the map
+	exec.AddNode(execNode, true)
+
+	return nodeName
+}
+
+func buildUpdateTablePlan(
+	exec *executor.ExecutionLayer,
+	aq *parser.AnalyzedQueryUpdate,
+) string {
+	// Create new execution Node
+	nodes := make(map[string]*executor.ExecutionNode)
+	previousNode := ""
+	tableName := aq.TableName.Table
+	if aq.TableName.Alias != "" {
+		tableName = aq.TableName.Alias
+	}
+
+	execNode := executor.NewExecutionNode(tableName, exec)
+
+	// Create Operation
+	operation := executor.Operation{}
+	operation.Name = executor.TABLE_FILE_READ
+	operation.Args = []interface{}{
+		aq.DatabaseName,
+		aq.TableName.Table,
+		aq.TablesColumnComparsions[tableName],
+		-1,
+		aq.TableName.Alias,
+	}
+
+	// Add to execution node
+	execNode.Operation = operation
+	nodes[tableName] = execNode
+	previousNode = tableName
+
+	// Sub selects
+	for alias, subSelect := range aq.Subqueries {
+
+		// Calls this function recursivelly
+		resultNodeName := buildSelectPlan(exec, subSelect)
+
+		// Create reference to node using subquery alias
+		nodes[alias] = nodes[resultNodeName]
+
+		nodes[previousNode].AddNotify(alias)
+		previousNode = alias
+	}
+
+	// Create the filter layer
+	previousNode = buildQueriesForFilterLayer(exec, &aq.TablesFilters, &nodes, previousNode)
+
+	// Create the join layer
+	if len(aq.Joins) > 0 {
+		previousNode = buildQueriesForJoins(exec, &aq.TablesFilters, &aq.Joins, &nodes, previousNode)
+	} else {
+		// update previous node to be the filtered table
+		previousNode = fmt.Sprintf("%s_filter", previousNode)
+	}
+
+	// For each set, we must create a new node
+	for _, set := range aq.Set {
+		nodeName := fmt.Sprintf("update_set_%s_%s", aq.TableName.Table, set.Column)
+		execNode = executor.NewExecutionNode(nodeName, exec)
+
+		// Create Operation
+		operation = executor.Operation{}
+		operation.Name = executor.SET_ROW
+		operation.Args = []interface{}{
+			previousNode,
+			exec.Context,
+			set.Column,
+			set.Value,
+		}
+
+		// Set operation
+		execNode.Operation = operation
+
+		// Add dependency
+		execNode.AddDependency(previousNode)
+
+		// Add node to the map
+		nodes[nodeName] = execNode
+
+		// Edit the parent node to add notify
+		nodes[previousNode].AddNotify(nodeName)
+		previousNode = nodeName
+	}
+
+	// Select only base table fields
+	nodeName := fmt.Sprintf("select_%s", aq.TableName.Table)
+	execNode = executor.NewExecutionNode(nodeName, exec)
+
+	// Get all base table columns
+	columns := make([]dataframe.SelectColumnInput, 0)
+
+	tableToBeUpdated := aq.TableName
+
+	// Get table
+	db, _ := database.GetDatabase(aq.DatabaseName)
+
+	table, _ := db.GetTable(tableToBeUpdated.Table)
+
+	for _, column := range table.Columns {
+		colName := strings.ToLower(column.Name)
+		if tableToBeUpdated.Alias != "" {
+			colName = fmt.Sprintf("%s.%s", tableToBeUpdated.Alias, colName)
+		}
+
+		columns = append(columns, dataframe.SelectColumnInput{
+			Column: colName,
+			Alias:  column.Name,
+		})
+	}
+	// Create Operation
+	operation = executor.Operation{}
+	operation.Name = executor.SELECT
+	operation.Args = []interface{}{previousNode, exec.Context, columns}
+
+	// Set operation
+	execNode.Operation = operation
+
+	// Add dependency
+
+	execNode.AddDependency(previousNode)
+
+	// Add node to the map
+	nodes[nodeName] = execNode
+
+	// Edit the parent node to add notify
+	nodes[previousNode].AddNotify(nodeName)
+	previousNode = nodeName
+
+	// Update the table
+	nodeName = fmt.Sprintf("update_table_%s", aq.TableName.Table)
+	execNode = executor.NewExecutionNode(nodeName, exec)
+	execNode.AddDependency(previousNode)
+	// Create Operation
+	operation = executor.Operation{}
+	operation.Name = executor.TABLE_FILE_UPDATE
+	operation.Args = []interface{}{
+		previousNode,
+		exec.Context,
+		aq.DatabaseName,
+		aq.TableName.Table,
+	}
+
+	execNode.Operation = operation
+
+	nodes[previousNode].AddNotify(nodeName)
+	nodes[nodeName] = execNode
+
+	// Add notify to parent
+	previousNode = nodeName
+
+	// Add all nodes to the execution layer
+	for _, node := range nodes {
+		exec.AddNode(node, false)
+	}
+
+	return previousNode
+}
+
+func buildDeleteTablePlan(
+	exec *executor.ExecutionLayer,
+	aq *parser.AnalyzedQueryDelete,
+) string {
+	// Create new execution Node
+	nodes := make(map[string]*executor.ExecutionNode)
+	previousNode := ""
+	tableName := aq.TableName.Table
+	if aq.TableName.Alias != "" {
+		tableName = aq.TableName.Alias
+	}
+
+	execNode := executor.NewExecutionNode(tableName, exec)
+
+	// Create Operation
+	operation := executor.Operation{}
+	operation.Name = executor.TABLE_FILE_READ
+	operation.Args = []interface{}{
+		aq.DatabaseName,
+		aq.TableName.Table,
+		aq.TablesColumnComparsions[tableName],
+		-1,
+		aq.TableName.Alias,
+	}
+
+	// Add to execution node
+	execNode.Operation = operation
+	nodes[tableName] = execNode
+	previousNode = tableName
+
+	// Sub selects
+	for alias, subSelect := range aq.Subqueries {
+
+		// Calls this function recursivelly
+		resultNodeName := buildSelectPlan(exec, subSelect)
+
+		// Create reference to node using subquery alias
+		nodes[alias] = nodes[resultNodeName]
+
+		nodes[previousNode].AddNotify(alias)
+		previousNode = alias
+	}
+
+	// Create the filter layer
+	previousNode = buildQueriesForFilterLayer(exec, &aq.TablesFilters, &nodes, previousNode)
+
+	// Create the join layer
+	if len(aq.Joins) > 0 {
+		previousNode = buildQueriesForJoins(exec, &aq.TablesFilters, &aq.Joins, &nodes, previousNode)
+	} else {
+		// update previous node to be the filtered table
+		previousNode = fmt.Sprintf("%s_filter", previousNode)
+	}
+
+	// Select only base table fields
+	nodeName := fmt.Sprintf("select_%s", aq.TableName.Table)
+	execNode = executor.NewExecutionNode(nodeName, exec)
+
+	// Get all base table columns
+	columns := make([]dataframe.SelectColumnInput, 0)
+
+	tableToBeUpdated := aq.TableName
+
+	// Get table
+	db, _ := database.GetDatabase(aq.DatabaseName)
+
+	table, _ := db.GetTable(tableToBeUpdated.Table)
+
+	for _, column := range table.Columns {
+		colName := strings.ToLower(column.Name)
+		if tableToBeUpdated.Alias != "" {
+			colName = fmt.Sprintf("%s.%s", tableToBeUpdated.Alias, colName)
+		}
+
+		if column.Primary {
+			columns = append(columns, dataframe.SelectColumnInput{
+				Column: colName,
+				Alias:  column.Name,
+			})
+		}
+	}
+	// Create Operation
+	operation = executor.Operation{}
+	operation.Name = executor.SELECT
+	operation.Args = []interface{}{previousNode, exec.Context, columns}
+
+	// Set operation
+	execNode.Operation = operation
+
+	// Add dependency
+
+	execNode.AddDependency(previousNode)
+
+	// Add node to the map
+	nodes[nodeName] = execNode
+
+	// Edit the parent node to add notify
+	nodes[previousNode].AddNotify(nodeName)
+	previousNode = nodeName
+
+	// Create delete operation
+
+	nodeName = fmt.Sprintf("delete_table_%s", aq.TableName.Table)
+	execNode = executor.NewExecutionNode(nodeName, exec)
+	execNode.AddDependency(previousNode)
+	// Create Operation
+	operation = executor.Operation{}
+	operation.Name = executor.TABLE_FILE_DELETE
+	operation.Args = []interface{}{
+		previousNode,
+		exec.Context,
+		aq.DatabaseName,
+		aq.TableName.Table,
+	}
+
+	execNode.Operation = operation
+
+	nodes[previousNode].AddNotify(nodeName)
+	nodes[nodeName] = execNode
+
+	// Add notify to parent
+	previousNode = nodeName
+
+	// Insert all nodes
+	for _, node := range nodes {
+		exec.AddNode(node, false)
+	}
+
+	return previousNode
+}
+
+/* Table planners */
+
+func buildCreateTablePlan(
+	exec *executor.ExecutionLayer,
+	aq *parser.AnalyzedQueryCreateTable,
+) string {
+	// Create new execution Node
+	nodeName := fmt.Sprintf("create_table_%s", aq.TableName)
+	execNode := executor.NewExecutionNode(nodeName, exec)
+
+	// Create Operation
+	operation := executor.Operation{}
+	operation.Name = executor.TABLE_CREATE
+	operation.Args = []interface{}{
+		aq.DatabaseName,
+		aq.TableName,
+		aq.Columns,
+		aq.Truncate,
+		aq.VerifyExistence,
+	}
+
+	// Set operation
+	execNode.Operation = operation
+
+	// Add node to the map
+	exec.AddNode(execNode, true)
+
+	return nodeName
 }

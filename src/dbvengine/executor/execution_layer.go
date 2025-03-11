@@ -32,6 +32,7 @@ func (el *ExecutionLayer) Start() error {
 		for notification := range el.LayerChannel {
 			if notification.Err != nil {
 				fmt.Printf("Error on node %s: %v\n", notification.NodeId, notification.Err)
+				el.WaitGroup.Done()
 				cancel()
 				return
 			}

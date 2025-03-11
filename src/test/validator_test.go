@@ -41,7 +41,7 @@ func TestValidatorForNullValues(t *testing.T) {
 		"email": "somemail@mail.com",
 	}
 
-	err := table.ValidateColumns(&row)
+	err := table.ValidateColumns(&row, 0)
 
 	if err != nil {
 		t.Errorf("error validating columns should be nil: %v", err)
@@ -58,7 +58,7 @@ func TestValidatorForNullValues(t *testing.T) {
 			Primary:       false,
 		}, table)
 
-	err = table.ValidateColumns(&row)
+	err = table.ValidateColumns(&row, 0)
 
 	if err == nil {
 		t.Errorf("error validating columns should not be nil: %v", err)
@@ -86,7 +86,7 @@ func TestValidatorForAutoIncrement(t *testing.T) {
 		"email": "somemail",
 	}
 
-	err := table.ValidateColumns(&row)
+	err := table.ValidateColumns(&row, 0)
 
 	if err == nil {
 		t.Errorf("should have returned an error. To be considered autoincrement, it must also have the primary enabled")
@@ -103,7 +103,7 @@ func TestValidatorForAutoIncrement(t *testing.T) {
 			Primary:       false,
 		}, table)
 
-	err = table.ValidateColumns(&row)
+	err = table.ValidateColumns(&row, 0)
 
 	if err == nil {
 		t.Errorf("error validating columns should not be nil")
@@ -120,7 +120,7 @@ func TestValidatorForAutoIncrement(t *testing.T) {
 			Primary:       true,
 		}, table)
 
-	err = table.ValidateColumns(&row)
+	err = table.ValidateColumns(&row, 0)
 
 	if err != nil {
 		t.Errorf("error validating columns should be nil: %v", err)
@@ -160,7 +160,7 @@ func TestDefaultInsertion(t *testing.T) {
 		"email": "somemail",
 	}
 
-	err := table.ValidateColumns(&row)
+	err := table.ValidateColumns(&row, 0)
 	fmt.Println(err)
 	if err != nil {
 		t.Errorf("should have returned an error. To be considered autoincrement, it must also have the primary enabled")

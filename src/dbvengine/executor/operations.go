@@ -10,12 +10,15 @@ type Operation struct {
 }
 
 const (
+	// DATAFRAME Operations
+	DATAFRAME_CREATE = "DATAFRAME_CREATE"
 	// Table Operations
 	TABLE_FILE_READ   = "TABLE_FILE_READ"
 	TABLE_FILE_INSERT = "TABLE_FILE_INSERT"
 	TABLE_FILE_UPDATE = "TABLE_FILE_UPDATE"
 	TABLE_FILE_DELETE = "TABLE_FILE_DELETE"
 	// Dataframe Operations
+	SET_ROW = "SET_ROW"
 	SELECT  = "SELECT"
 	JOIN    = "JOIN"
 	FILTER  = "FILTER"
@@ -51,12 +54,14 @@ var Operations = map[string]func(...interface{}) (df.Dataframe, error){
 	TABLE_FILE_UPDATE: TableFileUpdate, // Update data in a table file
 	TABLE_FILE_DELETE: TableFileDelete, // Delete data from a table file
 	// Dataframe Operations
-	SELECT:  DataframeSelect,
-	JOIN:    DataframeJoin,
-	FILTER:  DataframeFilter,
-	GROUPBY: DataframeGroupBy,
-	ORDERBY: DataframeOrderBy,
-	LIMIT:   DataframeLimit,
+	DATAFRAME_CREATE: CreateDataFrameFromRawRow,
+	SET_ROW:          DataframeSetRow,
+	SELECT:           DataframeSelect,
+	JOIN:             DataframeJoin,
+	FILTER:           DataframeFilter,
+	GROUPBY:          DataframeGroupBy,
+	ORDERBY:          DataframeOrderBy,
+	LIMIT:            DataframeLimit,
 	// Table Operations
 	TABLE_CREATE: TableFileCreate, // Create a table operation
 	TABLE_DROP:   nil,             // Drop a table operation
@@ -64,7 +69,6 @@ var Operations = map[string]func(...interface{}) (df.Dataframe, error){
 	// Database Operations
 	DATABASE_CREATE: nil, // Create a database operation
 	DATABASE_DROP:   nil, // Drop a database operation
-	DATABASE_ALTER:  nil, // Alter a database operation
 	// Index Operations
 	INDEX_CREATE: nil, // Create an index operation
 	INDEX_DROP:   nil, // Drop an index operation

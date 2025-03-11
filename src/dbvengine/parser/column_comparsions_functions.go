@@ -59,6 +59,8 @@ func createColumnComparsionFromSingleColumn(
 	}
 
 	if !exists {
+		// Infer table
+
 		return database.ColumnComparsion{}, false
 	}
 

@@ -103,6 +103,36 @@ type AnalyzedQueryInsert struct {
 	err          error
 }
 
+type UpdateSet struct {
+	Column string
+	Value  interface{}
+}
+
+type AnalyzedQueryUpdate struct {
+	DatabaseName            string
+	Set                     []UpdateSet
+	TablesAlias             map[string]string
+	Subqueries              map[string]*AnalyzedQuerySelect
+	TablesColumnComparsions map[string][]database.ColumnComparsion
+	TablesFilters           map[string]dataframe.Filters
+	Joins                   map[string]JoinAnalysis
+	TableName               FromAnalysis
+	JoinsFilters            map[string]dataframe.Filters
+	err                     error
+}
+
+type AnalyzedQueryDelete struct {
+	DatabaseName            string
+	TablesAlias             map[string]string
+	Subqueries              map[string]*AnalyzedQuerySelect
+	TablesColumnComparsions map[string][]database.ColumnComparsion
+	TablesFilters           map[string]dataframe.Filters
+	Joins                   map[string]JoinAnalysis
+	TableName               FromAnalysis
+	JoinsFilters            map[string]dataframe.Filters
+	err                     error
+}
+
 /* End interface Types*/
 
 func NewAnalyzedQuerySelect() *AnalyzedQuerySelect {
@@ -165,6 +195,47 @@ func (a *AnalyzedQueryInsert) Error() error {
 	return a.err
 }
 
+func NewAnalyzedQueryUpdate() *AnalyzedQueryUpdate {
+	return &AnalyzedQueryUpdate{
+		Set:                     make([]UpdateSet, 0),
+		TablesAlias:             make(map[string]string),
+		Subqueries:              make(map[string]*AnalyzedQuerySelect),
+		TablesColumnComparsions: make(map[string][]database.ColumnComparsion),
+		TablesFilters:           make(map[string]dataframe.Filters),
+		Joins:                   make(map[string]JoinAnalysis),
+		TableName:               FromAnalysis{},
+		JoinsFilters:            make(map[string]dataframe.Filters),
+	}
+}
+
+func (a *AnalyzedQueryUpdate) String() string {
+	return fmt.Sprintf("AnalyzedQueryUpdate{DatabaseName: %v\n TableName: %v\n Set: %v\n TablesAlias: %v\n Subqueries: %v\n TablesColumnComparsions: %v\n TablesFilters: %v\n Joins: %v\n From: %v\n JoinsFilters: %v\n", a.DatabaseName, a.TableName, a.Set, a.TablesAlias, a.Subqueries, a.TablesColumnComparsions, a.TablesFilters, a.Joins, a.TableName, a.JoinsFilters)
+}
+
+func (a *AnalyzedQueryUpdate) Error() error {
+	return a.err
+}
+
+func NewAnalyzedQueryDelete() *AnalyzedQueryDelete {
+	return &AnalyzedQueryDelete{
+		TablesAlias:             make(map[string]string),
+		Subqueries:              make(map[string]*AnalyzedQuerySelect),
+		TablesColumnComparsions: make(map[string][]database.ColumnComparsion),
+		TablesFilters:           make(map[string]dataframe.Filters),
+		Joins:                   make(map[string]JoinAnalysis),
+		TableName:               FromAnalysis{},
+		JoinsFilters:            make(map[string]dataframe.Filters),
+	}
+}
+
+func (a *AnalyzedQueryDelete) String() string {
+	return fmt.Sprintf("AnalyzedQueryDelete{DatabaseName: %v\n TableName: %v\n TablesAlias: %v\n Subqueries: %v\n TablesColumnComparsions: %v\n TablesFilters: %v\n Joins: %v\n From: %v\n JoinsFilters: %v\n", a.DatabaseName, a.TableName, a.TablesAlias, a.Subqueries, a.TablesColumnComparsions, a.TablesFilters, a.Joins, a.TableName, a.JoinsFilters)
+}
+
+func (a *AnalyzedQueryDelete) Error() error {
+	return a.err
+}
+
 func AnalyzeQuery(databaseName string, parsedQuery sqlparser.Statement) AnalyzedQueryData {
 	var analyzedData AnalyzedQueryData
 	switch stmt := parsedQuery.(type) {
@@ -174,6 +245,10 @@ func AnalyzeQuery(databaseName string, parsedQuery sqlparser.Statement) Analyzed
 		analyzedData = analyzeCreateTable(databaseName, stmt)
 	case *sqlparser.Insert:
 		analyzedData = analyzeInsert(databaseName, stmt)
+	case *sqlparser.Update:
+		analyzedData = analyzeTableRowsUpdate(databaseName, stmt)
+	case *sqlparser.Delete:
+		analyzedData = analyzeTableRowsDelete(databaseName, stmt)
 	default:
 	}
 	return analyzedData
