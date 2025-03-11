@@ -26,9 +26,10 @@ const (
 	ORDERBY = "ORDERBY"
 	LIMIT   = "LIMIT"
 	// Table Operations
-	TABLE_CREATE = "TABLE_CREATE"
-	TABLE_DROP   = "TABLE_DROP"
-	TABLE_ALTER  = "TABLE_ALTER"
+	TABLE_CREATE   = "TABLE_CREATE"
+	TABLE_DROP     = "TABLE_DROP"
+	TABLE_ALTER    = "TABLE_ALTER"
+	TABLE_TRUNCATE = "TABLE_TRUNCATE"
 	// Database Operations
 	DATABASE_CREATE = "DATABASE_CREATE"
 	DATABASE_DROP   = "DATABASE_DROP"
@@ -63,9 +64,10 @@ var Operations = map[string]func(...interface{}) (df.Dataframe, error){
 	ORDERBY:          DataframeOrderBy,
 	LIMIT:            DataframeLimit,
 	// Table Operations
-	TABLE_CREATE: TableFileCreate, // Create a table operation
-	TABLE_DROP:   nil,             // Drop a table operation
-	TABLE_ALTER:  nil,             // Alter a table operation
+	TABLE_CREATE:   TableFileCreate, // Create a table operation
+	TABLE_DROP:     TableFileDrop,   // Drop a table operation
+	TABLE_ALTER:    nil,             // Alter a table operation
+	TABLE_TRUNCATE: nil,             // Truncate a table operation
 	// Database Operations
 	DATABASE_CREATE: nil, // Create a database operation
 	DATABASE_DROP:   nil, // Drop a database operation

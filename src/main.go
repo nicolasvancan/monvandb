@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	query := "DELETE FROM table_teste WHERE id = 1"
+	query := "USE DATABASE"
 	stmt, err := sqlparser.Parse(query)
 	if err != nil {
 		panic(err)
@@ -34,6 +34,10 @@ func main() {
 		fmt.Println(statement)
 	case *sqlparser.Delete:
 		statement := stmt.TableExprs
+		fmt.Printf("%s\n", reflect.TypeOf(statement))
+		fmt.Println(statement)
+	case *sqlparser.DDL:
+		statement := stmt
 		fmt.Printf("%s\n", reflect.TypeOf(statement))
 		fmt.Println(statement)
 	}

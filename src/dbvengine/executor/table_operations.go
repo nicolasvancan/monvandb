@@ -204,3 +204,26 @@ func TableFileCreate(params ...interface{}) (df.Dataframe, error) {
 
 	return df.NewDataframe([]db.RawRow{{"Table Created": tableName}}), nil
 }
+
+func TableFileDrop(params ...interface{}) (df.Dataframe, error) {
+	// First parameter is always the database name
+	// Second parameter is always the table name
+
+	databaseName := params[0].(string)
+	tableName := params[1].(string)
+
+	database, err := db.GetDatabase(databaseName)
+
+	if err != nil {
+		return df.Dataframe{}, err
+	}
+
+	// Drop table
+	err = database.DropTable(tableName)
+
+	if err != nil {
+		return df.Dataframe{}, err
+	}
+
+	return df.NewDataframe([]db.RawRow{{"Table Dropped": tableName}}), nil
+}

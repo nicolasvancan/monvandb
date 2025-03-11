@@ -88,3 +88,18 @@ func analyzeCreateTableColumns(colsDef []*sqlparser.ColumnDef) []database.Column
 	}
 	return columns
 }
+
+func analyzeDropTable(databaseName string, stmt *sqlparser.DDL) *AnalyzedQueryCreateTable {
+	analyzedQueryCreateDatabase := NewAnalyzedQueryCreateTable()
+	analyzedQueryCreateDatabase.DatabaseName = databaseName
+	analyzedQueryCreateDatabase.TableName = strings.ToLower(stmt.Table.Name.String())
+	return analyzedQueryCreateDatabase
+}
+
+// TODO
+func analyzeAlterTable(databaseName string, stmt *sqlparser.DDL) *AnalyzedQueryAlterTable {
+	analyzedQueryAlterTable := NewAnalyzedQueryAlterTable()
+	analyzedQueryAlterTable.DatabaseName = databaseName
+	analyzedQueryAlterTable.TableName = strings.ToLower(stmt.Table.Name.String())
+	return analyzedQueryAlterTable
+}

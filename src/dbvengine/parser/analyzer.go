@@ -133,6 +133,38 @@ type AnalyzedQueryDelete struct {
 	err                     error
 }
 
+type AnalyzedQueryDropTable struct {
+	DatabaseName string
+	TableName    string
+	err          error
+}
+
+type AnalyzedQueryAlterTable struct {
+	DatabaseName string
+	TableName    string
+	Columns      []database.Column
+	err          error
+}
+
+type AnalyzedQueryCreateDatabase struct {
+	DatabaseName string
+	err          error
+}
+
+type AnalyzedQueryDropDatabase struct {
+	DatabaseName string
+	err          error
+}
+
+type AnalyzedQueryShowDatabases struct {
+	err error
+}
+
+type AnalyzedQueryShowTables struct {
+	DatabaseName string
+	err          error
+}
+
 /* End interface Types*/
 
 func NewAnalyzedQuerySelect() *AnalyzedQuerySelect {
@@ -236,7 +268,88 @@ func (a *AnalyzedQueryDelete) Error() error {
 	return a.err
 }
 
-func AnalyzeQuery(databaseName string, parsedQuery sqlparser.Statement) AnalyzedQueryData {
+func NewAnalyzedQueryDropTable() *AnalyzedQueryDropTable {
+	return &AnalyzedQueryDropTable{
+		err: nil,
+	}
+}
+
+func (a *AnalyzedQueryDropTable) String() string {
+	return fmt.Sprintf("AnalyzedQueryDropTable{DatabaseName: %s\n TableName: %s\n", a.DatabaseName, a.TableName)
+}
+
+func (a *AnalyzedQueryDropTable) Error() error {
+	return a.err
+}
+
+func NewAnalyzedQueryAlterTable() *AnalyzedQueryAlterTable {
+	return &AnalyzedQueryAlterTable{
+		Columns: make([]database.Column, 0),
+		err:     nil,
+	}
+}
+
+func (a *AnalyzedQueryAlterTable) String() string {
+	return fmt.Sprintf("AnalyzedQueryAlterTable{DatabaseName: %s\n TableName: %s\n Columns: %v\n", a.DatabaseName, a.TableName, a.Columns)
+}
+
+func (a *AnalyzedQueryAlterTable) Error() error {
+	return a.err
+}
+
+func NewAnalyzedQueryCreateDatabase() *AnalyzedQueryCreateDatabase {
+	return &AnalyzedQueryCreateDatabase{
+		err: nil,
+	}
+}
+
+func (a *AnalyzedQueryCreateDatabase) String() string {
+	return fmt.Sprintf("AnalyzedQueryCreateDatabase{DatabaseName: %s\n", a.DatabaseName)
+}
+
+func (a *AnalyzedQueryCreateDatabase) Error() error {
+	return a.err
+}
+
+func NewAnalyzedQueryDropDatabase() *AnalyzedQueryDropDatabase {
+	return &AnalyzedQueryDropDatabase{
+		err: nil,
+	}
+}
+
+func (a *AnalyzedQueryDropDatabase) String() string {
+	return fmt.Sprintf("AnalyzedQueryDropDatabase{DatabaseName: %s\n", a.DatabaseName)
+}
+
+func (a *AnalyzedQueryDropDatabase) Error() error {
+	return a.err
+}
+
+func NewAnalyzedQueryShowDatabases() *AnalyzedQueryShowDatabases {
+	return &AnalyzedQueryShowDatabases{
+		err: nil,
+	}
+}
+
+func (a *AnalyzedQueryShowDatabases) String() string {
+	return fmt.Sprintf("AnalyzedQueryShowDatabases{}")
+}
+
+func (a *AnalyzedQueryShowDatabases) Error() error {
+	return a.err
+}
+
+func NewAnalyzedQueryShowTables() *AnalyzedQueryShowTables {
+	return &AnalyzedQueryShowTables{
+		err: nil,
+	}
+}
+
+func (a *AnalyzedQueryShowTables) String() string {
+	return fmt.Sprintf("AnalyzedQueryShowTables{DatabaseName: %s\n", a.DatabaseName)
+}
+
+func AnalyzeQuery(databaseName string, parsedQuery interface{}) AnalyzedQueryData {
 	var analyzedData AnalyzedQueryData
 	switch stmt := parsedQuery.(type) {
 	case *sqlparser.Select:
@@ -249,7 +362,19 @@ func AnalyzeQuery(databaseName string, parsedQuery sqlparser.Statement) Analyzed
 		analyzedData = analyzeTableRowsUpdate(databaseName, stmt)
 	case *sqlparser.Delete:
 		analyzedData = analyzeTableRowsDelete(databaseName, stmt)
+	case *sqlparser.DDL:
+		switch stmt.Action {
+		case sqlparser.DropStr:
+			analyzedData = analyzeDropTable(databaseName, stmt)
+		case sqlparser.AlterStr:
+			analyzedData = analyzeAlterTable(databaseName, stmt)
+		default:
+			analyzedData = nil
+		}
+
 	default:
+		analyzedData = nil
 	}
+
 	return analyzedData
 }
