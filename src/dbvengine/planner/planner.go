@@ -29,7 +29,11 @@ func BuildPlan(analyzedQuery parser.AnalyzedQueryData, exec *executor.ExecutionL
 	case *parser.AnalyzedQueryDelete:
 		resultId := buildDeleteTablePlan(exec, aq)
 		exec.Nodes[resultId].Final = true
+	case *parser.AnalyzedQueryDropTable:
+		resultId := buildDropTablePlan(exec, aq)
+		exec.Nodes[resultId].Final = true
 	}
+
 }
 
 // Function responsible for generating execution plan for select query.
@@ -863,6 +867,31 @@ func buildCreateTablePlan(
 		aq.Columns,
 		aq.Truncate,
 		aq.VerifyExistence,
+	}
+
+	// Set operation
+	execNode.Operation = operation
+
+	// Add node to the map
+	exec.AddNode(execNode, true)
+
+	return nodeName
+}
+
+func buildDropTablePlan(
+	exec *executor.ExecutionLayer,
+	aq *parser.AnalyzedQueryDropTable,
+) string {
+	// Create new execution Node
+	nodeName := fmt.Sprintf("drop_table_%s", aq.TableName)
+	execNode := executor.NewExecutionNode(nodeName, exec)
+
+	// Create Operation
+	operation := executor.Operation{}
+	operation.Name = executor.TABLE_DROP
+	operation.Args = []interface{}{
+		aq.DatabaseName,
+		aq.TableName,
 	}
 
 	// Set operation

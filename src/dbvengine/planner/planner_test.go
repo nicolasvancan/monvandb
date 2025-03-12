@@ -13,6 +13,90 @@ import (
 	"github.com/nicolasvancan/monvandb/src/utils"
 )
 
+func TestTableDrop(t *testing.T) {
+	TestTableCreate(t)
+	mock_db, _ := database.GetDatabase("mock")
+
+	table, _ := mock_db.GetTable("my_table")
+
+	fmt.Println(table.Name)
+	query := "DROP TABLE my_table"
+	parsedQuery, err := sqlparser.Parse(query)
+
+	if err != nil {
+		t.Errorf("error parsing query: %v", err)
+	}
+
+	analyzedQuery := parser.AnalyzeQuery("mock", parsedQuery)
+	if analyzedQuery.Error() != nil {
+		t.Errorf("error analyzing query: %v", analyzedQuery.Error())
+	}
+
+	// Create a new execution layer
+	execLayer := executor.NewExecutionLayer(contexts.NewExecutionContext())
+
+	// Build the plan
+	BuildPlan(analyzedQuery, execLayer)
+
+	execLayer.Start()
+
+	mock_db, _ = database.GetDatabase("mock")
+
+	table, _ = mock_db.GetTable("my_table")
+
+	if table != nil {
+		t.Errorf("expected nil, got %v", table)
+	}
+}
+func TestTableCreate(t *testing.T) {
+	CreateBasePaths(t)
+	db, err := database.CreateDatabase("mock")
+
+	if err != nil {
+		t.Errorf("error creating database: %v", err)
+	}
+
+	if db.Name != "mock" {
+		t.Errorf("expected mock, got %v", db.Name)
+	}
+
+	query := "CREATE TABLE my_table (id INT PRIMARY KEY, name TEXT)"
+	parsedQuery, err := sqlparser.Parse(query)
+
+	if err != nil {
+		t.Errorf("error parsing query: %v", err)
+	}
+
+	analyzedQuery := parser.AnalyzeQuery("mock", parsedQuery)
+	if analyzedQuery.Error() != nil {
+		t.Errorf("error analyzing query: %v", analyzedQuery.Error())
+	}
+
+	// Create a new execution layer
+	execLayer := executor.NewExecutionLayer(contexts.NewExecutionContext())
+
+	// Build the plan
+	BuildPlan(analyzedQuery, execLayer)
+
+	execLayer.Start()
+
+	db, err = database.GetDatabase("mock")
+
+	if err != nil {
+		t.Errorf("error getting database: %v", err)
+	}
+
+	table, err := db.GetTable("my_table")
+
+	if err != nil {
+		t.Errorf("error getting table: %v", err)
+	}
+
+	if table.Name != "my_table" {
+		t.Errorf("expected my_table, got %v", table.Name)
+	}
+}
+
 func TestTableInsert(t *testing.T) {
 	CreateMockTable(t)
 

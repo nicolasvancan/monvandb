@@ -49,7 +49,7 @@ func WriteToFile(path string, data []byte) error {
 	}
 
 	// Open the file
-	f, err := os.OpenFile(path, os.O_RDWR, 0644)
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_TRUNC, 0644)
 
 	if err != nil {
 		return err

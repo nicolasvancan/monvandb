@@ -85,7 +85,7 @@ func LoadDatabase(path string) (*Database, error) {
 
 func GetDatabase(databaseName string) (*Database, error) {
 	databasePath := utils.GetPath("databases")
-	db, err := LoadDatabase(databasePath + "/" + strings.ToLower(databaseName))
+	db, err := LoadDatabase(databasePath + utils.SEPARATOR + strings.ToLower(databaseName))
 	if err != nil {
 		return nil, fmt.Errorf("database %s does not exist", databaseName)
 	}
@@ -96,7 +96,7 @@ func GetDatabase(databaseName string) (*Database, error) {
 // Since it returs a pointer to the table struct
 // whenever there is a change in the table struct, the change will be reflected in the database struct
 func (d *Database) GetTable(tableName string) (*Table, error) {
-	if _, ok := d.Tables[tableName]; !ok {
+	if !TableExists(d, tableName) {
 		return nil, errors.New("table not found")
 	}
 
@@ -314,12 +314,12 @@ func (d *Database) DropTable(tableName string) error {
 	}
 
 	// Delete the table from the database
-	delete(d.TablePaths, tableName)
-	delete(d.Tables, tableName)
-
+	delete(d.TablePaths, table.Name)
+	delete(d.Tables, table.Name)
 	// Update the database metadata file
 	json, err := utils.ToJson(d)
-
+	fmt.Println("Storings")
+	fmt.Println(string(json))
 	if err != nil {
 		return err
 	}
@@ -369,4 +369,9 @@ func (d *Database) DropIndex(tableName string, indexName string) error {
 	}
 
 	return nil
+}
+
+func TableExists(db *Database, tableName string) bool {
+	_, ok := db.Tables[tableName]
+	return ok
 }
