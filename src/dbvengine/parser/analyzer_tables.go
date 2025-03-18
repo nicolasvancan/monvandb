@@ -103,3 +103,10 @@ func analyzeAlterTable(databaseName string, stmt *sqlparser.DDL) *AnalyzedQueryA
 	analyzedQueryAlterTable.TableName = strings.ToLower(stmt.Table.Name.String())
 	return analyzedQueryAlterTable
 }
+
+func analyzeTruncateTable(databaseName string, stms *sqlparser.TruncateTable) *AnalyzedQueryTruncateTable {
+	analyzedQueryTruncateTable := NewAnalyzedQueryTruncateTable()
+	analyzedQueryTruncateTable.DatabaseName = databaseName
+	analyzedQueryTruncateTable.TableName = strings.ToLower(stms.Table.Name.String())
+	return analyzedQueryTruncateTable
+}

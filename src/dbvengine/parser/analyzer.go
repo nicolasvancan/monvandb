@@ -139,6 +139,12 @@ type AnalyzedQueryDropTable struct {
 	err          error
 }
 
+type AnalyzedQueryTruncateTable struct {
+	DatabaseName string
+	TableName    string
+	err          error
+}
+
 type AnalyzedQueryAlterTable struct {
 	DatabaseName string
 	TableName    string
@@ -325,6 +331,20 @@ func (a *AnalyzedQueryDropDatabase) Error() error {
 	return a.err
 }
 
+func NewAnalyzedQueryTruncateTable() *AnalyzedQueryTruncateTable {
+	return &AnalyzedQueryTruncateTable{
+		err: nil,
+	}
+}
+
+func (a *AnalyzedQueryTruncateTable) String() string {
+	return fmt.Sprintf("AnalyzedQueryTruncateTable{DatabaseName: %s\n TableName: %s\n", a.DatabaseName, a.TableName)
+}
+
+func (a *AnalyzedQueryTruncateTable) Error() error {
+	return a.err
+}
+
 func NewAnalyzedQueryShowDatabases() *AnalyzedQueryShowDatabases {
 	return &AnalyzedQueryShowDatabases{
 		err: nil,
@@ -332,7 +352,7 @@ func NewAnalyzedQueryShowDatabases() *AnalyzedQueryShowDatabases {
 }
 
 func (a *AnalyzedQueryShowDatabases) String() string {
-	return fmt.Sprintf("AnalyzedQueryShowDatabases{}")
+	return "AnalyzedQueryShowDatabases{}"
 }
 
 func (a *AnalyzedQueryShowDatabases) Error() error {
@@ -362,6 +382,8 @@ func AnalyzeQuery(databaseName string, parsedQuery interface{}) AnalyzedQueryDat
 		analyzedData = analyzeTableRowsUpdate(databaseName, stmt)
 	case *sqlparser.Delete:
 		analyzedData = analyzeTableRowsDelete(databaseName, stmt)
+	case *sqlparser.TruncateTable:
+		analyzedData = analyzeTruncateTable(databaseName, stmt)
 	case *sqlparser.DDL:
 		switch stmt.Action {
 		case sqlparser.DropStr:

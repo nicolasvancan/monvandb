@@ -67,7 +67,7 @@ var Operations = map[string]func(...interface{}) (df.Dataframe, error){
 	TABLE_CREATE:   TableFileCreate, // Create a table operation
 	TABLE_DROP:     TableFileDrop,   // Drop a table operation
 	TABLE_ALTER:    nil,             // Alter a table operation
-	TABLE_TRUNCATE: nil,             // Truncate a table operation
+	TABLE_TRUNCATE: TableFileCreate, // Truncate a table operation
 	// Database Operations
 	DATABASE_CREATE: nil, // Create a database operation
 	DATABASE_DROP:   nil, // Drop a database operation

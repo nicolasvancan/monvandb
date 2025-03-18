@@ -32,8 +32,10 @@ func BuildPlan(analyzedQuery parser.AnalyzedQueryData, exec *executor.ExecutionL
 	case *parser.AnalyzedQueryDropTable:
 		resultId := buildDropTablePlan(exec, aq)
 		exec.Nodes[resultId].Final = true
+	case *parser.AnalyzedQueryTruncateTable:
+		resultId := buildTruncateTablePlan(exec, aq)
+		exec.Nodes[resultId].Final = true
 	}
-
 }
 
 // Function responsible for generating execution plan for select query.
@@ -892,6 +894,34 @@ func buildDropTablePlan(
 	operation.Args = []interface{}{
 		aq.DatabaseName,
 		aq.TableName,
+	}
+
+	// Set operation
+	execNode.Operation = operation
+
+	// Add node to the map
+	exec.AddNode(execNode, true)
+
+	return nodeName
+}
+
+func buildTruncateTablePlan(
+	exec *executor.ExecutionLayer,
+	aq *parser.AnalyzedQueryTruncateTable,
+) string {
+	// Create new execution Node
+	nodeName := fmt.Sprintf("truncate_table_%s", aq.TableName)
+	execNode := executor.NewExecutionNode(nodeName, exec)
+
+	// Create Operation
+	operation := executor.Operation{}
+	operation.Name = executor.TABLE_TRUNCATE
+	operation.Args = []interface{}{
+		aq.DatabaseName,
+		aq.TableName,
+		make([]database.Column, 0),
+		true,
+		false,
 	}
 
 	// Set operation

@@ -202,7 +202,13 @@ func TableFileCreate(params ...interface{}) (df.Dataframe, error) {
 		return df.Dataframe{}, err
 	}
 
-	return df.NewDataframe([]db.RawRow{{"Table Created": tableName}}), nil
+	retString := "Table Created"
+
+	if truncate {
+		retString = "Table Truncated"
+	}
+
+	return df.NewDataframe([]db.RawRow{{retString: tableName}}), nil
 }
 
 func TableFileDrop(params ...interface{}) (df.Dataframe, error) {

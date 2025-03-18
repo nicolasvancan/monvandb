@@ -158,6 +158,16 @@ func (d *Database) CreateTable(tableName string, columns []Column, truncate bool
 			}
 			return errors.New("table already exists")
 		}
+	} else {
+		if _, ok := d.Tables[tableName]; ok {
+			// fill up columns
+			columns = append(columns, d.Tables[tableName].Columns...)
+			// drop table
+			err := d.DropTable(tableName)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	// Create a new table
