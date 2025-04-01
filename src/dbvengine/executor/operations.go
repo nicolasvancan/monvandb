@@ -45,7 +45,8 @@ const (
 	// Role Operations
 	ROLE_CREATE = "ROLE_CREATE"
 	ROLE_DROP   = "ROLE_DROP"
-	ROLE_ALTER  = "ROLE_ALTER"
+	ROLE_ASSIGN = "ROLE_ASSIGN"
+	ROLE_REVOKE = "ROLE_REVOKE"
 )
 
 var Operations = map[string]func(...interface{}) (df.Dataframe, error){
@@ -74,13 +75,12 @@ var Operations = map[string]func(...interface{}) (df.Dataframe, error){
 	// Index Operations
 	INDEX_CREATE: nil, // Create an index operation
 	INDEX_DROP:   nil, // Drop an index operation
-	INDEX_ALTER:  nil, // Alter an index operation
 	// User Operations
 	USER_CREATE: nil, // Create a user operation
 	USER_DROP:   nil, // Drop a user operation
-	USER_ALTER:  nil, // Alter a user operation
 	// Role Operations
 	ROLE_CREATE: nil, // Create a role operation
 	ROLE_DROP:   nil, // Drop a role operation
-	ROLE_ALTER:  nil, // Alter a role operation
+	ROLE_ASSIGN: nil, // Assign a role operation
+	ROLE_REVOKE: nil, // Revoke a role operation
 }

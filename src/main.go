@@ -7,17 +7,8 @@ import (
 	"github.com/blastrain/vitess-sqlparser/sqlparser"
 )
 
-type bang struct {
-	foo string
-}
-
-type bang2 struct {
-	bang
-	Teste string
-}
-
 func main() {
-	query := "TRUNCATE TABLE teste"
+	query := "CREATE USER 'casalberto' JSON {'name': 'Alberto', 'age': 23}"
 	stmt, err := sqlparser.Parse(query)
 	if err != nil {
 		panic(err)
@@ -42,10 +33,6 @@ func main() {
 		fmt.Println(statement)
 	case *sqlparser.Delete:
 		statement := stmt.TableExprs
-		fmt.Printf("%s\n", reflect.TypeOf(statement))
-		fmt.Println(statement)
-	case *sqlparser.DDL:
-		statement := stmt
 		fmt.Printf("%s\n", reflect.TypeOf(statement))
 		fmt.Println(statement)
 	default:
