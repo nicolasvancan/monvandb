@@ -5,11 +5,13 @@ package parser
 	such as Create Table, Update Table, Drop Table, Alter Table, and so on
 */
 import (
+	"errors"
 	"strconv"
 	"strings"
 
 	sqlparser "github.com/blastrain/vitess-sqlparser/sqlparser"
 	database "github.com/nicolasvancan/monvandb/src/database"
+	monvan_parser "github.com/nicolasvancan/monvandb/src/dbvengine/parser/custom_parser"
 )
 
 func analyzeCreateTable(databaseName string, stmt *sqlparser.CreateTable) *AnalyzedQueryCreateTable {
@@ -89,24 +91,219 @@ func analyzeCreateTableColumns(colsDef []*sqlparser.ColumnDef) []database.Column
 	return columns
 }
 
-func analyzeDropTable(databaseName string, stmt *sqlparser.DDL) *AnalyzedQueryDropTable {
+func analyzeDropTable(databaseName string, stmt *monvan_parser.TableDrop) *AnalyzedQueryDropTable {
+
+	// Verify if table exists in database
 	analyzedQueryCreateDatabase := NewAnalyzedQueryDropTable()
+
+	db, err := database.GetDatabase(databaseName)
+
+	if err != nil {
+		analyzedQueryCreateDatabase.err = err
+		return analyzedQueryCreateDatabase
+	}
+
+	if !database.TableExists(db, strings.ToLower(stmt.Name)) {
+		analyzedQueryCreateDatabase.err = errors.New("table " + strings.ToLower(stmt.Name) + " does not exist")
+		return analyzedQueryCreateDatabase
+	}
 	analyzedQueryCreateDatabase.DatabaseName = databaseName
-	analyzedQueryCreateDatabase.TableName = strings.ToLower(stmt.Table.Name.String())
+	analyzedQueryCreateDatabase.TableName = strings.ToLower(stmt.Name)
 	return analyzedQueryCreateDatabase
 }
 
-// TODO
-func analyzeAlterTable(databaseName string, stmt *sqlparser.DDL) *AnalyzedQueryAlterTable {
+func analyzeDropIndex(databaseName string, stmt *monvan_parser.IndexDrop) *AnalyzedQueryDropIndex {
+	analyzedQueryDropIndex := NewAnalyzedQueryDropIndex()
+	analyzedQueryDropIndex.DatabaseName = databaseName
+	analyzedQueryDropIndex.TableName = strings.ToLower(stmt.Table)
+	analyzedQueryDropIndex.IndexName = strings.ToLower(stmt.Name)
+
+	// Verify if index exists in database
+	db, err := database.GetDatabase(databaseName)
+
+	if err != nil {
+		analyzedQueryDropIndex.err = err
+		return analyzedQueryDropIndex
+	}
+
+	if !database.IndexExists(db, analyzedQueryDropIndex.TableName, analyzedQueryDropIndex.IndexName) {
+		analyzedQueryDropIndex.err = errors.New("index " + analyzedQueryDropIndex.IndexName + " does not exist")
+		return analyzedQueryDropIndex
+	}
+
+	return analyzedQueryDropIndex
+}
+
+func analyzeAlterTable(databaseName string, stmt *monvan_parser.TableAlter) *AnalyzedQueryAlterTable {
 	analyzedQueryAlterTable := NewAnalyzedQueryAlterTable()
+
+	db, err := database.GetDatabase(databaseName)
+	if err != nil {
+		analyzedQueryAlterTable.err = err
+		return analyzedQueryAlterTable
+	}
+
+	tableName := strings.ToLower(stmt.Name)
+	table, err := db.GetTable(tableName)
+
+	if err != nil {
+		analyzedQueryAlterTable.err = errors.New("table " + tableName + " does not exist")
+		return analyzedQueryAlterTable
+	}
+
 	analyzedQueryAlterTable.DatabaseName = databaseName
-	analyzedQueryAlterTable.TableName = strings.ToLower(stmt.Table.Name.String())
+	analyzedQueryAlterTable.TableName = strings.ToLower(stmt.Name)
+	analyzedQueryAlterTable.Column = *table.GetColumnByName(stmt.Column)
+	analyzedQueryAlterTable.AlterType = stmt.Operation
+	analyzedQueryAlterTable.ColumnName = stmt.Column
+	analyzedQueryAlterTable.Options = stmt.ModifyOptions
+
 	return analyzedQueryAlterTable
 }
 
-func analyzeTruncateTable(databaseName string, stms *sqlparser.TruncateTable) *AnalyzedQueryTruncateTable {
+func analyzeTruncateTable(databaseName string, stmt *sqlparser.TruncateTable) *AnalyzedQueryTruncateTable {
 	analyzedQueryTruncateTable := NewAnalyzedQueryTruncateTable()
+
+	db, err := database.GetDatabase(databaseName)
+	if err != nil {
+		analyzedQueryTruncateTable.err = err
+		return analyzedQueryTruncateTable
+	}
+
+	tableName := strings.ToLower(stmt.Table.Name.String())
+	if !database.TableExists(db, tableName) {
+		analyzedQueryTruncateTable.err = errors.New("table " + tableName + " does not exist")
+		return analyzedQueryTruncateTable
+	}
+
 	analyzedQueryTruncateTable.DatabaseName = databaseName
-	analyzedQueryTruncateTable.TableName = strings.ToLower(stms.Table.Name.String())
+	analyzedQueryTruncateTable.TableName = strings.ToLower(stmt.Table.Name.String())
 	return analyzedQueryTruncateTable
+}
+
+func analyzeDropDatabase(stmt *monvan_parser.DatabaseDrop) *AnalyzedQueryDropDatabase {
+	analyzedQueryDropDatabase := NewAnalyzedQueryDropDatabase()
+
+	// verify if database exists
+	_, err := database.GetDatabase(strings.ToLower(stmt.Name))
+	if err != nil {
+		analyzedQueryDropDatabase.err = err
+		return analyzedQueryDropDatabase
+	}
+	analyzedQueryDropDatabase.DatabaseName = strings.ToLower(stmt.Name)
+	return analyzedQueryDropDatabase
+}
+
+func analyzeCreateDatabase(stmt *monvan_parser.DatabaseCreate) *AnalyzedQueryCreateDatabase {
+	// Verify if database exists
+	analyzedQueryCreateDatabase := NewAnalyzedQueryCreateDatabase()
+	_, err := database.GetDatabase(strings.ToLower(stmt.Name))
+
+	if err == nil {
+		analyzedQueryCreateDatabase.err = errors.New("database " + strings.ToLower(stmt.Name) + " already exists")
+		return analyzedQueryCreateDatabase
+	}
+
+	analyzedQueryCreateDatabase.DatabaseName = strings.ToLower(stmt.Name)
+	return analyzedQueryCreateDatabase
+}
+
+func analyzeDropUser(stmt *monvan_parser.UserDrop) *AnalyzedQueryDropUser {
+	analyzedQueryDropUser := NewAnalyzedQueryDropUser()
+	analyzedQueryDropUser.Username = strings.ToLower(stmt.Name)
+	return analyzedQueryDropUser
+}
+
+func analyzeDropRole(stmt *monvan_parser.RoleDrop) *AnalyzedQueryDropRole {
+	analyzedQueryDropRole := NewAnalyzedQueryDropRole()
+	analyzedQueryDropRole.RoleName = strings.ToLower(stmt.Name)
+	return analyzedQueryDropRole
+}
+
+func analyzeCreateUser(stmt *monvan_parser.UserCreate) *AnalyzedQueryCreateUser {
+	analyzedQueryCreateUser := NewAnalyzedQueryCreateUser()
+	analyzedQueryCreateUser.Username = strings.ToLower(stmt.Username)
+	analyzedQueryCreateUser.Password = stmt.Password
+	return analyzedQueryCreateUser
+}
+
+func analyzeCreateRole(stmt *monvan_parser.RoleCreate) *AnalyzedQueryCreateRole {
+	analyzedQueryCreateRole := NewAnalyzedQueryCreateRole()
+	analyzedQueryCreateRole.RoleName = strings.ToLower(stmt.Name)
+	analyzedQueryCreateRole.Options = stmt.Options
+	return analyzedQueryCreateRole
+}
+
+func analyzeCreateIndex(databaseName string, stmt *monvan_parser.IndexCreate) *AnalyzedQueryCreateIndex {
+	// Verify if table exists in database
+
+	analyzedQueryCreateIndex := NewAnalyzedQueryCreateIndex()
+	db, err := database.GetDatabase(databaseName)
+	if err != nil {
+		analyzedQueryCreateIndex.err = err
+		return analyzedQueryCreateIndex
+	}
+
+	tableName := strings.ToLower(stmt.Table)
+	if !database.TableExists(db, tableName) {
+		analyzedQueryCreateIndex.err = errors.New("table " + tableName + " does not exist")
+		return analyzedQueryCreateIndex
+	}
+
+	// analyze if columns exist in table
+	table, err := db.GetTable(tableName)
+	if err != nil {
+		analyzedQueryCreateIndex.err = err
+		return analyzedQueryCreateIndex
+	}
+
+	for _, column := range stmt.Columns {
+		if table.GetColumnByName(column) == nil {
+			analyzedQueryCreateIndex.err = errors.New("column " + column + " does not exist in table " + tableName)
+		}
+	}
+
+	analyzedQueryCreateIndex.DatabaseName = databaseName
+	analyzedQueryCreateIndex.TableName = strings.ToLower(stmt.Table)
+	analyzedQueryCreateIndex.IndexName = strings.ToLower(stmt.Name)
+	analyzedQueryCreateIndex.Columns = stmt.Columns
+
+	return analyzedQueryCreateIndex
+}
+
+func analyzeModifyUser(stmt *monvan_parser.UserModify) *AnalyzedQueryModifyUser {
+	// Verify if user exists
+	analyzedQueryModifyUser := NewAnalyzedQueryModifyUser()
+	analyzedQueryModifyUser.Username = strings.ToLower(stmt.Name)
+	analyzedQueryModifyUser.Password = stmt.Password
+	return analyzedQueryModifyUser
+}
+
+func analyzeUseDatabase(stmt *monvan_parser.UseDatabase) *AnalyzedQueryUseDatabase {
+	analyzedQueryUseDatabase := NewAnalyzedQueryUseDatabase()
+	databaseName := strings.ToLower(stmt.Name)
+
+	// Verify if database exists
+	_, err := database.GetDatabase(databaseName)
+	if err != nil {
+		analyzedQueryUseDatabase.err = err
+		return analyzedQueryUseDatabase
+	}
+
+	analyzedQueryUseDatabase.DatabaseName = strings.ToLower(stmt.Name)
+	return analyzedQueryUseDatabase
+}
+
+func analyzeShowTables(databaseName string, stmt *monvan_parser.ShowTables) *AnalyzedQueryShowTables {
+	analyzedQueries := NewAnalyzedQueryShowTables()
+	// Verify if database exists
+	_, err := database.GetDatabase(databaseName)
+	if err != nil {
+		analyzedQueries.err = err
+		return analyzedQueries
+	}
+
+	analyzedQueryShowTables := NewAnalyzedQueryShowTables()
+	analyzedQueryShowTables.DatabaseName = strings.ToLower(stmt.DatabaseName)
+	return analyzedQueryShowTables
 }

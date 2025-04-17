@@ -383,6 +383,11 @@ func getGroupedOperationsByIndexedColumn(table *Table, ops []ColumnComparsion) m
 
 func MergeOperationsBasedOnIndexedColumnsAndReturnRangeOptions(table *Table, ops []ColumnComparsion) RangeOptions {
 	// Group operations by indexed columns
+
+	if ops == nil {
+		return NewRangeOptions()
+	}
+
 	groupedOps := getGroupedOperationsByIndexedColumn(table, ops)
 	mergedOps := make([]RangeOptimizerOptions, 0)
 	for _, ops := range groupedOps {

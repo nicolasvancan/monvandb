@@ -35,6 +35,18 @@ func BuildPlan(analyzedQuery parser.AnalyzedQueryData, exec *executor.ExecutionL
 	case *parser.AnalyzedQueryTruncateTable:
 		resultId := buildTruncateTablePlan(exec, aq)
 		exec.Nodes[resultId].Final = true
+	case *parser.AnalyzedQueryCreateDatabase:
+		resultId := buildCreateDatabasePlan(exec, aq)
+		exec.Nodes[resultId].Final = true
+	case *parser.AnalyzedQueryDropDatabase:
+		resultId := buildDropDatabasePlan(exec, aq)
+		exec.Nodes[resultId].Final = true
+	case *parser.AnalyzedQueryCreateIndex:
+		resultId := buildCreateIndexPlan(exec, aq)
+		exec.Nodes[resultId].Final = true
+	case *parser.AnalyzedQueryDropIndex:
+		resultId := buildDropIndexPlan(exec, aq)
+		exec.Nodes[resultId].Final = true
 	}
 }
 
@@ -922,6 +934,107 @@ func buildTruncateTablePlan(
 		make([]database.Column, 0),
 		true,
 		false,
+	}
+
+	// Set operation
+	execNode.Operation = operation
+
+	// Add node to the map
+	exec.AddNode(execNode, true)
+
+	return nodeName
+}
+
+func buildCreateDatabasePlan(
+	exec *executor.ExecutionLayer,
+	aq *parser.AnalyzedQueryCreateDatabase,
+) string {
+	// Create new execution Node
+	nodeName := fmt.Sprintf("create_database_%s", aq.DatabaseName)
+	execNode := executor.NewExecutionNode(nodeName, exec)
+
+	// Create Operation
+	operation := executor.Operation{}
+	operation.Name = executor.DATABASE_CREATE
+	operation.Args = []interface{}{
+		aq.DatabaseName,
+	}
+
+	// Set operation
+	execNode.Operation = operation
+
+	// Add node to the map
+	exec.AddNode(execNode, true)
+
+	return nodeName
+}
+
+func buildDropDatabasePlan(
+	exec *executor.ExecutionLayer,
+	aq *parser.AnalyzedQueryDropDatabase,
+) string {
+	// Create new execution Node
+	nodeName := fmt.Sprintf("drop_database_%s", aq.DatabaseName)
+	execNode := executor.NewExecutionNode(nodeName, exec)
+
+	// Create Operation
+	operation := executor.Operation{}
+	operation.Name = executor.DATABASE_DROP
+	operation.Args = []interface{}{
+		aq.DatabaseName,
+	}
+
+	// Set operation
+	execNode.Operation = operation
+
+	// Add node to the map
+	exec.AddNode(execNode, true)
+
+	return nodeName
+}
+
+func buildCreateIndexPlan(
+	exec *executor.ExecutionLayer,
+	aq *parser.AnalyzedQueryCreateIndex,
+) string {
+	// Create new execution Node
+	nodeName := fmt.Sprintf("create_index_%s", aq.IndexName)
+	execNode := executor.NewExecutionNode(nodeName, exec)
+
+	// Create Operation
+	operation := executor.Operation{}
+	operation.Name = executor.INDEX_CREATE
+	operation.Args = []interface{}{
+		aq.DatabaseName,
+		aq.TableName,
+		aq.IndexName,
+		aq.Columns,
+	}
+
+	// Set operation
+	execNode.Operation = operation
+
+	// Add node to the map
+	exec.AddNode(execNode, true)
+
+	return nodeName
+}
+
+func buildDropIndexPlan(
+	exec *executor.ExecutionLayer,
+	aq *parser.AnalyzedQueryDropIndex,
+) string {
+	// Create new execution Node
+	nodeName := fmt.Sprintf("drop_index_%s", aq.IndexName)
+	execNode := executor.NewExecutionNode(nodeName, exec)
+
+	// Create Operation
+	operation := executor.Operation{}
+	operation.Name = executor.INDEX_DROP
+	operation.Args = []interface{}{
+		aq.DatabaseName,
+		aq.TableName,
+		aq.IndexName,
 	}
 
 	// Set operation

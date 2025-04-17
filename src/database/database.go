@@ -10,6 +10,9 @@ import (
 	utils "github.com/nicolasvancan/monvandb/src/utils"
 )
 
+var loadedDatabases = make(map[string]*Database)
+
+// TODO: Sync for concurrent reading
 func CreateDatabase(name string) (*Database, error) {
 	// Create a new database
 	database := &Database{
@@ -85,6 +88,12 @@ func LoadDatabase(path string) (*Database, error) {
 
 func GetDatabase(databaseName string) (*Database, error) {
 	databasePath := utils.GetPath("databases")
+
+	// check if the database has been loaded
+	if db, ok := loadedDatabases[strings.ToLower(databaseName)]; ok {
+		return db, nil
+	}
+
 	db, err := LoadDatabase(databasePath + utils.SEPARATOR + strings.ToLower(databaseName))
 	if err != nil {
 		return nil, fmt.Errorf("database %s does not exist", databaseName)
@@ -384,4 +393,93 @@ func (d *Database) DropIndex(tableName string, indexName string) error {
 func TableExists(db *Database, tableName string) bool {
 	_, ok := db.Tables[tableName]
 	return ok
+}
+
+func IndexExists(db *Database, tableName string, indexName string) bool {
+	table, ok := db.Tables[tableName]
+
+	if !ok {
+		return false
+	}
+
+	_, ok = table.Indexes[indexName]
+	return ok
+}
+
+func DropDatabase(databaseName string) error {
+	databasePath := utils.GetPath("databases") + utils.SEPARATOR + databaseName
+
+	// Check if the database exists
+	if _, err := os.Stat(databasePath); os.IsNotExist(err) {
+		return fmt.Errorf("database %s does not exist", databaseName)
+	}
+
+	// Delete the database folder
+	err := os.RemoveAll(databasePath)
+
+	if err != nil {
+		return fmt.Errorf("could not delete database %s: %v", databaseName, err)
+	}
+
+	return nil
+}
+
+func (d *Database) AlterTable(tableName string, action string, newColumn Column) error {
+	table, err := d.GetTable(tableName)
+
+	if err != nil {
+		return err
+	}
+
+	switch strings.ToLower(action) {
+	case "add column":
+		table.Columns = append(table.Columns, newColumn)
+	case "drop column":
+		for i, column := range table.Columns {
+			if column.Name == newColumn.Name {
+				table.Columns = append(table.Columns[:i], table.Columns[i+1:]...)
+				break
+			}
+		}
+	case "modify column":
+		for i, column := range table.Columns {
+			if column.Name == newColumn.Name {
+				table.Columns[i] = newColumn
+				break
+			}
+		}
+	default:
+		return errors.New("unknown action for altering table")
+	}
+
+	json, err := utils.ToJson(table)
+
+	if err != nil {
+		return err
+	}
+
+	err = utils.WriteToFile(table.Path+utils.SEPARATOR+utils.METDATA_FILE, json)
+
+	if err != nil {
+		return fmt.Errorf("could not write to table metadata file: %v", err)
+	}
+
+	return nil
+
+}
+
+func GetTable(databaseName string, tableName string) (*Table, error) {
+	db, err := GetDatabase(databaseName)
+
+	if err != nil {
+		return nil, err
+	}
+
+	table, err := db.GetTable(tableName)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return table, nil
 }

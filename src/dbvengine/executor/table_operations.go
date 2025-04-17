@@ -6,6 +6,7 @@ import (
 	db "github.com/nicolasvancan/monvandb/src/database"
 	"github.com/nicolasvancan/monvandb/src/dbvengine/contexts"
 	df "github.com/nicolasvancan/monvandb/src/dbvengine/dataframe"
+	monvan_parser "github.com/nicolasvancan/monvandb/src/dbvengine/parser/custom_parser"
 )
 
 func TableFileRead(params ...interface{}) (df.Dataframe, error) {
@@ -232,4 +233,35 @@ func TableFileDrop(params ...interface{}) (df.Dataframe, error) {
 	}
 
 	return df.NewDataframe([]db.RawRow{{"Table Dropped": tableName}}), nil
+}
+
+func TableFileAlter(params ...interface{}) (df.Dataframe, error) {
+	// First parameter is always the database name
+	// Second parameter is always the table name
+	// The last parameter is always a []db.Column
+
+	databaseName := params[0].(string)
+	tableName := params[1].(string)
+	alterOperation := params[2].(monvan_parser.AlterOperation)
+	column := params[3].(db.Column)
+
+	database, err := db.GetDatabase(databaseName)
+
+	if err != nil {
+		return df.Dataframe{}, err
+	}
+
+	_, err = database.GetTable(tableName)
+
+	if err != nil {
+		return df.Dataframe{}, err
+	}
+
+	err = database.AlterTable(alterOperation, alterOperation, column)
+
+	if err != nil {
+		return df.Dataframe{}, err
+	}
+
+	return df.NewDataframe([]db.RawRow{{"Column Modified": column.Name}}), nil
 }

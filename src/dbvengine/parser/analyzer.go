@@ -6,6 +6,7 @@ import (
 	sqlparser "github.com/blastrain/vitess-sqlparser/sqlparser"
 	database "github.com/nicolasvancan/monvandb/src/database"
 	dataframe "github.com/nicolasvancan/monvandb/src/dbvengine/dataframe"
+	monvan_parser "github.com/nicolasvancan/monvandb/src/dbvengine/parser/custom_parser"
 )
 
 type SqlStatementType int
@@ -148,7 +149,10 @@ type AnalyzedQueryTruncateTable struct {
 type AnalyzedQueryAlterTable struct {
 	DatabaseName string
 	TableName    string
-	Columns      []database.Column
+	AlterType    string
+	ColumnName   string
+	Column       database.Column
+	Options      string
 	err          error
 }
 
@@ -171,7 +175,184 @@ type AnalyzedQueryShowTables struct {
 	err          error
 }
 
+type AnalyzedQueryDropIndex struct {
+	DatabaseName string
+	IndexName    string
+	TableName    string
+	err          error
+}
+
+type AnalyzedQueryDropUser struct {
+	Username string
+	err      error
+}
+
+type AnalyzedQueryDropRole struct {
+	RoleName string
+	err      error
+}
+
+type AnalyzedQueryCreateUser struct {
+	User     string
+	Username string
+	Password string
+	err      error
+}
+
+type AnalyzedQueryCreateRole struct {
+	RoleName string
+	Options  map[string]interface{}
+	err      error
+}
+
+type AnalyzedQueryCreateIndex struct {
+	DatabaseName string
+	IndexName    string
+	TableName    string
+	Columns      []string
+	err          error
+}
+
+type AnalyzedQueryUseDatabase struct {
+	DatabaseName string
+	err          error
+}
+
+type AnalyzedQueryModifyUser struct {
+	Username string
+	Password string
+	err      error
+}
+
+func NewAnalyzedQueryModifyUser() *AnalyzedQueryModifyUser {
+	return &AnalyzedQueryModifyUser{
+		Username: "",
+		Password: "",
+		err:      nil,
+	}
+}
+
+func (a *AnalyzedQueryModifyUser) String() string {
+	return fmt.Sprintf("AnalyzedQueryUseDatabase{Username: %s\nPassword: %s\n}", a.Username, a.Password)
+}
+
+func (a *AnalyzedQueryModifyUser) Error() error {
+	return a.err
+}
+
+func NewAnalyzedQueryUseDatabase() *AnalyzedQueryUseDatabase {
+	return &AnalyzedQueryUseDatabase{
+		DatabaseName: "",
+		err:          nil,
+	}
+}
+
+func (a *AnalyzedQueryUseDatabase) String() string {
+	return fmt.Sprintf("AnalyzedQueryUseDatabase{DatabaseName: %s\n", a.DatabaseName)
+}
+
+func (a *AnalyzedQueryUseDatabase) Error() error {
+	return a.err
+}
+
+func NewAnalyzedQueryCreateRole() *AnalyzedQueryCreateRole {
+	return &AnalyzedQueryCreateRole{
+		RoleName: "",
+		Options:  make(map[string]interface{}),
+		err:      nil,
+	}
+}
+
+func (a *AnalyzedQueryCreateRole) String() string {
+	return fmt.Sprintf("AnalyzedQueryCreateRole{RoleName: %s\n Options: %v\n", a.RoleName, a.Options)
+}
+
+func (a *AnalyzedQueryCreateRole) Error() error {
+	return a.err
+}
+
+func NewAnalyzedQueryCreateIndex() *AnalyzedQueryCreateIndex {
+	return &AnalyzedQueryCreateIndex{
+		DatabaseName: "",
+		IndexName:    "",
+		TableName:    "",
+		Columns:      make([]string, 0),
+		err:          nil,
+	}
+}
+
+func (a *AnalyzedQueryCreateIndex) String() string {
+	return fmt.Sprintf("AnalyzedQueryCreateIndex{DatabaseName: %s\n IndexName: %s\n TableName: %s\n Columns: %v\n", a.DatabaseName, a.IndexName, a.TableName, a.Columns)
+}
+
+func (a *AnalyzedQueryCreateIndex) Error() error {
+	return a.err
+}
+
+func NewAnalyzedQueryCreateUser() *AnalyzedQueryCreateUser {
+	return &AnalyzedQueryCreateUser{
+		User:     "",
+		Username: "",
+		Password: "",
+		err:      nil,
+	}
+}
+
+func (a *AnalyzedQueryCreateUser) String() string {
+	return fmt.Sprintf("AnalyzedQueryCreateUser{User: %s\n Username: %s\n Password: %s\n", a.User, a.Username, a.Password)
+}
+
+func (a *AnalyzedQueryCreateUser) Error() error {
+	return a.err
+}
+
+func NewAnalyzedQueryDropRole() *AnalyzedQueryDropRole {
+	return &AnalyzedQueryDropRole{
+		RoleName: "",
+		err:      nil,
+	}
+}
+
+func (a *AnalyzedQueryDropRole) String() string {
+	return fmt.Sprintf("AnalyzedQueryDropRole{Username: %s\n", a.RoleName)
+}
+
+func (a *AnalyzedQueryDropRole) Error() error {
+	return a.err
+}
+
 /* End interface Types*/
+func NewAnalyzedQueryDropUser() *AnalyzedQueryDropUser {
+	return &AnalyzedQueryDropUser{
+		Username: "",
+		err:      nil,
+	}
+}
+
+func (a *AnalyzedQueryDropUser) String() string {
+	return fmt.Sprintf("AnalyzedQueryDropUser{Username: %s\n", a.Username)
+}
+
+func (a *AnalyzedQueryDropUser) Error() error {
+	return a.err
+}
+
+func NewAnalyzedQueryDropIndex() *AnalyzedQueryDropIndex {
+	return &AnalyzedQueryDropIndex{
+		DatabaseName: "",
+		IndexName:    "",
+		TableName:    "",
+		err:          nil,
+	}
+}
+
+func (a *AnalyzedQueryDropIndex) String() string {
+	return fmt.Sprintf("AnalyzedQueryDropIndex{DatabaseName: %s\n IndexName: %s\n TableName: %s\n", a.DatabaseName, a.IndexName, a.TableName)
+}
+
+func (a *AnalyzedQueryDropIndex) Error() error {
+	return a.err
+}
 
 func NewAnalyzedQuerySelect() *AnalyzedQuerySelect {
 	return &AnalyzedQuerySelect{
@@ -290,13 +471,13 @@ func (a *AnalyzedQueryDropTable) Error() error {
 
 func NewAnalyzedQueryAlterTable() *AnalyzedQueryAlterTable {
 	return &AnalyzedQueryAlterTable{
-		Columns: make([]database.Column, 0),
-		err:     nil,
+		Column: database.Column{},
+		err:    nil,
 	}
 }
 
 func (a *AnalyzedQueryAlterTable) String() string {
-	return fmt.Sprintf("AnalyzedQueryAlterTable{DatabaseName: %s\n TableName: %s\n Columns: %v\n", a.DatabaseName, a.TableName, a.Columns)
+	return fmt.Sprintf("AnalyzedQueryAlterTable{DatabaseName: %s\n TableName: %s\n Columns: %v\n", a.DatabaseName, a.TableName, a.Column)
 }
 
 func (a *AnalyzedQueryAlterTable) Error() error {
@@ -369,6 +550,10 @@ func (a *AnalyzedQueryShowTables) String() string {
 	return fmt.Sprintf("AnalyzedQueryShowTables{DatabaseName: %s\n", a.DatabaseName)
 }
 
+func (a *AnalyzedQueryShowTables) Error() error {
+	return a.err
+}
+
 func AnalyzeQuery(databaseName string, parsedQuery interface{}) AnalyzedQueryData {
 	var analyzedData AnalyzedQueryData
 	switch stmt := parsedQuery.(type) {
@@ -384,15 +569,34 @@ func AnalyzeQuery(databaseName string, parsedQuery interface{}) AnalyzedQueryDat
 		analyzedData = analyzeTableRowsDelete(databaseName, stmt)
 	case *sqlparser.TruncateTable:
 		analyzedData = analyzeTruncateTable(databaseName, stmt)
-	case *sqlparser.DDL:
-		switch stmt.Action {
-		case sqlparser.DropStr:
-			analyzedData = analyzeDropTable(databaseName, stmt)
-		case sqlparser.AlterStr:
-			analyzedData = analyzeAlterTable(databaseName, stmt)
-		default:
-			analyzedData = nil
-		}
+	case *monvan_parser.DatabaseDrop:
+		analyzedData = analyzeDropDatabase(stmt)
+	case *monvan_parser.TableDrop:
+		analyzedData = analyzeDropTable(databaseName, stmt)
+	case *monvan_parser.IndexDrop:
+		analyzedData = analyzeDropIndex(databaseName, stmt)
+	case *monvan_parser.UserDrop:
+		analyzedData = analyzeDropUser(stmt)
+	case *monvan_parser.RoleDrop:
+		analyzedData = analyzeDropRole(stmt)
+	case *monvan_parser.DatabaseCreate:
+		analyzedData = analyzeCreateDatabase(stmt)
+	case *monvan_parser.UserCreate:
+		analyzedData = analyzeCreateUser(stmt)
+	case *monvan_parser.RoleCreate:
+		analyzedData = analyzeCreateRole(stmt)
+	case *monvan_parser.IndexCreate:
+		analyzedData = analyzeCreateIndex(databaseName, stmt)
+	case *monvan_parser.UserModify:
+		analyzedData = analyzeModifyUser(stmt)
+	case *monvan_parser.TableAlter:
+		analyzedData = analyzeAlterTable(databaseName, stmt)
+	case *monvan_parser.UseDatabase:
+		analyzedData = analyzeUseDatabase(stmt)
+	case *monvan_parser.ShowDatabases:
+		analyzedData = NewAnalyzedQueryShowDatabases()
+	case *monvan_parser.ShowTables:
+		analyzedData = analyzeShowTables(databaseName, stmt)
 
 	default:
 		analyzedData = nil

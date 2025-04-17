@@ -8,6 +8,7 @@ import (
 	df "github.com/nicolasvancan/monvandb/src/dbvengine/dataframe"
 	executor "github.com/nicolasvancan/monvandb/src/dbvengine/executor"
 	parser "github.com/nicolasvancan/monvandb/src/dbvengine/parser"
+	monvan_parser "github.com/nicolasvancan/monvandb/src/dbvengine/parser/custom_parser"
 	builder "github.com/nicolasvancan/monvandb/src/dbvengine/planner"
 )
 
@@ -35,7 +36,13 @@ func NewVirtualEngine(globalContext *Context) *VirtualEngine {
 func (ve *VirtualEngine) Execute(databaseName string, query string) ExecutionResults {
 	results := ExecutionResults{ExecutionFailed, df.Dataframe{}, 0, ""}
 	// Parse And analyze Query the query
-	parsedQuery, err := sqlparser.Parse(query)
+	var parsedQuery interface{} = nil
+
+	parsedQuery, shouldPass, err := monvan_parser.Parse(query)
+
+	if shouldPass {
+		parsedQuery, err = sqlparser.Parse(query)
+	}
 
 	if err != nil {
 		results.ErrorMessage = err.Error()

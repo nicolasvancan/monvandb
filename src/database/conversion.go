@@ -35,10 +35,15 @@ func (t *Table) FromColumnValuesToRow(columnValues []ColumnValue) RawRow {
 
 	// Loop through the columns and add them to the map
 	for index := range t.Columns {
-		// Get the column value
-		columnValue := columnValues[index]
-		// Add the value to the row
-		row[t.Columns[index].Name] = columnValue.Value
+		if index < len(t.Columns) {
+			// Get the column value
+			columnValue := columnValues[index]
+			// Add the value to the row
+			row[t.Columns[index].Name] = columnValue.Value
+		} else {
+			// Add the value to the row
+			row[t.Columns[index].Name] = t.Columns[index].Default
+		}
 	}
 
 	return row

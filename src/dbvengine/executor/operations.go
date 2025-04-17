@@ -67,20 +67,20 @@ var Operations = map[string]func(...interface{}) (df.Dataframe, error){
 	// Table Operations
 	TABLE_CREATE:   TableFileCreate, // Create a table operation
 	TABLE_DROP:     TableFileDrop,   // Drop a table operation
-	TABLE_ALTER:    nil,             // Alter a table operation
+	TABLE_ALTER:    TableFileAlter,  // Alter a table operation
 	TABLE_TRUNCATE: TableFileCreate, // Truncate a table operation
 	// Database Operations
-	DATABASE_CREATE: nil, // Create a database operation
-	DATABASE_DROP:   nil, // Drop a database operation
+	DATABASE_CREATE: DatabaseCreate, // Create a database operation
+	DATABASE_DROP:   DatabaseDrop,   // Drop a database operation
 	// Index Operations
-	INDEX_CREATE: nil, // Create an index operation
-	INDEX_DROP:   nil, // Drop an index operation
+	INDEX_CREATE: IndexCreate, // Create an index operation
+	INDEX_DROP:   IndexDrop,   // Drop an index operation
 	// User Operations
-	USER_CREATE: nil, // Create a user operation
-	USER_DROP:   nil, // Drop a user operation
+	USER_CREATE: UserCreate, // Create a user operation
+	USER_DROP:   UserDrop,   // Drop a user operation
 	// Role Operations
-	ROLE_CREATE: nil, // Create a role operation
-	ROLE_DROP:   nil, // Drop a role operation
-	ROLE_ASSIGN: nil, // Assign a role operation
-	ROLE_REVOKE: nil, // Revoke a role operation
+	ROLE_CREATE: RoleCreate, // Create a role operation
+	ROLE_DROP:   RoleDrop,   // Drop a role operation
+	ROLE_ASSIGN: RoleGrant,  // Assign a role operation
+	ROLE_REVOKE: RoleRevoke, // Revoke a role operation
 }

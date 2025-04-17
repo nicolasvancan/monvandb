@@ -42,6 +42,8 @@ const (
 	ContextSet
 	ContextJson // Generic Json input
 	ContextDropIndexFrom
+	ContextUse
+	ContextUseDatabase
 	// Other Contexts
 	ContextIdentifier
 	ContextLiteralOrComma
@@ -200,6 +202,8 @@ func (l *Lexer) ChangeContext(token *Token) {
 				l.contextKeyword = ContextAsign
 			case "revoke":
 				l.contextKeyword = ContextRevoke
+			case "use":
+				l.contextKeyword = ContextUse
 			default:
 				l.contextKeyword = ContextCommandPass
 			}
@@ -262,6 +266,14 @@ func (l *Lexer) ChangeContext(token *Token) {
 			case "role":
 				l.contextKeyword = ContextRevokeRole
 				l.baseContext = ContextRevokeRole
+			default:
+				l.contextKeyword = ContextError
+			}
+		case ContextUse:
+			switch token.LowerValue {
+			case "database":
+				l.contextKeyword = ContextUseDatabase
+				l.baseContext = ContextUseDatabase
 			default:
 				l.contextKeyword = ContextError
 			}
@@ -358,6 +370,8 @@ func (l *Lexer) ChangeContext(token *Token) {
 			}
 		case ContextIdentifier:
 			switch l.baseContext {
+			case ContextUseDatabase:
+				l.contextKeyword = ContextEnd
 			case ContextCreateUser, ContextCreateRole:
 				l.contextKeyword = ContextJson
 				l.baseContext = ContextJson
@@ -611,7 +625,7 @@ func EvaluateToken(lexer *Lexer, token *Token) error {
 			return errors.New(token.ErrorString())
 		}
 	case ContextCreateDatabase, ContextDropDatabase, ContextDropIndex,
-		ContextDropUser, ContextDropRole, ContextCreateIndex, ContextCreateRole, ContextAlterTable:
+		ContextDropUser, ContextDropRole, ContextCreateIndex, ContextCreateRole, ContextAlterTable, ContextUseDatabase:
 		err := lexer.Expect(token, TokenExpectation{
 			CondType:       ConditionTypeAnd,
 			ToBeIt:         true,
