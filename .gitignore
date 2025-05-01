@@ -1,1 +1,4 @@
 *.db
+venv
+server.crt
+server.key

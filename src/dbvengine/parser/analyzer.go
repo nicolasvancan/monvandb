@@ -224,6 +224,50 @@ type AnalyzedQueryModifyUser struct {
 	err      error
 }
 
+type AnalyzedQueryAssignRole struct {
+	RoleName string
+	UserName string
+	err      error
+}
+
+type AnalyzedQueryRevokeRole struct {
+	RoleName string
+	UserName string
+	err      error
+}
+
+func NewAnalyzedQueryAssignRole() *AnalyzedQueryAssignRole {
+	return &AnalyzedQueryAssignRole{
+		RoleName: "",
+		UserName: "",
+		err:      nil,
+	}
+}
+
+func (a *AnalyzedQueryAssignRole) String() string {
+	return fmt.Sprintf("AnalyzedQueryAssignRole{RoleName: %s\nUserName: %s\n}", a.RoleName, a.UserName)
+}
+
+func (a *AnalyzedQueryAssignRole) Error() error {
+	return a.err
+}
+
+func NewAnalyzedQueryRevokeRole() *AnalyzedQueryRevokeRole {
+	return &AnalyzedQueryRevokeRole{
+		RoleName: "",
+		UserName: "",
+		err:      nil,
+	}
+}
+
+func (a *AnalyzedQueryRevokeRole) String() string {
+	return fmt.Sprintf("AnalyzedQueryRevokeRole{RoleName: %s\nUserName: %s\n}", a.RoleName, a.UserName)
+}
+
+func (a *AnalyzedQueryRevokeRole) Error() error {
+	return a.err
+}
+
 func NewAnalyzedQueryModifyUser() *AnalyzedQueryModifyUser {
 	return &AnalyzedQueryModifyUser{
 		Username: "",
@@ -597,7 +641,10 @@ func AnalyzeQuery(databaseName string, parsedQuery interface{}) AnalyzedQueryDat
 		analyzedData = NewAnalyzedQueryShowDatabases()
 	case *monvan_parser.ShowTables:
 		analyzedData = analyzeShowTables(databaseName, stmt)
-
+	case *monvan_parser.RoleGrant:
+		analyzedData = analyzeAssignRole(stmt)
+	case *monvan_parser.RoleRevoke:
+		analyzedData = analyzeRevokeRole(stmt)
 	default:
 		analyzedData = nil
 	}

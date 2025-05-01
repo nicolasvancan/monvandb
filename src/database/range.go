@@ -385,7 +385,9 @@ func MergeOperationsBasedOnIndexedColumnsAndReturnRangeOptions(table *Table, ops
 	// Group operations by indexed columns
 
 	if ops == nil {
-		return NewRangeOptions()
+		rangeOpt := NewRangeOptions()
+		rangeOpt.PDataFile = table.PDataFile
+		return rangeOpt
 	}
 
 	groupedOps := getGroupedOperationsByIndexedColumn(table, ops)
@@ -403,7 +405,9 @@ func MergeOperationsBasedOnIndexedColumnsAndReturnRangeOptions(table *Table, ops
 
 	// Returns a full table scan
 	if preferedRange == -1 {
-		return NewRangeOptions()
+		rangeOpt := NewRangeOptions()
+		rangeOpt.PDataFile = table.PDataFile
+		return rangeOpt
 	}
 
 	return mergedOps[preferedRange].RangeOptions

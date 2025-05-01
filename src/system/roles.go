@@ -14,7 +14,7 @@ type IdentifierType string
 // SystemIdentifierType is the type of the system identifier
 // It can be either USER or ROLE
 
-var allRoles map[string]*Role
+var allRoles map[string]*Role = make(map[string]*Role)
 
 const (
 	TableIdentType     IdentifierType = "TABLE"
@@ -228,80 +228,83 @@ func CreateRole(name string, roleJson map[string]interface{}) (*Role, error) {
 		}
 	}
 
-	if _, ok := roleJson["elements"]; !ok &&
-		roleJson["admin"] == nil || roleJson["admin"] == false {
-		return nil, errors.New("elements are required")
-	}
+	if !newRole.IsAdmin {
 
-	if len(roleJson["elements"].([]interface{})) == 0 {
-		return nil, errors.New("elements are required")
-	}
-
-	for i, element := range roleJson["elements"].([]interface{}) {
-		permissions := Permissions{}
-
-		// Validate fields
-		if _, ok := element.(map[string]interface{})["permissions"]; !ok {
-			return nil, errors.New("permissions are required in the element " + strconv.Itoa(i))
+		if _, ok := roleJson["elements"]; !ok &&
+			roleJson["elements"] == nil || roleJson["elements"] == false {
+			return nil, errors.New("elements are required")
 		}
 
-		if _, ok := element.(map[string]interface{})["elements"]; !ok {
-			return nil, errors.New("elements are required in the element " + strconv.Itoa(i))
+		if len(roleJson["elements"].([]interface{})) == 0 {
+			return nil, errors.New("elements are required")
 		}
 
-		perm := element.(map[string]interface{})["permissions"].([]interface{})
-		if len(perm) == 0 {
-			return nil, errors.New("permissions are required in the element " + strconv.Itoa(i))
-		}
+		for i, element := range roleJson["elements"].([]interface{}) {
+			permissions := Permissions{}
 
-		elems := element.(map[string]interface{})["elements"].([]interface{})
-		if len(elems) == 0 {
-			return nil, errors.New("elements are required in the element " + strconv.Itoa(i))
-		}
-
-		for _, p := range perm {
-			switch p.(string) {
-			case "read":
-				permissions.Read = true
-			case "write":
-				permissions.Write = true
-			case "view":
-				permissions.View = true
-			case "drop":
-				permissions.Drop = true
-			case "alter":
-				permissions.Alter = true
-			default:
-				return nil, errors.New("invalid permission in the element " + strconv.Itoa(i))
-			}
-		}
-		for _, e := range elems {
-			identifier := Identifier{}
-			identifier.Name = e.(map[string]interface{})["name"].(string)
-
-			identifier.All = false
-			if identifier.Name == "*" {
-				identifier.All = true
+			// Validate fields
+			if _, ok := element.(map[string]interface{})["permissions"]; !ok {
+				return nil, errors.New("permissions are required in the element " + strconv.Itoa(i))
 			}
 
-			identifier.Type = IdentifierType(e.(map[string]interface{})["type"].(string))
-
-			if identifier.Type == TableIdentType || identifier.Type == IndexIdentType {
-				return nil, errors.New("database is required in the element " + strconv.Itoa(i))
+			if _, ok := element.(map[string]interface{})["elements"]; !ok {
+				return nil, errors.New("elements are required in the element " + strconv.Itoa(i))
 			}
 
-			identifier.Options = make(map[string]string)
-			identifier.Options["database"] = e.(map[string]interface{})["database"].(string)
-			if identifier.Type == IndexIdentType {
-				if _, ok := e.(map[string]interface{})["table"]; !ok {
-					return nil, errors.New("table is required in the element " + strconv.Itoa(i))
+			perm := element.(map[string]interface{})["permissions"].([]interface{})
+			if len(perm) == 0 {
+				return nil, errors.New("permissions are required in the element " + strconv.Itoa(i))
+			}
+
+			elems := element.(map[string]interface{})["elements"].([]interface{})
+			if len(elems) == 0 {
+				return nil, errors.New("elements are required in the element " + strconv.Itoa(i))
+			}
+
+			for _, p := range perm {
+				switch p.(string) {
+				case "read":
+					permissions.Read = true
+				case "write":
+					permissions.Write = true
+				case "view":
+					permissions.View = true
+				case "drop":
+					permissions.Drop = true
+				case "alter":
+					permissions.Alter = true
+				default:
+					return nil, errors.New("invalid permission in the element " + strconv.Itoa(i))
 				}
-				identifier.Options["table"] = e.(map[string]interface{})["table"].(string)
 			}
+			for _, e := range elems {
+				identifier := Identifier{}
+				identifier.Name = e.(map[string]interface{})["name"].(string)
 
-			permissions.Elements = append(permissions.Elements, identifier)
+				identifier.All = false
+				if identifier.Name == "*" {
+					identifier.All = true
+				}
+
+				identifier.Type = IdentifierType(e.(map[string]interface{})["type"].(string))
+
+				if identifier.Type == TableIdentType || identifier.Type == IndexIdentType {
+					return nil, errors.New("database is required in the element " + strconv.Itoa(i))
+				}
+
+				identifier.Options = make(map[string]string)
+				identifier.Options["database"] = e.(map[string]interface{})["database"].(string)
+				if identifier.Type == IndexIdentType {
+					if _, ok := e.(map[string]interface{})["table"]; !ok {
+						return nil, errors.New("table is required in the element " + strconv.Itoa(i))
+					}
+					identifier.Options["table"] = e.(map[string]interface{})["table"].(string)
+				}
+
+				permissions.Elements = append(permissions.Elements, identifier)
+			}
+			newRole.Permissions = append(newRole.Permissions, permissions)
 		}
-		newRole.Permissions = append(newRole.Permissions, permissions)
 	}
 
 	// Store in database
@@ -374,7 +377,7 @@ func GetRole(name string) (*Role, error) {
 	perm := rawRows[0]["permissions"].([]byte)
 	var dst []Permissions
 
-	err = utils.Deserialize(perm, dst)
+	err = utils.Deserialize(perm, &dst)
 
 	if err != nil {
 		return nil, err
@@ -387,8 +390,8 @@ func GetRole(name string) (*Role, error) {
 	return role, nil
 }
 
-func GetRoles(names []string) ([]*Role, error) {
-	roles := make([]*Role, 0)
+func GetRoles(names []string) ([]Role, error) {
+	roles := make([]Role, 0)
 
 	for _, name := range names {
 		role, err := GetRole(name)
@@ -400,7 +403,7 @@ func GetRoles(names []string) ([]*Role, error) {
 			return nil, errors.New("role does not exist")
 		}
 
-		roles = append(roles, role)
+		roles = append(roles, *role)
 	}
 
 	return roles, nil
@@ -429,7 +432,7 @@ func LoadAllRoles() error {
 		perm := rawRow["permissions"].([]byte)
 		var dst []Permissions
 
-		err = utils.Deserialize(perm, dst)
+		err = utils.Deserialize(perm, &dst)
 
 		if err != nil {
 			return err

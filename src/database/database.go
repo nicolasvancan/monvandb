@@ -50,6 +50,8 @@ func CreateDatabase(name string) (*Database, error) {
 		return nil, fmt.Errorf("could not write to database metadata file: %v", err)
 	}
 
+	loadedDatabases[strings.ToLower(name)] = database
+
 	return database, nil
 }
 

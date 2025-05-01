@@ -13,10 +13,10 @@ var allUsers = make(map[string]*User)
 type User struct {
 	Name     string
 	Password string
-	Roles    []*Role
+	Roles    []Role
 }
 
-func (u *User) AddRole(role *Role) {
+func (u *User) AddRole(role Role) {
 	u.Roles = append(u.Roles, role)
 }
 
@@ -31,25 +31,84 @@ func (u *User) RemoveRole(role string) {
 
 func UserExists(name string) bool {
 	// Check if user exists in the database
+	_, ok := allUsers[name]
 	// This is a placeholder implementation
-	return false
+	return ok
 }
 
-func CreateUser(name string, password string) (*User, error) {
+func HashPassword(password string) (string, error) {
+	// Generate a hashed password with a default cost
+	/*hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", fmt.Errorf("failed to hash password: %w", err)
+	}*/
+	return password, nil
+}
+
+func VerifyPassword(hashedPassword, password string) error {
+	// Compare the hashed password with the plain-text password
+	/*err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
+	  if err != nil {
+	      return fmt.Errorf("invalid password: %w", err)
+	  }*/
+	return nil
+}
+
+func CreateUser(name string, password string, roles []string) (*User, error) {
 	if UserExists(name) {
 		return nil, fmt.Errorf("user %s already exists", name)
 	}
 
+	// hash password
+	hashedPassword, err := HashPassword(password)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash password: %w", err)
+	}
+
 	user := &User{
 		Name:     name,
-		Password: password,
-		Roles:    []*Role{},
+		Password: hashedPassword,
+		Roles:    []Role{},
 	}
 
 	// Save user to the database
-	// This is a placeholder implementation
+	table, err := database.GetTable("system", "users")
+	if err != nil {
+		return nil, err
+	}
 
+	// Verify if roles exist
+	for _, roleName := range roles {
+		role, err := GetRole(roleName)
+		if err != nil {
+			return nil, fmt.Errorf("role %s does not exist", roleName)
+		}
+
+		user.AddRole(*role)
+	}
+
+	json, err := utils.ToJson(map[string]interface{}{"roles": roles})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = table.Insert([]database.RawRow{{"id": user.Name, "password": user.Password, "roles": json}})
+	if err != nil {
+		return nil, err
+	}
+	// Add user to the in-memory map
+	allUsers[user.Name] = user
+	// Return the created user
 	return user, nil
+}
+
+func (u *User) ValidatePassword(password string) error {
+	// Verify the password
+	err := VerifyPassword(u.Password, password)
+	if err != nil {
+		return fmt.Errorf("invalid password: %w", err)
+	}
+	return nil
 }
 
 func AssignRole(name string, roleName string) error {
@@ -69,7 +128,7 @@ func AssignRole(name string, roleName string) error {
 		return errors.New("role does not exist")
 	}
 
-	user.AddRole(role)
+	user.AddRole(*role)
 
 	// Save changes to the database
 	// This is a placeholder implementation
@@ -118,7 +177,7 @@ func RevokeRole(name string, role string) error {
 func GetUser(name string) (*User, error) {
 	// Retrieve user from the database
 	// This is a placeholder implementation
-	user := allUsers["users"]
+	user := allUsers[name]
 
 	if user == nil {
 		return nil, fmt.Errorf("user %s does not exist", name)
@@ -168,7 +227,7 @@ func LoadAllUsersInMemory() error {
 		user := &User{
 			Name:     row["id"].(string),
 			Password: row["password"].(string),
-			Roles:    []*Role{},
+			Roles:    []Role{},
 		}
 
 		var dst map[string]interface{}

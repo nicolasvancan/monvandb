@@ -307,3 +307,17 @@ func analyzeShowTables(databaseName string, stmt *monvan_parser.ShowTables) *Ana
 	analyzedQueryShowTables.DatabaseName = strings.ToLower(stmt.DatabaseName)
 	return analyzedQueryShowTables
 }
+
+func analyzeAssignRole(stmt *monvan_parser.RoleGrant) *AnalyzedQueryAssignRole {
+	analyzedQueryAssignRole := NewAnalyzedQueryAssignRole()
+	analyzedQueryAssignRole.UserName = strings.ToLower(stmt.Role)
+	analyzedQueryAssignRole.RoleName = strings.ToLower(stmt.To)
+	return analyzedQueryAssignRole
+}
+
+func analyzeRevokeRole(stmt *monvan_parser.RoleRevoke) *AnalyzedQueryRevokeRole {
+	analyzedQueryRevokeRole := NewAnalyzedQueryRevokeRole()
+	analyzedQueryRevokeRole.UserName = strings.ToLower(stmt.Role)
+	analyzedQueryRevokeRole.RoleName = strings.ToLower(stmt.From)
+	return analyzedQueryRevokeRole
+}

@@ -2,42 +2,50 @@ package main
 
 import (
 	"fmt"
-	"reflect"
 
-	"github.com/blastrain/vitess-sqlparser/sqlparser"
+	"github.com/nicolasvancan/monvandb/src/database"
+	"github.com/nicolasvancan/monvandb/src/system"
 )
 
-func main() {
-	query := "CREATE USER 'casalberto' JSON {'name': 'Alberto', 'age': 23}"
-	stmt, err := sqlparser.Parse(query)
+func te() {
+	db, err := database.CreateDatabase("system")
 	if err != nil {
 		panic(err)
 	}
-	switch stmt := stmt.(type) {
-	case *sqlparser.Select:
-		statement := stmt.SelectExprs[2].(*sqlparser.AliasedExpr).Expr.(*sqlparser.FuncExpr).Exprs[0]
-		//statement := stmt.From[0].(*sqlparser.JoinTableExpr).On.(*sqlparser.AndExpr).Right.(*sqlparser.IsExpr).Expr
-		fmt.Printf("%s\n", reflect.TypeOf(statement))
-		fmt.Printf("Value %s\n", statement)
-	case *sqlparser.CreateTable:
-		statement := stmt.NewName.ToViewName().Name
-		fmt.Printf("%s\n", reflect.TypeOf(statement))
-		fmt.Println(statement)
-	case *sqlparser.Insert:
-		statement := stmt.Rows
-		fmt.Printf("%s\n", reflect.TypeOf(statement))
-		fmt.Println(statement)
-	case *sqlparser.Update:
-		statement := stmt.Exprs[0].Expr
-		fmt.Printf("%s\n", reflect.TypeOf(statement))
-		fmt.Println(statement)
-	case *sqlparser.Delete:
-		statement := stmt.TableExprs
-		fmt.Printf("%s\n", reflect.TypeOf(statement))
-		fmt.Println(statement)
-	default:
-		statement := stmt
-		fmt.Printf("%s\n", reflect.TypeOf(statement))
-		fmt.Println(statement)
+
+	db.CreateTable("users", []database.Column{
+		{Name: "id", Type: database.COL_TYPE_STRING, Primary: true, Nullable: false},
+		{Name: "password", Type: database.COL_TYPE_STRING, Nullable: false},
+		{Name: "roles", Type: database.COL_TYPE_BLOB, Nullable: true},
+	}, false, false)
+
+	// Create system tables
+	db.CreateTable("roles", []database.Column{
+		{Name: "id", Type: database.COL_TYPE_STRING, Primary: true, Nullable: false},
+		{Name: "admin", Type: database.COL_TYPE_BOOL, Nullable: false},
+		{Name: "permissions", Type: database.COL_TYPE_BLOB, Nullable: true},
+	}, false, false)
+
+	system.CreateRole("admin", map[string]interface{}{"admin": true})
+	system.CreateUser("admin", "password", []string{"admin"})
+	system.LoadAllRoles()
+
+	server := system.NewServer(8080)
+
+	server.Run()
+}
+
+func main() {
+	err := system.LoadAllUsersInMemory()
+	if err != nil {
+		panic(err)
 	}
+
+	a, err := system.GetUser("admin")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(a)
+	//testJson()
 }

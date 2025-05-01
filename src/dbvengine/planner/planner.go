@@ -47,6 +47,24 @@ func BuildPlan(analyzedQuery parser.AnalyzedQueryData, exec *executor.ExecutionL
 	case *parser.AnalyzedQueryDropIndex:
 		resultId := buildDropIndexPlan(exec, aq)
 		exec.Nodes[resultId].Final = true
+	case *parser.AnalyzedQueryCreateUser:
+		resultId := buildCreateUserPlan(exec, aq)
+		exec.Nodes[resultId].Final = true
+	case *parser.AnalyzedQueryDropUser:
+		resultId := buildDropUserPlan(exec, aq)
+		exec.Nodes[resultId].Final = true
+	case *parser.AnalyzedQueryAssignRole:
+		resultId := buildGrantUserPlan(exec, aq)
+		exec.Nodes[resultId].Final = true
+	case *parser.AnalyzedQueryRevokeRole:
+		resultId := buildRevokeUserPlan(exec, aq)
+		exec.Nodes[resultId].Final = true
+	case *parser.AnalyzedQueryCreateRole:
+		resultId := buildCreateRolePlan(exec, aq)
+		exec.Nodes[resultId].Final = true
+	case *parser.AnalyzedQueryDropRole:
+		resultId := buildDropRolePlan(exec, aq)
+		exec.Nodes[resultId].Final = true
 	}
 }
 
@@ -1035,6 +1053,154 @@ func buildDropIndexPlan(
 		aq.DatabaseName,
 		aq.TableName,
 		aq.IndexName,
+	}
+
+	// Set operation
+	execNode.Operation = operation
+
+	// Add node to the map
+	exec.AddNode(execNode, true)
+
+	return nodeName
+}
+
+func buildCreateUserPlan(
+	exec *executor.ExecutionLayer,
+	aq *parser.AnalyzedQueryCreateUser,
+) string {
+	// Create new execution Node
+	nodeName := fmt.Sprintf("create_user_%s", aq.User)
+	execNode := executor.NewExecutionNode(nodeName, exec)
+
+	// Create Operation
+	operation := executor.Operation{}
+	operation.Name = executor.USER_CREATE
+	operation.Args = []interface{}{
+		aq.User,
+		aq.Password,
+	}
+
+	// Set operation
+	execNode.Operation = operation
+
+	// Add node to the map
+	exec.AddNode(execNode, true)
+
+	return nodeName
+}
+
+func buildDropUserPlan(
+	exec *executor.ExecutionLayer,
+	aq *parser.AnalyzedQueryDropUser,
+) string {
+	// Create new execution Node
+	nodeName := fmt.Sprintf("drop_user_%s", aq.Username)
+	execNode := executor.NewExecutionNode(nodeName, exec)
+
+	// Create Operation
+	operation := executor.Operation{}
+	operation.Name = executor.USER_DROP
+	operation.Args = []interface{}{
+		aq.Username,
+	}
+
+	// Set operation
+	execNode.Operation = operation
+
+	// Add node to the map
+	exec.AddNode(execNode, true)
+
+	return nodeName
+}
+
+func buildGrantUserPlan(
+	exec *executor.ExecutionLayer,
+	aq *parser.AnalyzedQueryAssignRole,
+) string {
+	// Create new execution Node
+	nodeName := fmt.Sprintf("grant_user_%s", aq.UserName)
+	execNode := executor.NewExecutionNode(nodeName, exec)
+
+	// Create Operation
+	operation := executor.Operation{}
+	operation.Name = executor.ROLE_ASSIGN
+	operation.Args = []interface{}{
+		aq.RoleName,
+		aq.UserName,
+	}
+
+	// Set operation
+	execNode.Operation = operation
+
+	// Add node to the map
+	exec.AddNode(execNode, true)
+
+	return nodeName
+}
+
+func buildRevokeUserPlan(
+	exec *executor.ExecutionLayer,
+	aq *parser.AnalyzedQueryRevokeRole,
+) string {
+	// Create new execution Node
+	nodeName := fmt.Sprintf("revoke_user_%s", aq.UserName)
+	execNode := executor.NewExecutionNode(nodeName, exec)
+
+	// Create Operation
+	operation := executor.Operation{}
+	operation.Name = executor.ROLE_REVOKE
+	operation.Args = []interface{}{
+		aq.RoleName,
+		aq.UserName,
+	}
+
+	// Set operation
+	execNode.Operation = operation
+
+	// Add node to the map
+	exec.AddNode(execNode, true)
+
+	return nodeName
+}
+
+func buildCreateRolePlan(
+	exec *executor.ExecutionLayer,
+	aq *parser.AnalyzedQueryCreateRole,
+) string {
+	// Create new execution Node
+	nodeName := fmt.Sprintf("create_role_%s", aq.RoleName)
+	execNode := executor.NewExecutionNode(nodeName, exec)
+
+	// Create Operation
+	operation := executor.Operation{}
+	operation.Name = executor.ROLE_CREATE
+	operation.Args = []interface{}{
+		aq.RoleName,
+		aq.Options,
+	}
+
+	// Set operation
+	execNode.Operation = operation
+
+	// Add node to the map
+	exec.AddNode(execNode, true)
+
+	return nodeName
+}
+
+func buildDropRolePlan(
+	exec *executor.ExecutionLayer,
+	aq *parser.AnalyzedQueryDropRole,
+) string {
+	// Create new execution Node
+	nodeName := fmt.Sprintf("drop_role_%s", aq.RoleName)
+	execNode := executor.NewExecutionNode(nodeName, exec)
+
+	// Create Operation
+	operation := executor.Operation{}
+	operation.Name = executor.ROLE_DROP
+	operation.Args = []interface{}{
+		aq.RoleName,
 	}
 
 	// Set operation

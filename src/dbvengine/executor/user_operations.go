@@ -15,7 +15,7 @@ func UserCreate(params ...interface{}) (df.Dataframe, error) {
 	password := params[1].(string)
 
 	// Create user
-	_, err := system.CreateUser(name, password)
+	_, err := system.CreateUser(name, password, []string{})
 
 	if err != nil {
 		return df.NewDataframe(nil), err
