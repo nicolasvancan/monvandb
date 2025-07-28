@@ -67,12 +67,12 @@ func validateIfColumnExist(column Column, t *Table) error {
 	return nil
 }
 
-func fillupMissingFields(t *Table, row *RawRow, column Column, cur int) {
+func fillupMissingFields(t *Table, row *RawRow, column Column, cur int) error {
 	// Fill up missing fields with default values
 	if _, ok := (*row)[column.Name]; !ok {
 		if !column.AutoIncrement && !column.Primary && !ok {
 			(*row)[column.Name] = column.Default
-			return
+			return nil
 		}
 	}
 
@@ -81,13 +81,25 @@ func fillupMissingFields(t *Table, row *RawRow, column Column, cur int) {
 	// SMALL_INT, BIG_INT, INT, etc
 	if column.AutoIncrement && column.Primary {
 		if (*row)[column.Name] != nil {
-			return
+			return nil
 		}
 
-		lastValue := t.getLastItem()
-		if lastValue != nil {
-			lastVal := lastValue[column.Name]
-			switch lastVal := lastVal.(type) {
+		lastKey := t.LastKey
+		if lastKey == nil {
+			// We must insert the first value according to the type of the column
+			switch column.Type {
+			case COL_TYPE_BIG_INT:
+				(*row)[column.Name] = int64(1)
+			case COL_TYPE_INT:
+				(*row)[column.Name] = int(1)
+			case COL_TYPE_SMALL_INT:
+				(*row)[column.Name] = int16(1)
+			default:
+				return fmt.Errorf("column %s is auto increment but not an integer type", column.Name)
+			}
+			return nil
+		} else {
+			switch lastVal := lastKey.(type) {
 			case int64:
 				(*row)[column.Name] = lastVal + 1 + int64(cur)
 			case int:
@@ -99,10 +111,9 @@ func fillupMissingFields(t *Table, row *RawRow, column Column, cur int) {
 			case int8:
 				(*row)[column.Name] = lastVal + 1 + int8(cur)
 			}
-		} else {
-			(*row)[column.Name] = 1
 		}
 	}
+	return nil
 }
 
 func validateNull(column Column, value interface{}) error {

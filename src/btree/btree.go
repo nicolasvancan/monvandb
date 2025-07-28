@@ -3,6 +3,7 @@ package btree
 import (
 	"bytes"
 	"encoding/binary"
+	"sync"
 )
 
 const PAGE_SIZE = 4096
@@ -44,6 +45,7 @@ type BTree struct {
 	New       func(TreeNode) uint64 // Allocate a new Page
 	Del       func(uint64)
 	Set       func(TreeNode, uint64) bool // Del a new page
+	Mutex     *sync.RWMutex               // Mutex
 }
 
 type TreeNodePage struct {
@@ -61,6 +63,7 @@ func NewTree(pageSize int) *BTree {
 	nBTree := &BTree{
 		data:     make([]byte, pageSize),
 		pageSize: uint32(pageSize),
+		Mutex:    &sync.RWMutex{},
 	}
 
 	// For new Trees root will be zero, meaning that there is no page
@@ -72,7 +75,8 @@ func NewTree(pageSize int) *BTree {
 
 func LoadTree(bTree []byte, pageSize uint32) *BTree {
 	tree := &BTree{
-		data: bTree[:pageSize-1],
+		data:  bTree[:pageSize-1],
+		Mutex: &sync.RWMutex{},
 	}
 
 	tree.pageSize = pageSize
@@ -82,15 +86,21 @@ func LoadTree(bTree []byte, pageSize uint32) *BTree {
 }
 
 func (b *BTree) GetBytes() []byte {
-	return []byte(b.data)
+	b.Mutex.RLock()
+	defer b.Mutex.RUnlock()
+	return b.data
 }
 
 func (b *BTree) SetRoot(root uint64) {
 	// Insert value into data structure
+	b.Mutex.Lock()
+	defer b.Mutex.Unlock()
 	binary.LittleEndian.PutUint64(b.data[BTREE_OFFSET_ROOT:BTREE_ROOT_SIZE], root)
 }
 
 func (b *BTree) SetName(name string) {
+	b.Mutex.Lock()
+	defer b.Mutex.Unlock()
 	bString := []byte(name)
 	if len(name) >= BTREE_NAME_SIZE {
 		bString = bString[:BTREE_NAME_SIZE]
@@ -100,10 +110,14 @@ func (b *BTree) SetName(name string) {
 }
 
 func (b *BTree) GetName() string {
+	b.Mutex.RLock()
+	defer b.Mutex.RUnlock()
 	return string(b.data[BTREE_OFFSET_NAME:BTREE_NAME_SIZE])
 }
 
 func (b *BTree) GetRoot() uint64 {
+	b.Mutex.RLock()
+	defer b.Mutex.RUnlock()
 	return uint64(binary.LittleEndian.Uint64(b.data[BTREE_OFFSET_ROOT:BTREE_ROOT_SIZE]))
 }
 

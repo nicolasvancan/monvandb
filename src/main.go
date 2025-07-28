@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nicolasvancan/monvandb/src/database"
+	"github.com/nicolasvancan/monvandb/src/server"
 	"github.com/nicolasvancan/monvandb/src/system"
 )
 
@@ -30,13 +31,9 @@ func te() {
 	system.CreateUser("admin", "password", []string{"admin"})
 	system.LoadAllRoles()
 
-	server := system.NewServer(8080)
+	server := server.NewServer(8080)
 
-	server.Run()
-}
-
-func main() {
-	err := system.LoadAllUsersInMemory()
+	err = system.LoadAllUsersInMemory()
 	if err != nil {
 		panic(err)
 	}
@@ -47,5 +44,20 @@ func main() {
 	}
 
 	fmt.Println(a)
-	//testJson()
+
+	server.Run()
+}
+
+func main() {
+	te()
+	// parser, pass, err := monvan_parser.Parse("SHOW TABLES system")
+	// fmt.Println(pass)
+	// if err != nil {
+	// 	fmt.Println("Error parsing SQL:", err)
+	// 	return
+	// }
+	// // print type of variable parser
+	// fmt.Printf("Parsed SQL: %T\n", parser)
+	// fmt.Printf("Parsed SQL: %v\n", parser)
+
 }

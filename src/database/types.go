@@ -32,6 +32,7 @@ type Table struct {
 	CompositeKey []Column          // Case column is composite
 	Indexes      map[string]*Index // reference to Indexes
 	PDataFile    *files.DataFile   // private Access btree (Simple)
+	LastKey      interface{}       // Last key used in the table, used for auto increment can be int, int64, int32, int16...
 }
 
 type RawRow = map[string]interface{}

@@ -121,7 +121,7 @@ func (t *Table) Insert(rows []RawRow) (int, error) {
 		return 0, err
 	}
 
-	// We have to insert it into the base table and also into the indexes
+	// We have to insert it into the base table and agit brlso into the indexes
 	for i, row := range validatedRows {
 		// Insert the row into the base table
 		serializedRow := t.FromRawRowToKeyValue(row)
@@ -341,22 +341,27 @@ func (t *Table) Range(input []ColumnComparsion, limit int, order int) []RawRow {
 	return rows
 }
 
-func (t *Table) getLastItem() RawRow {
+func (t *Table) GetLastKey() (interface{}, error) {
 	lastLeafCrawler := btree.GoToLastLeaf(t.PDataFile.GetBTree())
 
 	// Means that the table is empty
 	if lastLeafCrawler == nil {
-		return nil
+		return nil, nil
 	}
 
 	if len(lastLeafCrawler.Net) > 0 {
 		lastLeaf := lastLeafCrawler.Net[len(lastLeafCrawler.Net)-1]
 		lastLeafNItens := lastLeaf.GetNItens()
 		lastItem := lastLeaf.GetLeafKeyValueByIndex(uint16(lastLeafNItens - 1))
-		return t.FromKeyValueToRawRow([]btree.BTreeKeyValue{{Key: lastItem.GetKey(), Value: lastItem.GetValue()}})[0]
+		var dst interface{}
+		err := utils.Deserialize(lastItem.GetKey(), dst)
+		if err != nil {
+			return nil, err
+		}
+		return dst, nil
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (t *Table) GetColumnByName(colName string) *Column {

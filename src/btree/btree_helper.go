@@ -25,7 +25,7 @@ func startsNewBTree(bTree *BTree, key []byte, value []byte) {
 	pageNumber := bTree.New(*newLeaf)
 	bTree.root = pageNumber
 	bTree.SetRoot(pageNumber)
-	bTree.SetHeader(*bTree)
+	//bTree.SetHeader(*bTree)
 }
 
 func createRootNodeAndInsertLeaves(bTree *BTree, treeLeaves []TreeNodePage) {
@@ -47,7 +47,7 @@ func createRootNodeAndInsertLeaves(bTree *BTree, treeLeaves []TreeNodePage) {
 	}
 
 	bTree.SetRoot(newRootAddr)
-	bTree.SetHeader(*bTree)
+	//bTree.SetHeader(*bTree)
 }
 
 /*
@@ -346,7 +346,7 @@ func splitBackyardsRecursively(
 		}
 		bTree.Set(*newInternalNode, newNodeAddress)
 		bTree.SetRoot(newNodeAddress)
-		bTree.SetHeader(*bTree)
+		//bTree.SetHeader(*bTree)
 		return
 	}
 
@@ -384,19 +384,26 @@ func shiftValuesBetweenLeaves(bTree *BTree, tPage TreeNodePage, history []TreeNo
 		)
 		return
 	}
-	// If it came to here, at least a leaf must be split
+
+	// If it got here, at least a leaf must be split
 	splittedLeaf := tPage.node.SplitLeaf(key, value)
 	setParentAddr(&splittedLeaf[0], parentAddr)
+
 	// Get first key from splittedLeaf
 	firstKey := splittedLeaf[0].GetLeafKeyValueByIndex(0)
+
 	// Parent node directly related to tPage
 	parentNode := history[len(history)-1]
+
 	// Delete it by address
 	parentNode.node.DeleteNodeChildrenByAddress(tPage.page)
+
 	// Insert again the new address with new key
 	parentNode.node.PutNodeNewChild(firstKey.key, tPage.page)
+
 	// We don't update it yet, we check for the right part of the split
 	rightLeaf := splittedLeaf[1]
+
 	// We can update the value already in page using left side splitted leaf and parent
 	bTree.Set(splittedLeaf[0], tPage.page)
 	bTree.Set(parentNode.node, parentNode.page)
@@ -406,6 +413,11 @@ func shiftValuesBetweenLeaves(bTree *BTree, tPage TreeNodePage, history []TreeNo
 
 	parentKeyAddr := getAllNodeKeyAddr(&parentNode.node)
 
+	/* TODO:
+	Refactor this function.
+	Instead of mapping all db file, it must use a leaf iterator. The iterator finds the current leaf and can walk
+	through all leaves. One option is to use the btree crawler
+	*/
 	mappedLeaves := MapAllLeavesToArray(bTree)
 
 	// Find where is the start leaf from tPage
@@ -642,7 +654,7 @@ func insertNodesRecursivelly(
 		// Set bTree to be redirected to new Root
 		bTree.SetRoot(newRootAddress)
 		// Commit changes
-		bTree.SetHeader(*bTree)
+		//bTree.SetHeader(*bTree)
 	}
 }
 
@@ -776,7 +788,7 @@ func DeleteKeyValueInLeafAndUpdateNodesRecursivelly(bTree *BTree, key []byte, tP
 		// If it is the root, we must update the root
 		if nItensAfterDeletion == 0 {
 			bTree.SetRoot(0)
-			bTree.SetHeader(*bTree)
+			//bTree.SetHeader(*bTree)
 		}
 		return
 	}

@@ -12,6 +12,50 @@ import (
 
 var loadedDatabases = make(map[string]*Database)
 
+func init() {
+	// Initialize the loaded databases map
+	// This will be used to keep track of loaded databases
+	// so that we don't load them multiple times
+	loadedDatabases = make(map[string]*Database)
+
+	// Load all databases from the databases folder
+	databasesPath := utils.GetPath("databases")
+	// Check if the databases folder exists
+	if _, err := os.Stat(databasesPath); os.IsNotExist(err) {
+		// If it doesn't exist, create it
+		err = os.MkdirAll(databasesPath, os.ModePerm)
+		if err != nil {
+			panic(fmt.Sprintf("could not create databases folder: %v", err))
+		}
+	}
+	// Load all databases from the databases folder
+	files, err := os.ReadDir(databasesPath)
+	if err != nil {
+		panic(fmt.Sprintf("could not read databases folder: %v", err))
+	}
+	for _, file := range files {
+		if file.IsDir() {
+			// Load the database
+			database, err := LoadDatabase(databasesPath + utils.SEPARATOR + file.Name())
+			if err != nil {
+				fmt.Printf("could not load database %s: %v\n", file.Name(), err)
+				continue
+			}
+			// Add the database to the loaded databases map
+			loadedDatabases[strings.ToLower(database.Name)] = database
+		}
+	}
+}
+
+func ShowDatabases() []string {
+	// Return a list of all loaded databases
+	databases := make([]string, 0, len(loadedDatabases))
+	for _, db := range loadedDatabases {
+		databases = append(databases, db.Name)
+	}
+	return databases
+}
+
 // TODO: Sync for concurrent reading
 func CreateDatabase(name string) (*Database, error) {
 	// Create a new database
@@ -317,6 +361,18 @@ func LoadTable(path string) (*Table, error) {
 		}
 	}
 
+	// Read last val and fill up LastKey
+	table.LastKey = nil
+	lastItem, err := table.GetLastKey()
+	if err != nil {
+		return nil, fmt.Errorf("could not get last key for table %s: %v", table.Name, err)
+	}
+
+	// If lastItem is not nil, set LastKey to lastItem
+	if lastItem != nil {
+		table.LastKey = lastItem
+	}
+
 	return table, nil
 }
 
@@ -421,6 +477,13 @@ func DropDatabase(databaseName string) error {
 
 	if err != nil {
 		return fmt.Errorf("could not delete database %s: %v", databaseName, err)
+	}
+
+	// Remove the database from the loaded databases map
+	if _, ok := loadedDatabases[strings.ToLower(databaseName)]; ok {
+		delete(loadedDatabases, strings.ToLower(databaseName))
+	} else {
+		return fmt.Errorf("database %s is not loaded", databaseName)
 	}
 
 	return nil
