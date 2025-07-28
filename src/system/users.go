@@ -234,7 +234,13 @@ func LoadAllUsersInMemory() error {
 
 		utils.FromJson(row["roles"].([]byte), &dst)
 
-		user.Roles, err = GetRoles(dst["roles"].([]string))
+		roleNames := make([]string, 0)
+
+		for _, r := range dst["roles"].([]interface{}) {
+			roleNames = append(roleNames, r.(string))
+		}
+
+		user.Roles, err = GetRoles(roleNames)
 
 		if err != nil {
 			return fmt.Errorf("failed to get roles for user %s: %w", user.Name, err)

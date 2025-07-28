@@ -65,6 +65,14 @@ func BuildPlan(analyzedQuery parser.AnalyzedQueryData, exec *executor.ExecutionL
 	case *parser.AnalyzedQueryDropRole:
 		resultId := buildDropRolePlan(exec, aq)
 		exec.Nodes[resultId].Final = true
+	case *parser.AnalyzedQueryShowDatabases:
+		// Show databases query
+		resultId := buildShowDatabasesPlan(exec, aq)
+		exec.Nodes[resultId].Final = true
+	case *parser.AnalyzedQueryShowTables:
+		// Show tables query
+		resultId := buildShowTablesPlan(exec, aq)
+		exec.Nodes[resultId].Final = true
 	}
 }
 
@@ -1201,6 +1209,52 @@ func buildDropRolePlan(
 	operation.Name = executor.ROLE_DROP
 	operation.Args = []interface{}{
 		aq.RoleName,
+	}
+
+	// Set operation
+	execNode.Operation = operation
+
+	// Add node to the map
+	exec.AddNode(execNode, true)
+
+	return nodeName
+}
+
+func buildShowDatabasesPlan(
+	exec *executor.ExecutionLayer,
+	_ *parser.AnalyzedQueryShowDatabases,
+) string {
+	// Create new execution Node
+	nodeName := "show_databases"
+	execNode := executor.NewExecutionNode(nodeName, exec)
+
+	// Create Operation
+	operation := executor.Operation{}
+	operation.Name = executor.DATABASE_SHOW
+	operation.Args = []interface{}{}
+
+	// Set operation
+	execNode.Operation = operation
+
+	// Add node to the map
+	exec.AddNode(execNode, true)
+
+	return nodeName
+}
+
+func buildShowTablesPlan(
+	exec *executor.ExecutionLayer,
+	aq *parser.AnalyzedQueryShowTables,
+) string {
+	// Create new execution Node
+	nodeName := fmt.Sprintf("show_tables_%s", aq.DatabaseName)
+	execNode := executor.NewExecutionNode(nodeName, exec)
+
+	// Create Operation
+	operation := executor.Operation{}
+	operation.Name = executor.TABLE_SHOW
+	operation.Args = []interface{}{
+		aq.DatabaseName,
 	}
 
 	// Set operation

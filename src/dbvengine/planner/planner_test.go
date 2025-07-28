@@ -48,6 +48,7 @@ func TestTableDrop(t *testing.T) {
 		t.Errorf("expected nil, got %v", table)
 	}
 }
+
 func TestTableCreate(t *testing.T) {
 	CreateBasePaths(t)
 	db, err := database.CreateDatabase("mock")
@@ -188,7 +189,6 @@ func TestTableInsert(t *testing.T) {
 
 	execLayer.Start()
 	fmt.Println(execLayer.Context.Result)
-	t.Error("asd")
 
 }
 
@@ -222,7 +222,6 @@ func TestSimpleQueryBuild(t *testing.T) {
 
 	query := "SELECT t.id, t.name as bang, t2.other_column aiusop FROM table_teste t INNER JOIN table_teste2 t2 ON t.id = t2.id"
 	parsedQuery, err := sqlparser.Parse(query)
-
 	if err != nil {
 		t.Errorf("error parsing query: %v", err)
 	}

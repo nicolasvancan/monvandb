@@ -47,6 +47,9 @@ const (
 	ROLE_DROP   = "ROLE_DROP"
 	ROLE_ASSIGN = "ROLE_ASSIGN"
 	ROLE_REVOKE = "ROLE_REVOKE"
+
+	DATABASE_SHOW = "DATABASE_SHOW" // Show databases operation
+	TABLE_SHOW    = "TABLE_SHOW"    // Show all tables in a database
 )
 
 var Operations = map[string]func(...interface{}) (df.Dataframe, error){
@@ -83,4 +86,7 @@ var Operations = map[string]func(...interface{}) (df.Dataframe, error){
 	ROLE_DROP:   RoleDrop,   // Drop a role operation
 	ROLE_ASSIGN: RoleGrant,  // Assign a role operation
 	ROLE_REVOKE: RoleRevoke, // Revoke a role operation
+
+	DATABASE_SHOW: DatabasesShow,
+	TABLE_SHOW:    TablesShow, // Show all tables in a database
 }

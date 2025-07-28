@@ -44,6 +44,11 @@ const (
 	ContextDropIndexFrom
 	ContextUse
 	ContextUseDatabase
+	ContextShow
+	ContextShowDatabases
+	ContextShowTables
+	ContextShowUsers
+	ContextShowRoles
 	// Other Contexts
 	ContextIdentifier
 	ContextLiteralOrComma
@@ -204,8 +209,23 @@ func (l *Lexer) ChangeContext(token *Token) {
 				l.contextKeyword = ContextRevoke
 			case "use":
 				l.contextKeyword = ContextUse
+			case "show":
+				l.contextKeyword = ContextShow
 			default:
 				l.contextKeyword = ContextCommandPass
+			}
+		case ContextShow:
+			switch token.LowerValue {
+			case "databases":
+				l.contextKeyword = ContextShowDatabases
+			case "tables":
+				l.contextKeyword = ContextShowTables
+			case "users":
+				l.contextKeyword = ContextShowUsers
+			case "roles":
+				l.contextKeyword = ContextShowRoles
+			default:
+				l.contextKeyword = ContextError
 			}
 		case ContextCreate:
 			switch token.LowerValue {
@@ -277,6 +297,11 @@ func (l *Lexer) ChangeContext(token *Token) {
 			default:
 				l.contextKeyword = ContextError
 			}
+		case ContextShowDatabases, ContextShowUsers, ContextShowRoles:
+			l.contextKeyword = ContextEnd
+		case ContextShowTables:
+			l.contextKeyword = ContextIdentifier
+			l.baseContext = ContextIdentifier
 		case ContextIdentifier:
 			switch l.baseContext {
 			case ContextCreateUser, ContextCreateRole:
@@ -520,7 +545,7 @@ func EvaluateToken(lexer *Lexer, token *Token) error {
 				CondType:       ConditionTypeAnd,
 				ToBeIt:         true,
 				EvaluationType: EvaluationForValue,
-				Expect:         []interface{}{"create", "drop", "alter", "assign", "revoke"},
+				Expect:         []interface{}{"create", "drop", "alter", "assign", "revoke", "show"},
 			})
 
 			if err != nil {

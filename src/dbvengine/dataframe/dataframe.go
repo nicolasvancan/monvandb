@@ -42,6 +42,24 @@ type DfOn struct {
 	Operator string
 }
 
+type JsonObject = map[string]interface{}
+
+func (df Dataframe) ToJsonObject() JsonObject {
+	jsonData := make(JsonObject)
+	jsonData["data"] = make(JsonObject)
+	jsonData["columns"] = make([]string, 0)
+	jsonData["types"] = make([]int, 0)
+	for _, column := range df.Columns {
+		colName := column.Info.Name
+		jsonData["data"].(JsonObject)[colName] = column.Serie.GetValues()
+		jsonData["columns"] = append(jsonData["columns"].([]string), colName)
+		jsonData["types"] = append(jsonData["types"].([]int), column.DType)
+
+	}
+
+	return jsonData
+}
+
 func fromStringSliceToDFColumnSlice(slice []string) []DFColumn {
 	columns := make([]DFColumn, 0)
 	for _, col := range slice {
@@ -412,7 +430,7 @@ func indexOf(element string, data []DFColumn) int {
 			}
 		}
 
-		if v.Info.Name == element {
+		if strings.ToLower(v.Info.Name) == strings.ToLower(element) {
 			return i
 		}
 	}

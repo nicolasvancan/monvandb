@@ -645,6 +645,7 @@ func AnalyzeQuery(databaseName string, parsedQuery interface{}) AnalyzedQueryDat
 		analyzedData = analyzeAssignRole(stmt)
 	case *monvan_parser.RoleRevoke:
 		analyzedData = analyzeRevokeRole(stmt)
+
 	default:
 		analyzedData = nil
 	}

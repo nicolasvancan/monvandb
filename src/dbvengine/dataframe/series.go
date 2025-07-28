@@ -40,6 +40,24 @@ type Series struct {
 	Type     int
 }
 
+func (s *Series) GetValues() []interface{} {
+	returnValues := make([]interface{}, len(s.Elements))
+	for i, elem := range s.Elements {
+		if elem.IsNull() {
+			returnValues[i] = nil
+			continue
+		}
+
+		if elem.GetType() == TIMESTAMP {
+			returnValues[i] = elem.String()
+			continue
+		}
+
+		returnValues[i] = elem.GetValue()
+	}
+	return returnValues
+}
+
 func (s *Series) SetValues(values []Element) {
 	s.Elements = values
 }

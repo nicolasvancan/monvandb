@@ -28,7 +28,11 @@ func NewVirtualEngine(globalContext *Context) *VirtualEngine {
 	ve := new(VirtualEngine)
 	ve.GlobalContext = globalContext
 	// Create execution Layer
-	ve.ExecutionLayer = executor.NewExecutionLayer(new(contexts.ExecutionContext))
+	ve.ExecutionLayer = executor.NewExecutionLayer(&contexts.ExecutionContext{
+		OperationsResults: make(map[string]df.Dataframe),
+		Dependencies:      make(map[string][]string),
+		Result:            df.Dataframe{},
+	})
 
 	return ve
 }

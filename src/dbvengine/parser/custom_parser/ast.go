@@ -385,6 +385,15 @@ func getStatement(tokens []*Token) (Statement, error) {
 		return getRoleGrant(tokens), nil
 	case "revoke":
 		return getRoleRevoke(tokens), nil
+	case "show":
+		switch tokens[1].LowerValue {
+		case "databases":
+			return &ShowDatabases{}, nil
+		case "tables":
+			return &ShowTables{
+				DatabaseName: tokens[2].Value,
+			}, nil
+		}
 	}
 
 	return nil, errors.New("unknown statement")
