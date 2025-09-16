@@ -196,6 +196,10 @@ func TableFileCreate(params ...interface{}) (df.Dataframe, error) {
 		return df.Dataframe{}, err
 	}
 
+	if databaseName == "system" {
+		return df.Dataframe{}, fmt.Errorf("Cannot create table in system database")
+	}
+
 	// Create a new table
 	err = database.CreateTable(tableName, columns, truncate, verifyExistence)
 

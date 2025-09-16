@@ -48,7 +48,7 @@ def main():
 from client.monvan_client import MonvanConnection, connect
 
 if __name__ == "__main__":
-    conn: MonvanConnection = connect("mvdb://admin:password@localhost:8080/my_test_db_23")
+    conn: MonvanConnection = connect("mvdb://admin:password@localhost:8180/system")
     # sleep for one second to ensure connection is established
-    pandas_df: pd.DataFrame = conn.query("SELECT * FROM teste", as_pandas=True)
+    pandas_df: pd.DataFrame = conn.query("SHOW DATABASES", as_pandas=True)
     print(pandas_df)

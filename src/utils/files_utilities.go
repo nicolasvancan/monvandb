@@ -138,6 +138,7 @@ func GetPath(path string) string {
 		"databases": os.Getenv("MONVANDB_PATH") + string(os.PathSeparator) + "monvandb" + string(os.PathSeparator) + "databases",
 		"users":     os.Getenv("MONVANDB_PATH") + string(os.PathSeparator) + "monvandb" + string(os.PathSeparator) + "users",
 		"system":    os.Getenv("MONVANDB_PATH") + string(os.PathSeparator) + "monvandb" + string(os.PathSeparator) + "system",
+		"config":    os.Getenv("MONVANDB_PATH") + string(os.PathSeparator) + "monvandb" + string(os.PathSeparator) + "config.json",
 	}
 	return monvanPaths[path]
 }

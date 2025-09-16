@@ -77,7 +77,7 @@ func TestDataframeFilter(t *testing.T) {
 	}
 
 	if df2.Len() != 1 {
-		t.Errorf("Expected 3 rows, got %d", df2.Len())
+		t.Errorf("Expected 1 rows, got %d", df2.Len())
 	}
 
 	df3 := NewDataframe(rawRows)

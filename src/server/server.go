@@ -239,9 +239,9 @@ func parseCredentials(creds []byte) (string, string, string, error) {
 	return username, password, database, nil
 }
 
-func (s *Server) Run() {
+func (s *Server) Run(cert_name string, key string) {
 	// Load server certificate and key
-	cert, err := tls.LoadX509KeyPair("server.crt", "server.key")
+	cert, err := tls.LoadX509KeyPair(cert_name, key)
 	if err != nil {
 		fmt.Println("Error loading certificate:", err)
 		return

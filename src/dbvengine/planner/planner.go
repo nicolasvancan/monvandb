@@ -380,6 +380,7 @@ func buildQueriesForJoins(
 		}
 
 		if filters != nil {
+
 			filterNodeName := fmt.Sprintf("%s-%s_join_filter", join.LeftAlias, join.RightAlias)
 			execNode = executor.NewExecutionNode(filterNodeName, exec)
 
